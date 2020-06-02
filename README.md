@@ -21,3 +21,9 @@ $ python -m ipykernel install --user --name ddsr --display-name "Python (ddsr)"
 ```
 $ jupyter notebook
 ```
+
+## Introducing new packages and dependencies into ddsr_environment.yml
+1. While on your ddsr environment
+```
+conda env export --no-builds > ddsr_environment.yml
+```
