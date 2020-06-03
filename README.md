@@ -1,5 +1,5 @@
 # DDSR2020
-Dense Depth Summer Research 2020 repository. 
+Dense Depth Summer Research 2020 repository.
 
 ## Environment setup
 1. [Install](https://docs.conda.io/projects/conda/en/latest/user-guide/install/) Anaconda. You can install Miniconda if space is limited.
@@ -32,3 +32,5 @@ conda env export --no-builds > ddsr_environment.yml
 - Evan Wang
 - Aaron Marmolejos
 - Alex Jiang
+- Kevin Z Shen
+- Quinn Z Shen
