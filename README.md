@@ -29,6 +29,6 @@ conda env export --no-builds > ddsr_environment.yml
 ```
 
 ## Contributors
-- Alex Jiang
 - Evan Wang
 - Aaron Marmolejos
+- Alex Jiang
