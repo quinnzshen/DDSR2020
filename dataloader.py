@@ -8,13 +8,20 @@ import os
 class KittiDataset(Dataset):
     def __init__(self, root_dir):
         self.root_dir = root_dir
-        self.len = -1
         self.num_frame_sum = []
+        self.imagefiles = []
+        self.velodyne = root_dir+'/velodyne_points'
+        
+        #Store image files
+        for filename in os.listdir(root_dir):
+            if filename.startswith("image"):
+                self.imagefiles.append(filename)
+                
 
-    def set_len(self):
+    def __len__(self):
         total = 0
+        numFiles =0
         dir_list = os.listdir(self.root_dir)
-
         for direc in dir_list:
             # iterating through all date folders
             level_1_path = os.path.join(self.root_dir, direc)
@@ -22,29 +29,22 @@ class KittiDataset(Dataset):
                 for sub_dir in os.listdir(level_1_path):
                     # iterating through all date_drive folders
                     level_2_path = os.path.join(level_1_path, sub_dir)
+                    #print(level_2_path)                  
                     if os.path.isdir(level_2_path):
                         for sub_sub_dir in os.listdir(level_2_path):
                             # iterating through all date_drive.zip folders
-                            velo_folder = os.path.join(os.path.join(level_2_path, sub_sub_dir), "velodyne_points")
-
-                            if os.path.isdir(velo_folder):
-                                with open(os.path.join(velo_folder, "timestamps.txt")) as file:
-                                    for i, l in enumerate(file):
-                                        pass
-                                    total += i + 1
-                                    self.num_frame_sum.append(total)
-                                break
-
-        self.len = total
-
-    def __len__(self):
-        if self.len > 0:
-            return self.len
-        self.set_len()
-        return self.len
+                            velo_folder = os.path.join(level_2_path, sub_sub_dir)
+                            if os.path.isfile(velo_folder):
+                                with open(os.path.join(level_1_path, "timestamps.txt")) as file:
+                                    for line in file:
+                                        total += 1
+                                    break
+                            break
+                    break
+            break
+        return total
 
     def __getitem__(self, item):
-
         if torch.is_tensor(item):
             item = item.tolist()
 
@@ -61,8 +61,7 @@ class KittiDataset(Dataset):
         while 1:
             if self.num_frame_sum[index] > item:
                 pass
+        return 1
 
-
-
-
-
+dataset = KittiDataset('data/kitti_example')
+print(len(dataset))
