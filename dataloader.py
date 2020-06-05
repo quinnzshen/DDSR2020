@@ -13,7 +13,6 @@ def bin_search(arr, target, init_search):
     lower_index = 0
     upper_index = len(arr) - 1
     prev_index = -1
-
     while 1:
         if arr[index] > target:
             upper_index = index
@@ -26,7 +25,10 @@ def bin_search(arr, target, init_search):
         index = (upper_index + lower_index) // 2
 
         if prev_index == index:
-            if arr[index + 1] > target:
+            if index == len(arr) - 1:
+                return index
+
+            if arr[index + 1] < target:
                 index += 1
             return index
 
@@ -55,7 +57,6 @@ class KittiDataset(Dataset):
     # Records the length and cumulative number of images of each directory for access later
     def set_len(self):
         total = 0
-        dir_list = os.listdir(self.root_dir)
         for direc in glob(self.root_dir + "/*/"):
             self.date_divisions.append(total)
             # iterating through all date folders
@@ -146,6 +147,6 @@ class KittiDataset(Dataset):
 # Some testing you can ignore this I guess
 if __name__ == "__main__":
     dataset = KittiDataset('data/kitti_example')
-    print(len(dataset))
-    print(dataset[0]["stereo_right_shape"])
+    # print(len(dataset))
+    print(dataset[2]["stereo_right_shape"])
     # print(glob('data/kitti_example/2011_09_26/*/velodyne_points/'))
