@@ -7,6 +7,7 @@ import os
 from glob import glob
 
 
+# Binary searches through a given array, finds the greatest arr[index] that is less than target
 def bin_search(arr, target, init_search):
     index = init_search
     lower_index = 0
@@ -30,6 +31,7 @@ def bin_search(arr, target, init_search):
             return index
 
 
+# Converts a line from timestamp.txt into nanoseconds from the start of the date
 def time_to_nano(time_string):
     total = 0
     total += int(time_string[11:13]) * 3600 * 1000000000
@@ -45,14 +47,12 @@ class KittiDataset(Dataset):
         self.len = -1
         self.date_divisions = []
         self.drive_divisions = []
-        # self.imagefiles = []
-        # self.velodyne = root_dir+'/velodyne_points'
         
-        #Store image files
-        for filename in os.listdir(root_dir):
-            if filename.startswith("image"):
-                self.imagefiles.append(filename)
+        # for filename in os.listdir(root_dir):
+        #     if filename.startswith("image"):
+        #         self.imagefiles.append(filename)
 
+    # Records the length and cumulative number of images of each directory for access later
     def set_len(self):
         total = 0
         dir_list = os.listdir(self.root_dir)
@@ -73,12 +73,14 @@ class KittiDataset(Dataset):
 
         self.len = total
 
+    # Calls set_len if hasn't been called prior, else just returns calculated len
     def __len__(self):
         if self.len < 0:
             self.set_len()
         return self.len
         # return total
 
+    # Gets sample from given index, this is assuming item is an integer
     def __getitem__(self, item):
         if torch.is_tensor(item):
             item = item.tolist()
@@ -89,6 +91,7 @@ class KittiDataset(Dataset):
         if item >= self.len or item < 0:
             raise IndexError("Dataset index out of range. (Less than 0 or greater than or equal to length)")
 
+        # Searching which date folder it's in
         da_index = bin_search(
             self.date_divisions,
             item,
@@ -96,6 +99,7 @@ class KittiDataset(Dataset):
         )
         item -= self.date_divisions[da_index]
 
+        # Searching which drive folder it's in
         dr_index = bin_search(
             self.drive_divisions[da_index],
             item,
@@ -103,10 +107,12 @@ class KittiDataset(Dataset):
         )
         item -= self.drive_divisions[da_index][dr_index]
 
+        # Path of date_drive folder
         path_name = glob(glob(self.root_dir + "/*/")[da_index] + "/*/")[dr_index]
 
         sample = {}
 
+        # Just taking stuff from the directory and putting it into the sample dictionary
         img_arr = np.asarray(Image.open(os.path.join(path_name, "image_02/data/") + f"{item:010}" + ".png"))
         sample["stereo_left_image"] = img_arr
         sample["stereo_left_shape"] = img_arr.shape
@@ -137,6 +143,7 @@ class KittiDataset(Dataset):
         return sample
 
 
+# Some testing you can ignore this I guess
 if __name__ == "__main__":
     dataset = KittiDataset('data/kitti_example')
     print(len(dataset))
