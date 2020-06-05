@@ -110,7 +110,7 @@ class KittiDataset(Dataset):
 
         # Path of date_drive folder
         path_name = glob(glob(self.root_dir + "/*/")[da_index] + "/*/")[dr_index]
-
+                
         sample = {}
 
         # Just taking stuff from the directory and putting it into the sample dictionary
@@ -140,6 +140,22 @@ class KittiDataset(Dataset):
                                 sample["lidar_end_capture_timestamp_nsec"] = time_to_nano(end_line)
                                 break
                             count += 1
+        #Lidar scan start time                    
+        lidar_timestamps_start_file = os.path.join(path_name, "velodyne_points/")+"timestamps_start"+".txt"
+        for i,line in enumerate(open(lidar_timestamps_start_file)):
+            if i == item:
+                sample['lidar_start_capture_timestamp_nsec'] = line
+                break
+        
+        #Lidar scan end time        
+        lidar_timestamps_end_file = os.path.join(path_name, "velodyne_points/")+"timestamps_end"+".txt"
+        for i,line in enumerate(open(lidar_timestamps_end_file)):
+            if i == item:
+                sample['lidar_end_capture_timestamp_nsec'] = line
+        #Getting the LiDAR coordinates
+        lidar_file = os.path.join(path_name, "velodyne_points/data/") + f"{item:010}" + ".bin"
+        lidar_points = np.fromfile(lidar_file,dtype=np.float32)     
+        sample["lidar_point_coord_continuous"] = lidar_points.reshape((-1,4))            
 
         return sample
 
@@ -149,4 +165,7 @@ if __name__ == "__main__":
     dataset = KittiDataset('data/kitti_example')
     # print(len(dataset))
     print(dataset[2]["stereo_right_shape"])
+    print(dataset[2]["lidar_start_capture_timestamp_nsec"])
+    print(dataset[2]["lidar_end_capture_timestamp_nsec"])
+    print(dataset[2]["lidar_point_coord_continuous"])
     # print(glob('data/kitti_example/2011_09_26/*/velodyne_points/'))
