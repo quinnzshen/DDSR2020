@@ -140,22 +140,11 @@ class KittiDataset(Dataset):
                                 sample["lidar_end_capture_timestamp_nsec"] = time_to_nano(end_line)
                                 break
                             count += 1
-        #Lidar scan start time                    
-        lidar_timestamps_start_file = os.path.join(path_name, "velodyne_points/")+"timestamps_start"+".txt"
-        for i,line in enumerate(open(lidar_timestamps_start_file)):
-            if i == item:
-                sample['lidar_start_capture_timestamp_nsec'] = line
-                break
-        
-        #Lidar scan end time        
-        lidar_timestamps_end_file = os.path.join(path_name, "velodyne_points/")+"timestamps_end"+".txt"
-        for i,line in enumerate(open(lidar_timestamps_end_file)):
-            if i == item:
-                sample['lidar_end_capture_timestamp_nsec'] = line
+
+
         #Getting the LiDAR coordinates
-        lidar_file = os.path.join(path_name, "velodyne_points/data/") + f"{item:010}" + ".bin"
-        lidar_points = np.fromfile(lidar_file,dtype=np.float32)     
-        sample["lidar_point_coord_continuous"] = lidar_points.reshape((-1,4))            
+        lidar_points = np.fromfile(os.path.join(path_name, "velodyne_points/data/") + f"{item:010}" + ".bin", dtype=np.float32)
+        sample["lidar_point_coord_continuous"] = lidar_points.reshape((-1, 4))
 
         return sample
 
