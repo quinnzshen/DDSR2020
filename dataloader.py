@@ -9,6 +9,7 @@ from glob import glob
 
 EARTH_RADIUS = 6378137 # meters
 
+
 # Binary searches through a given array, finds the greatest arr[index] that is less than target
 def bin_search(arr, target, init_search):
     index = init_search
@@ -47,11 +48,12 @@ def time_to_nano(time_string):
 
 def calc_lon_dist(lat1, lat2, lon1, lon2):
     avg_lat = (lat2 + lat1) / 2
-    delta_lon_two = lon2 - lon1 / 2
+    delta_lon_two = (lon2 - lon1) / 2
     return 2 * EARTH_RADIUS * np.arctan2(
         np.cos(avg_lat) * np.sin(delta_lon_two),
         np.sqrt(1 - np.sin(avg_lat) * np.sin(avg_lat) * np.cos(delta_lon_two) * np.cos(delta_lon_two))
     )
+
 
 class KittiDataset(Dataset):
     def __init__(self, root_dir):
@@ -153,8 +155,9 @@ class KittiDataset(Dataset):
 
 
         #Getting the LiDAR coordinates
-        lidar_points = np.fromfile(os.path.join(path_name, "velodyne_points/data/") + f"{item:010}" + ".bin", dtype=np.float32)
-        sample["lidar_point_sensor"] = lidar_points.reshape((-1, 4))[:, :3]
+        lidar_points = np.fromfile(os.path.join(path_name, "velodyne_points/data/") + f"{item:010}" + ".bin", dtype=np.float32).reshape((-1, 4))
+        sample["lidar_point_sensor"] = lidar_points[:, :3]
+        sample["lidar_point_reflectivity"] = lidar_points[:, 3]
 
         with open(os.path.join(path_name, "oxts/data/") + f"{0:010}.txt") as f:
             line = f.readline().split()
@@ -182,7 +185,7 @@ class KittiDataset(Dataset):
                 sin_rpy[2] * cos_rpy[1],
                 sin_rpy[2] * sin_rpy[1] * sin_rpy[0] + cos_rpy[2] * cos_rpy[0],
                 sin_rpy[2] * sin_rpy[1] * sin_rpy[0] - cos_rpy[2] * sin_rpy[0],
-                EARTH_RADIUS * latlon_new[0] - latlon_orig[1]
+                EARTH_RADIUS * (latlon_new[0] - latlon_orig[0])
             ],
             [
                 -1 * sin_rpy[1],
@@ -198,10 +201,47 @@ class KittiDataset(Dataset):
 
 # Some testing you can ignore this I guess
 if __name__ == "__main__":
+    def add_1_column(arr):
+        shape = arr.shape
+        new_arr = np.ones((shape[0], shape[1] + 1))
+        new_arr[:, :-1] = arr
+        return new_arr
+
     dataset = KittiDataset('data/kitti_example')
-    # print(len(dataset))
-    print(dataset[2]["stereo_right_shape"])
-    print(dataset[2]["lidar_start_capture_timestamp_nsec"])
-    print(dataset[2]["lidar_end_capture_timestamp_nsec"])
-    print(dataset[2]["lidar_point_sensor"])
+    # d = dataset[5]
+    # print(dataset[0]["lidar_start_capture_timestamp_nsec"] / 1000000000)
+    # print(d["lidar_start_capture_timestamp_nsec"] / 1000000000)
+    # print(d["transformation"])
+    # print(d["lidar_point_sensor"])
     # print(glob('data/kitti_example/2011_09_26/*/velodyne_points/'))
+
+    import plotly.graph_objects as go
+    import plotly_utils
+
+    fig = go.Figure()
+    # data = go.Scatter3d(x=lidar_data[:, 0],
+    #                    y=lidar_data[:, 1],
+    #                    z=lidar_data[:, 2],
+    #                    mode='markers',
+    #                    marker=dict(size=1, color=lidar_data[:, 3], colorscale='Viridis'),
+    #                    name='lidar')
+
+    orig_frame = dataset[0]
+
+    velo_points = np.matmul(add_1_column(orig_frame["lidar_point_sensor"]), orig_frame["transformation"].transpose())
+    colors = orig_frame["lidar_point_reflectivity"]
+
+    for i in range(1, 3):
+        frame = dataset[i]
+        print(frame["lidar_point_sensor"].shape)
+        velo_points = np.concatenate(
+            (velo_points, np.matmul(add_1_column(frame["lidar_point_sensor"]), frame["transformation"].transpose())))
+        colors = np.concatenate((colors, frame["lidar_point_reflectivity"]))
+
+    data = go.Scatter3d(x=velo_points[:, 0], y=velo_points[:, 1], z=velo_points[:, 2],
+                        mode="markers", marker=dict(size=1, color=colors, colorscale="Viridis"), name="lidar")
+
+    fig.add_traces(data)
+
+    plotly_utils.setup_layout(fig)
+    fig.show()
