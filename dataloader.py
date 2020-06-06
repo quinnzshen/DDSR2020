@@ -7,6 +7,8 @@ import os
 from glob import glob
 
 
+EARTH_RADIUS = 6378137 # meters
+
 # Binary searches through a given array, finds the greatest arr[index] that is less than target
 def bin_search(arr, target, init_search):
     index = init_search
@@ -42,6 +44,14 @@ def time_to_nano(time_string):
     total += int(time_string[20:])
     return total
 
+
+def calc_lon_dist(lat1, lat2, lon1, lon2):
+    avg_lat = (lat2 + lat1) / 2
+    delta_lon_two = lon2 - lon1 / 2
+    return 2 * EARTH_RADIUS * np.arctan2(
+        np.cos(avg_lat) * np.sin(delta_lon_two),
+        np.sqrt(1 - np.sin(avg_lat) * np.sin(avg_lat) * np.cos(delta_lon_two) * np.cos(delta_lon_two))
+    )
 
 class KittiDataset(Dataset):
     def __init__(self, root_dir):
@@ -114,7 +124,7 @@ class KittiDataset(Dataset):
         sample = {}
 
         # Just taking stuff from the directory and putting it into the sample dictionary
-        img_arr = np.asarray(Image.open(os.path.join(path_name, "image_02/data/") + f"{item:010}" + ".png"))
+        img_arr = np.asarray(Image.open(os.path.join(path_name, "image_02/data/") + f"{item:010}.png"))
         sample["stereo_left_image"] = img_arr
         sample["stereo_left_shape"] = img_arr.shape
         with open(os.path.join(path_name, "image_02/timestamps.txt")) as f:
@@ -123,7 +133,7 @@ class KittiDataset(Dataset):
                     sample["stereo_left_capture_time_nsec"] = time_to_nano(line)
                     break
 
-        img_arr = np.asarray(Image.open(os.path.join(path_name, "image_03/data/") + f"{item:010}" + ".png"))
+        img_arr = np.asarray(Image.open(os.path.join(path_name, "image_03/data/") + f"{item:010}.png"))
         sample["stereo_right_image"] = img_arr
         sample["stereo_right_shape"] = img_arr.shape
 
@@ -144,7 +154,44 @@ class KittiDataset(Dataset):
 
         #Getting the LiDAR coordinates
         lidar_points = np.fromfile(os.path.join(path_name, "velodyne_points/data/") + f"{item:010}" + ".bin", dtype=np.float32)
-        sample["lidar_point_coord_continuous"] = lidar_points.reshape((-1, 4))
+        sample["lidar_point_sensor"] = lidar_points.reshape((-1, 4))[:, :3]
+
+        with open(os.path.join(path_name, "oxts/data/") + f"{0:010}.txt") as f:
+            line = f.readline().split()
+            orig_coords = np.array(line[:3], dtype=np.float_)
+            if item == 0:
+                new_coords = np.array(line[:6], dtype=np.float_)
+            else:
+                with open(os.path.join(path_name, "oxts/data/") + f"{item:010}.txt") as fi:
+                    new_coords = np.array(fi.readline().split(), dtype=np.float_)
+
+        latlon_orig = np.deg2rad(orig_coords[:2])
+        latlon_new = np.deg2rad(new_coords[:2])
+        sin_rpy = np.sin(new_coords[3:])
+        cos_rpy = np.cos(new_coords[3:])
+
+        # transformation matrix
+        sample["transformation"] = np.array([
+            [
+                cos_rpy[2] * cos_rpy[1],
+                cos_rpy[2] * sin_rpy[1] * sin_rpy[0] - sin_rpy[2] * cos_rpy[0],
+                cos_rpy[2] * sin_rpy[1] * cos_rpy[0] + sin_rpy[2] * sin_rpy[0],
+                calc_lon_dist(latlon_orig[0], latlon_new[0], latlon_orig[1], latlon_new[1])
+            ],
+            [
+                sin_rpy[2] * cos_rpy[1],
+                sin_rpy[2] * sin_rpy[1] * sin_rpy[0] + cos_rpy[2] * cos_rpy[0],
+                sin_rpy[2] * sin_rpy[1] * sin_rpy[0] - cos_rpy[2] * sin_rpy[0],
+                EARTH_RADIUS * latlon_new[0] - latlon_orig[1]
+            ],
+            [
+                -1 * sin_rpy[1],
+                cos_rpy[1] * sin_rpy[0],
+                cos_rpy[1] * cos_rpy[0],
+                new_coords[2] - orig_coords[2]
+            ],
+            [0, 0, 0, 1],
+        ])
 
         return sample
 
@@ -156,5 +203,5 @@ if __name__ == "__main__":
     print(dataset[2]["stereo_right_shape"])
     print(dataset[2]["lidar_start_capture_timestamp_nsec"])
     print(dataset[2]["lidar_end_capture_timestamp_nsec"])
-    print(dataset[2]["lidar_point_coord_continuous"])
+    print(dataset[2]["lidar_point_sensor"])
     # print(glob('data/kitti_example/2011_09_26/*/velodyne_points/'))
