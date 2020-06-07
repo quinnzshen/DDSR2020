@@ -11,13 +11,22 @@ from utils import bin_search, get_nsec_times, calc_transformation_mat
 
 class KittiDataset(Dataset):
     def __init__(self, root_dir):
+        """
+        Initializes the Dataset, just given the root directory of the data and sets the original values of the instance
+        variables.
+        :param root_dir: string containing the path to the root directory
+        """
         self.root_dir = root_dir
         self.len = -1
         self.date_divisions = []
         self.drive_divisions = []
 
-    # Records the length and cumulative number of images of each directory for access later
     def set_len(self):
+        """
+        Sets self.len, self.date_divisions, and self.drive_divisions by iterating through the whole dataset, preparing
+        for future retrivals.
+        Only called once after object initialization, as all the instance variables never change.
+        """
         total = 0
         for direc in glob(self.root_dir + "/*/"):
             self.date_divisions.append(total)
@@ -36,14 +45,26 @@ class KittiDataset(Dataset):
 
         self.len = total
 
-    # Calls set_len if hasn't been called prior, else just returns calculated len
     def __len__(self):
+        """
+        Returns the total frame count in the dataset. If the length has not been calculated yet, runs set_len, else
+        it simply returns the previously calculated length.
+        :return: The frame count in the dataset
+        """
         if self.len < 0:
             self.set_len()
         return self.len
 
-    # Gets sample from given index, this is assuming item is an integer
     def __getitem__(self, item):
+        """
+        Given a specific index, returns a dictionary containing information about the sample (frame) at that index in
+        the dataset.
+        (If the index is n, returns the nth frame of the dataset and its information.)
+        The dictionary's fields are specified in Dataset Fields (Google Sheet file).
+
+        :param item: An int representing the index of the sample to be retrieved
+        :return: A dictionary containing fields about the retrieved sample
+        """
         if torch.is_tensor(item):
             item = item.tolist()
 

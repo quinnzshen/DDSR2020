@@ -6,8 +6,16 @@ import os
 EARTH_RADIUS = 6378137  # meters
 
 
-# Binary searches through a given array, finds the greatest arr[index] that is less than target
 def bin_search(arr, target, init_search):
+    """
+    Conducts a binary search on a given array (used to determine which directory the nth frame is located at with lists
+    date_divisions and drive_divisions)
+    Assumes the array is sorted and returns the least index, i, where arr[i] >= target.
+    :param arr: The sorted 1D array/list to be searched
+    :param target: The target value to be compared to (see above condition)
+    :param init_search: The initial guess that the binary search starts at
+    :return: The lowest index, i, where arr[i] >= target
+    """
     index = init_search
     lower_index = 0
     upper_index = len(arr) - 1
@@ -33,6 +41,16 @@ def bin_search(arr, target, init_search):
 
 
 def calc_lon_dist(lat1, lat2, lon1, lon2):
+    """
+    Calculates the East-West distance (in meters) between two longitudes at given latitudes.
+    Utilizes a simplified form of the Haversine formula by pretending that delta latitude is 0, to calculate
+    East-West distance.
+    :param lat1: The latitude of the original point (radians)
+    :param lat2: The latitude of the new point (radians)
+    :param lon1: The longitude of the original point (radians)
+    :param lon2: The longitude of the new point (radians)
+    :return: The East-West distance between the two points on Earth's surface
+    """
     avg_lat = (lat2 + lat1) / 2
     delta_lon_two = (lon2 - lon1) / 2
     return 2 * EARTH_RADIUS * np.arctan2(
@@ -41,8 +59,12 @@ def calc_lon_dist(lat1, lat2, lon1, lon2):
     )
 
 
-# Converts a line from timestamp.txt into nanoseconds from the start of the date
 def time_to_nano(time_string):
+    """
+    Converts a line in the format provided by timestamps.txt to the number of nanoseconds since the midnight of that day
+    :param time_string: The string to be converted into nanoseconds
+    :return: The number of nanoseconds since midnight
+    """
     total = 0
     total += int(time_string[11:13]) * 3600 * 1000000000
     total += int(time_string[14:16]) * 60 * 1000000000
@@ -52,6 +74,13 @@ def time_to_nano(time_string):
 
 
 def get_nsec_times(sample_path, idx):
+    """
+    Given the file path to the scene and the frame number within that scene, returns a NumPy array containing the
+    time (nanoseconds) of the left frame, right frame, start, and end of the idx'th LiDAR scan, in that order.
+    :param sample_path: A file_path to a scene within the dataset
+    :param idx: The frame number within the scene
+    :return: NumPy array shape (4,) containing the time of the idx'th events (see above)
+    """
     with open(os.path.join(sample_path, "image_02/timestamps.txt")) as l_time:
         with open(os.path.join(sample_path, "image_03/timestamps.txt")) as r_time:
             with open(os.path.join(sample_path, "velodyne_points/timestamps_start.txt")) as start_time:
@@ -64,6 +93,14 @@ def get_nsec_times(sample_path, idx):
 
 
 def calc_transformation_mat(sample_path, idx):
+    """
+    Given the file path to the scene and the frame number within that scene, returns a 4x4 NumPy array containing the
+    transformation matrix to convert the LiDAR point coordinates (relative to the sensor) into global coordinates
+    (relative to the starting point), where +x is East, +y is North, and +z is up.
+    :param sample_path: A file_path to a scene within the dataset
+    :param idx: The frame number within the scene
+    :return: 4x4 homogenous transformation matrix to convert relative coordinates into continuous coordinates
+    """
     with open(os.path.join(sample_path, "oxts/data/") + f"{0:010}.txt") as f:
         line = f.readline().split()
         orig_coords = np.array(line[:3], dtype=np.float64)
