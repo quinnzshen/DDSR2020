@@ -15,10 +15,6 @@ class KittiDataset(Dataset):
         self.len = -1
         self.date_divisions = []
         self.drive_divisions = []
-        
-        # for filename in os.listdir(root_dir):
-        #     if filename.startswith("image"):
-        #         self.imagefiles.append(filename)
 
     # Records the length and cumulative number of images of each directory for access later
     def set_len(self):
@@ -45,7 +41,6 @@ class KittiDataset(Dataset):
         if self.len < 0:
             self.set_len()
         return self.len
-        # return total
 
     # Gets sample from given index, this is assuming item is an integer
     def __getitem__(self, item):

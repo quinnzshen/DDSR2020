@@ -20,8 +20,6 @@ if __name__ == "__main__":
     # print(d["lidar_point_sensor"])
     # print(glob('data/kitti_example/2011_09_26/*/velodyne_points/'))
 
-
-
     fig = go.Figure()
     # data = go.Scatter3d(x=lidar_data[:, 0],
     #                    y=lidar_data[:, 1],
