@@ -70,7 +70,7 @@ class KittiDataset(Dataset):
 
         if self.len < 0:
             self.set_len()
-        # assumes item is an integer
+
         if item >= self.len or item < 0:
             raise IndexError("Dataset index out of range. (Less than 0 or greater than or equal to length)")
 
@@ -95,7 +95,7 @@ class KittiDataset(Dataset):
                 
         sample = {}
 
-        # Just taking stuff from the directory and putting it into the sample dictionary
+        # Taking information from the directory and putting it into the sample dictionary
         img_arr = np.asarray(Image.open(os.path.join(path_name, "image_02/data/") + f"{item:010}.png"))
         sample["stereo_left_image"] = img_arr
         sample["stereo_left_shape"] = img_arr.shape
@@ -115,7 +115,7 @@ class KittiDataset(Dataset):
         sample["lidar_point_sensor"] = lidar_points[:, :3]
         sample["lidar_point_reflectivity"] = lidar_points[:, 3]
 
-        # transformation matrix
+        # Velodyne to continuous 4x4 transformation matrix
         sample["transformation"] = calc_transformation_mat(path_name, item)
 
         return sample

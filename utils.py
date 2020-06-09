@@ -1,5 +1,4 @@
 import numpy as np
-from PIL import Image
 
 import os
 
@@ -70,7 +69,7 @@ def time_to_nano(time_string):
     total += int(time_string[14:16]) * 60 * 1000000000
     total += int(time_string[17:19]) * 1000000000
     total += int(time_string[20:])
-    return
+    return total
 
 
 def get_nsec_times(sample_path, idx):
