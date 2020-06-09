@@ -9,4 +9,5 @@ dependencies:
   - numpy
   - scipy
   - ipykernel
+  - pytest
 prefix: /Users/quinn/anaconda3/envs/ddsr

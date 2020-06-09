@@ -1,49 +1,34 @@
-import numpy as np
-import plotly.graph_objects as go
-import plotly_utils
+import pytest
 
 from dataloader import KittiDataset
+from utils import time_to_nano, bin_search
 
-# Some testing you can ignore this I guess
-if __name__ == "__main__":
-    def add_1_column(arr):
-        shape = arr.shape
-        new_arr = np.ones((shape[0], shape[1] + 1))
-        new_arr[:, :-1] = arr
-        return new_arr
 
-    dataset = KittiDataset('data/kitti_example')
-    # d = dataset[5]
-    # print(dataset[0]["lidar_start_capture_timestamp_nsec"] / 1000000000)
-    # print(d["lidar_start_capture_timestamp_nsec"] / 1000000000)
-    # print(d["transformation"])
-    # print(d["lidar_point_sensor"])
-    # print(glob('data/kitti_example/2011_09_26/*/velodyne_points/'))
+def test_time_to_nano():
+    assert time_to_nano("2011-09-26 14:14:11.435280384") == int(5.1251E13 + 435280384)
+    assert time_to_nano("2021-09-36 00:00:00.010000001") == 10000001
 
-    fig = go.Figure()
-    # data = go.Scatter3d(x=lidar_data[:, 0],
-    #                    y=lidar_data[:, 1],
-    #                    z=lidar_data[:, 2],
-    #                    mode='markers',
-    #                    marker=dict(size=1, color=lidar_data[:, 3], colorscale='Viridis'),
-    #                    name='lidar')
 
-    orig_frame = dataset[0]
+def test_bin_search():
+    test_arr1 = [0, 5, 234, 346, 7645, 3987584395, 48735875834758374875387]
+    assert bin_search(test_arr1, 234, 4) == 2
+    assert bin_search(test_arr1, 3, 4) == 0
 
-    velo_points = np.matmul(add_1_column(orig_frame["lidar_point_sensor"]), orig_frame["transformation"].transpose())
-    colors = orig_frame["lidar_point_reflectivity"]
+    test_arr2 = [0, 3]
+    assert bin_search(test_arr2, 500, 0) == 1
 
-    for i in range(1, 3):
-        frame = dataset[i]
-        print(frame["lidar_point_sensor"].shape)
-        velo_points = np.concatenate(
-            (velo_points, np.matmul(add_1_column(frame["lidar_point_sensor"]), frame["transformation"].transpose())))
-        colors = np.concatenate((colors, frame["lidar_point_reflectivity"]))
 
-    data = go.Scatter3d(x=velo_points[:, 0], y=velo_points[:, 1], z=velo_points[:, 2],
-                        mode="markers", marker=dict(size=1, color=colors, colorscale="Viridis"), name="lidar")
+class TestKittiDataset:
+    def test_len(self):
+        test1 = KittiDataset("data/kitti_example")
+        assert len(test1) == 22
 
-    fig.add_traces(data)
+    def test_get_item(self):
+        test1 = KittiDataset("data/kitti_example")
+        assert test1[0]["stereo_left_capture_time_nsec"] == time_to_nano("2011-09-26 14:14:10.911916288")
+        assert test1[5]["stereo_right_capture_time_nsec"] == time_to_nano("2011-09-26 14:14:11.428480512")
+        assert test1[21]["lidar_point_sensor"].shape[1] == 3
 
-    plotly_utils.setup_layout(fig)
-    fig.show()
+        with pytest.raises(IndexError):
+            test1[-3]
+            test1[300999933]
