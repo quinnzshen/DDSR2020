@@ -6,7 +6,7 @@ from PIL import Image
 import os
 from glob import glob
 
-from utils import bin_search, get_nsec_times, calc_transformation_mat
+from utils import bin_search, get_nsec_times, calc_transformation_mat, get_velo_to_imu
 
 
 class KittiDataset(Dataset):
@@ -90,8 +90,9 @@ class KittiDataset(Dataset):
         )
         item -= self.drive_divisions[da_index][dr_index]
 
-        # Path of date_drive folder
-        path_name = glob(glob(self.root_dir + "/*/")[da_index] + "/*/")[dr_index]
+        # Path of date folder
+        date_name = glob(self.root_dir + "/*/")[da_index]
+        path_name = glob(date_name + "/*/")[dr_index]
                 
         sample = {}
 
@@ -116,6 +117,7 @@ class KittiDataset(Dataset):
         sample["lidar_point_reflectivity"] = lidar_points[:, 3]
 
         # Velodyne to continuous 4x4 transformation matrix
-        sample["transformation"] = calc_transformation_mat(path_name, item)
+
+        sample["transformation"] = np.matmul(calc_transformation_mat(path_name, item), get_velo_to_imu(date_name))
 
         return sample

@@ -136,3 +136,22 @@ def calc_transformation_mat(sample_path, idx):
         ],
         [0, 0, 0, 1],
     ], dtype=np.float64)
+
+
+def get_velo_to_imu(da_path):
+    """
+        Given the file path to the calib_imu_to_velo, returns a 4x4 NumPy array containing the transformation matrix to
+        convert the velodyne point coordinates (relative to the sensor) into imu coordinates
+        (relative to the imu sensor).
+        :param da_path: A file path to the folder where the calib_imu_to_velo.txt is located
+        :return: 4x4  transformation matrix to convert velodyne coordinates into imu coordinates
+        """
+    out = np.zeros((4, 4), dtype=np.float64)
+    out[3, 3] = 1
+
+    with open(os.path.join(da_path, "calib_imu_to_velo.txt")) as f:
+        f.readline()
+        out[:3, :3] = np.array(f.readline().split()[1:]).reshape((3, 3))
+        out[:3, 3] = f.readline().split()[1:]
+
+    return np.linalg.inv(out)
