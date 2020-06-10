@@ -8,17 +8,17 @@ import kitti_utils
 def generate_lidar_point_coord_camera_image(lidar_point_coord_velodyne, camera_image_from_velodyne, im_width, im_height):
     """
     This function removes the lidar pts that are not in the image plane, rounds x/y pixel vals for lidar pts, and projects the lidar pts onto the image plane
-    :param [numpy.array] lidar_point_coord_velodyne: [N,3], matrix of lidar pts, each column is format [X, Y, Z]
+    :param [numpy.array] lidar_point_coord_velodyne: [N,3], matrix of lidar pts, each row is format [X, Y, Z]
     :param [numpy.array] camera_image_from_velodyne: [4,4], converts 3D lidar pts to 2D image plane
     :param [int] im_width: width of image in pixels
     :param [int] im_height: height of image in pixels
-    :return: numpy.array of shape [N,3], contains lidar pts on image plane, each row is format [X, Y, depth]
+    :return: numpy.array of shape [N,4], contains lidar pts on image plane, each row is format [X, Y, depth, 1]
     """
     #Based on code from monodepth2 repo.
 
     #Add bottom row of ones to lidar_point_coord_velodyne
-    lidar_point_coord_velodyne = np.vstack((lidar_point_coord_velodyne, np.ones((1,np.size(lidar_point_coord_velodyne,1)))))
-
+    lidar_point_coord_velodyne = np.hstack((lidar_point_coord_velodyne, np.ones((np.size(lidar_point_coord_velodyne,0)))[:, None]))
+    
     #Remove points behind camera.
     lidar_point_coord_velodyne = lidar_point_coord_velodyne[lidar_point_coord_velodyne[:,0] >=0, :]
     
@@ -39,14 +39,12 @@ def render_lidar_on_image(image, lidar_point_coord_camera_image):
     """
     This function plots lidar points on the image with colors corresponding to their depth(higher hsv hue val = further away) 
     :param [numpy.array] image: [H, W], contains image data
-    :param [numpy.array] lidar_point_coord_camera_image: [N,3], contains lidar pts on image plane, each row is format [X, Y, depth]
+    :param [numpy.array] lidar_point_coord_camera_image: [N,4], contains lidar pts on image plane, each row is format [X, Y, depth, 1]
     :return: no return val, shows image w/ lidar overlay
     """
     #Normalize depth values.
     lidar_point_depth = lidar_point_coord_camera_image[:, 2].reshape(-1,1)
-    max = lidar_point_depth.max()
-    min = lidar_point_depth.min()
-    lidar_point_depth_normalized = (lidar_point_depth - min)/(max-min)
+    lidar_point_depth_normalized = normalize_depth(lidar_point_depth)
    
     #Show grayscale image.
     plt.figure(figsize=(20, 20))
@@ -62,3 +60,14 @@ def render_lidar_on_image(image, lidar_point_coord_camera_image):
         ax.add_patch(circ)
     
     plt.show()
+
+def normalize_depth(lidar_point_depth):
+    """
+    This function normalizes the depth values that are passed so they are between 0 and 1, inclusive 
+    :param [numpy.array] lidar_point_depth: [N, 1] contains all of the depth values for points that are in the image FOV
+    :return: numpy.array of shape [N,1] containing the depth values normalized so they are between 0 and 1, inclusive
+    """
+    max = lidar_point_depth.max()
+    min = lidar_point_depth.min()
+    lidar_point_depth_normalized = (lidar_point_depth - min)/(max-min)
+    return lidar_point_depth_normalized
