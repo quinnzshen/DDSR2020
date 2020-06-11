@@ -6,7 +6,7 @@ from PIL import Image
 import os
 from glob import glob
 
-from utils import bin_search, get_nsec_times, calc_transformation_mat, get_velo_to_imu
+from utils import bin_search, get_nsec_times, calc_transformation_mat, get_velo_to_imu, get_camera
 
 
 class KittiDataset(Dataset):
@@ -65,8 +65,6 @@ class KittiDataset(Dataset):
         :param item: An int representing the index of the sample to be retrieved
         :return: A dictionary containing fields about the retrieved sample
         """
-        if torch.is_tensor(item):
-            item = item.tolist()
 
         if self.len < 0:
             self.set_len()
@@ -93,17 +91,9 @@ class KittiDataset(Dataset):
         # Path of date folder
         date_name = glob(self.root_dir + "/*/")[da_index]
         path_name = glob(date_name + "/*/")[dr_index]
-                
-        sample = {}
 
         # Taking information from the directory and putting it into the sample dictionary
-        img_arr = np.asarray(Image.open(os.path.join(path_name, "image_02/data/") + f"{item:010}.png"))
-        sample["stereo_left_image"] = img_arr
-        sample["stereo_left_shape"] = img_arr.shape
-
-        img_arr = np.asarray(Image.open(os.path.join(path_name, "image_03/data/") + f"{item:010}.png"))
-        sample["stereo_right_image"] = img_arr
-        sample["stereo_right_shape"] = img_arr.shape
+        sample = {**get_camera(path_name, "stereo_left", item), **get_camera(path_name, "stereo_right", item)}
 
         nsec_times = get_nsec_times(path_name, item)
         sample["stereo_left_capture_time_nsec"] = nsec_times[0]

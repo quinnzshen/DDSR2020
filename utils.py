@@ -1,9 +1,13 @@
 import numpy as np
+from PIL import Image
 
 import os
 
 EARTH_RADIUS = 6378137  # meters
 
+CAMERAS = {"stereo_left": "image_02", "stereo_right": "image_03"}
+KITTI_TIMESTAMPS = [CAMERAS["stereo_left"] + "/timestamps.txt", CAMERAS["stereo_right"] + "/timestamps.txt",
+                    "velodyne_points/timestamps_start.txt", "velodyne_points/timestamps_end.txt"]
 
 def bin_search(arr, target, init_search):
     """
@@ -58,7 +62,7 @@ def calc_lon_dist(lat1, lat2, lon1, lon2):
     )
 
 
-def time_to_nano(time_string):
+def iso_string_to_nanoseconds(time_string):
     """
     Converts a line in the format provided by timestamps.txt to the number of nanoseconds since the midnight of that day
     :param time_string: The string to be converted into nanoseconds
@@ -80,15 +84,17 @@ def get_nsec_times(sample_path, idx):
     :param idx: The frame number within the scene
     :return: NumPy array shape (4,) containing the time of the idx'th events (see above)
     """
-    with open(os.path.join(sample_path, "image_02/timestamps.txt")) as l_time:
-        with open(os.path.join(sample_path, "image_03/timestamps.txt")) as r_time:
-            with open(os.path.join(sample_path, "velodyne_points/timestamps_start.txt")) as start_time:
-                with open(os.path.join(sample_path, "velodyne_points/timestamps_end.txt")) as end_time:
-                    count = 0
-                    for l_line, r_line, start_line, end_line in zip(l_time, r_time, start_time, end_time):
-                        if count == idx:
-                            return np.array(list(map(time_to_nano, [l_line, r_line, start_line, end_line])), dtype=np.int64)
-                        count += 1
+    times = np.empty(len(KITTI_TIMESTAMPS), dtype=np.int64)
+    for i in range(len(KITTI_TIMESTAMPS)):
+        with open(os.path.join(sample_path, KITTI_TIMESTAMPS[i])) as f:
+            count = 0
+            for line in f:
+                if count == idx:
+                    times[i] = iso_string_to_nanoseconds(line)
+                    break
+                count += 1
+
+    return times
 
 
 def calc_transformation_mat(sample_path, idx):
@@ -155,3 +161,16 @@ def get_velo_to_imu(da_path):
         out[:3, 3] = f.readline().split()[1:]
 
     return np.linalg.inv(out)
+
+
+def get_camera(path_name, camera_name, idx):
+    """
+    Gets the basic camera information given the path name to the scene, the camera name, and the frame number within
+    that scene.
+    :param path_name: A file path to a scene within the dataset
+    :param camera_name: A camera name as defined in CAMERAS
+    :param idx: The frame number in the scene
+    :return: A dictionary containing the image (in a NumPy array) and the shape of that array
+    """
+    img_arr = np.asarray(Image.open(os.path.join(path_name, CAMERAS[camera_name] + f"/data/{idx:010}.png")))
+    return {camera_name + "_image": img_arr, camera_name + "_shape": img_arr.shape}
