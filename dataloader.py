@@ -100,7 +100,7 @@ class KittiDataset(Dataset):
 
         # Getting the LiDAR coordinates
         lidar_points = np.fromfile(os.path.join(path_name, "velodyne_points/data/") + f"{item:010}" + ".bin", dtype=np.float32).reshape((-1, 4))
-        sample["lidar_point_sensor"] = lidar_points[:, :3]
+        sample["lidar_point_coord_velodyne"] = lidar_points[:, :3]
         sample["lidar_point_reflectivity"] = lidar_points[:, 3]
 
         return sample
