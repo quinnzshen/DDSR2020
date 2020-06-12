@@ -48,8 +48,6 @@ def plot_lidar_on_image(image, lidar_point_coord_camera_image):
     # Make array of colors (row number is equal to row number containing corresponding x/y point in lidar_point_coord_camera_image)
     colors = np.zeros(lidar_point_coord_camera_image.shape)
     for idx in range(len(colors)):
-        #col = np.asarray(colorsys.hsv_to_rgb(lidar_point_coord_camera_image[idx][2] * (240/360), 1.0, 1.0))
-        #colors[idx] = np.array([[col[0], col[1], col[2]]])
         colors[idx] = np.asarray(colorsys.hsv_to_rgb(lidar_point_coord_camera_image[idx][2] * (240/360), 1.0, 1.0))
     
     # Show grayscale image.
