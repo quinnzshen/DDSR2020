@@ -1,12 +1,12 @@
 import numpy as np
 import torch
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset
 from PIL import Image
 
 import os
 from glob import glob
 
-from utils import bin_search, get_nsec_times, calc_transformation_mat, get_velo_to_imu, get_camera
+from utils import bin_search, get_nsec_times, get_camera
 
 
 class KittiDataset(Dataset):
@@ -105,9 +105,5 @@ class KittiDataset(Dataset):
         lidar_points = np.fromfile(os.path.join(path_name, "velodyne_points/data/") + f"{item:010}" + ".bin", dtype=np.float32).reshape((-1, 4))
         sample["lidar_point_sensor"] = lidar_points[:, :3]
         sample["lidar_point_reflectivity"] = lidar_points[:, 3]
-
-        # Velodyne to continuous 4x4 transformation matrix
-
-        sample["transformation"] = np.matmul(calc_transformation_mat(path_name, item), get_velo_to_imu(date_name))
 
         return sample
