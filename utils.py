@@ -8,40 +8,6 @@ KITTI_TIMESTAMPS = [CAMERAS["stereo_left"] + "/timestamps.txt", CAMERAS["stereo_
                     "velodyne_points/timestamps_start.txt", "velodyne_points/timestamps_end.txt"]
 
 
-def bin_search(arr, target, init_search):
-    """
-    Conducts a binary search on a given array (used to determine which directory the nth frame is located at with lists
-    date_divisions and drive_divisions)
-    Assumes the array is sorted and returns the least index, i, where arr[i] >= target.
-    :param arr: The sorted 1D array/list to be searched
-    :param target: The target value to be compared to (see above condition)
-    :param init_search: The initial guess that the binary search starts at
-    :return: The lowest index, i, where arr[i] >= target
-    """
-    index = init_search
-    lower_index = 0
-    upper_index = len(arr) - 1
-    prev_index = -1
-    while 1:
-        if arr[index] > target:
-            upper_index = index
-        elif arr[index] < target:
-            lower_index = index
-        else:
-            return index
-
-        prev_index = index
-        index = (upper_index + lower_index) // 2
-
-        if prev_index == index:
-            if index == len(arr) - 1:
-                return index
-
-            if arr[index + 1] < target:
-                index += 1
-            return index
-
-
 def iso_string_to_nanoseconds(time_string):
     """
     Converts a line in the format provided by timestamps.txt to the number of nanoseconds since the midnight of that day

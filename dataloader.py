@@ -3,8 +3,11 @@ from torch.utils.data import Dataset
 
 import os
 from glob import glob
+import random
 
-from utils import bin_search, get_nsec_times, get_camera
+from utils import get_nsec_times, get_camera
+
+SPLIT_NAMES = ["train.txt", "validate.txt"]
 
 
 class KittiDataset(Dataset):
@@ -16,32 +19,45 @@ class KittiDataset(Dataset):
         """
         self.root_dir = root_dir
         self.len = -1
-        self.date_divisions = []
-        self.drive_divisions = []
+        self.train_dir = []
 
-    def set_len(self):
+    def generate_split(self, split=0.7, seed=None):
         """
-        Sets self.len, self.date_divisions, and self.drive_divisions by iterating through the whole dataset, preparing
-        for future retrivals.
-        Only called once after object initialization, as all the instance variables never change.
+        Generates the train.txt and validate.txt by using random for every frame and deciding whether to put it in
+        train.txt or validate.txt.
+        :param split: The chance of a given frame being put into train
+        :param seed: The seed of the RNG, if None, then it is random
         """
-        total = 0
-        for direc in glob(self.root_dir + "/*/"):
-            self.date_divisions.append(total)
-            # iterating through all date folders
-            subtotal = 0
-            sub_drive_divisions = []
-            for sub_dir in glob(direc + "/*/"):
-                # iterating through all date_drive folders
-                sub_drive_divisions.append(subtotal)
-                with open(os.path.join(os.path.join(sub_dir, "velodyne_points"), "timestamps.txt")) as file:
-                    for _ in file:
-                        subtotal += 1
+        random.seed(seed)
 
-            total += subtotal
-            self.drive_divisions.append(sub_drive_divisions)
+        with open(os.path.join(self.root_dir, SPLIT_NAMES[0]), "w") as train:
+            with open(os.path.join(self.root_dir, SPLIT_NAMES[1]), "w") as val:
 
-        self.len = total
+                for direc in glob(self.root_dir + "/*/"):
+                    # iterating through all date folders
+                    for sub_dir in glob(direc + "/*/"):
+                        # iterating through all date_drive folders
+                        with open(os.path.join(sub_dir, "velodyne_points/timestamps.txt")) as file:
+                            subtotal = 0
+                            for _ in file:
+                                line = sub_dir + " {}\n".format(subtotal)
+                                if random.random() < split:
+                                    train.write(line)
+                                    self.train_dir.append([sub_dir, subtotal])
+                                else:
+                                    val.write(line)
+                                subtotal += 1
+
+        self.len = len(self.train_dir)
+
+    def set_up(self):
+        """
+        Sets up the self.train_dir containing all the directory once called. (Only called once per instance.)
+        """
+        with open(os.path.join(self.root_dir, SPLIT_NAMES[0]), "r") as train:
+            for line in train:
+                self.train_dir.append(line.split())
+        self.len = len(self.train_dir)
 
     def __len__(self):
         """
@@ -50,7 +66,7 @@ class KittiDataset(Dataset):
         :return: The frame count in the dataset
         """
         if self.len < 0:
-            self.set_len()
+            self.set_up()
         return self.len
 
     def __getitem__(self, item):
@@ -63,32 +79,15 @@ class KittiDataset(Dataset):
         :param item: An int representing the index of the sample to be retrieved
         :return: A dictionary containing fields about the retrieved sample
         """
-
         if self.len < 0:
-            self.set_len()
+            self.set_up()
 
         if item >= self.len or item < 0:
             raise IndexError("Dataset index out of range. (Less than 0 or greater than or equal to length)")
 
-        # Searching which date folder it's in
-        da_index = bin_search(
-            self.date_divisions,
-            item,
-            int(len(self.date_divisions) * (item / self.len))
-        )
-        item -= self.date_divisions[da_index]
-
-        # Searching which drive folder it's in
-        dr_index = bin_search(
-            self.drive_divisions[da_index],
-            item,
-            len(self.drive_divisions[da_index]) // 2
-        )
-        item -= self.drive_divisions[da_index][dr_index]
-
-        # Path of date folder
-        date_name = glob(self.root_dir + "/*/")[da_index]
-        path_name = glob(date_name + "/*/")[dr_index]
+        path_name = self.train_dir[item][0]
+        date_name = os.path.dirname(path_name)
+        item = int(self.train_dir[item][1])
 
         # Taking information from the directory and putting it into the sample dictionary
         sample = {**get_camera(path_name, "stereo_left", item), **get_camera(path_name, "stereo_right", item)}
