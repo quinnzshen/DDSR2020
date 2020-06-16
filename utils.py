@@ -1,15 +1,12 @@
 import numpy as np
 from PIL import Image
 
-import random
 import os
-from glob import glob
 
 from kitti_utils import load_velodyne_points
 
 CAMERAS = {"stereo_left": "image_02", "stereo_right": "image_03"}
 KITTI_TIMESTAMPS = ["/timestamps.txt", "velodyne_points/timestamps_start.txt", "velodyne_points/timestamps_end.txt"]
-SPLIT_NAMES = ["dataloader_tests.txt", "validate.txt"]
 CAMERA_FIELD_NAMES = [
     "_image",
     "_shape",
@@ -39,9 +36,9 @@ def iso_string_to_nanoseconds(time_string):
 
 def get_nsec_time(sample_path, idx):
     """
-    Given the file path to the scene and the frame number within that scene, returns a NumPy array containing the
-    time (nanoseconds) of the left frame, right frame, start, and end of the idx'th LiDAR scan, in that order.
-    :param sample_path: A file_path to a scene within the dataset
+    Given the file path to the scene and the frame number within that scene, returns an integer containing the
+    time (nanoseconds) retrieved from the idx'th line in the path given.
+    :param sample_path: A file_path to a timestamps file
     :param idx: The frame number within the scene
     :return: NumPy array shape (4,) containing the time of the idx'th events (see above)
     """
@@ -60,7 +57,7 @@ def get_camera_data(path_name, camera_name, idx):
     :param path_name: A file path to a scene within the dataset
     :param camera_name: A camera name as defined in CAMERAS
     :param idx: The frame number in the scene
-    :return: A dictionary containing the image (in a NumPy array) and the shape of that array
+    :return: A dictionary containing the image (in a NumPy array), the shape of that array, and time taken
     """
     img_arr = np.asarray(Image.open(os.path.join(path_name, CAMERAS[camera_name] + f"/data/{idx:010}.png")))
     return {
@@ -71,6 +68,12 @@ def get_camera_data(path_name, camera_name, idx):
 
 
 def get_lidar_data(path_name, idx):
+    """
+        Gets the basic LiDAR information given the path name to the scene and the frame number within that scene.
+        :param path_name: A file path to a scene within the dataset
+        :param idx: The frame number in the scene
+        :return: A dictionary containing the points, reflectivity, start, and end times of the LiDAR scan.
+        """
     lidar_points = load_velodyne_points(os.path.join(path_name, f"velodyne_points/data/{idx:010}.bin"))
     return {
         LIDAR_FIELD_NAMES[0]: lidar_points[:, :3],
