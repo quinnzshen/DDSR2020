@@ -5,7 +5,7 @@ import pandas as pd
 
 import os
 
-from utils import get_camera_data, get_lidar_data, generate_split
+from utils import get_camera_data, get_lidar_data
 
 
 class KittiDataset(Dataset):
@@ -24,16 +24,6 @@ class KittiDataset(Dataset):
             config = yaml.load(yml, Loader=yaml.Loader)
             path_df = pd.concat([pd.read_csv(path, sep=" ", header=None) for path in config["dataset_paths"]])
         return cls(config["root_directory"], path_df)
-
-    def reset_split(self, split=0.7, seed=None):
-        """
-        Resets the split files in the dataset based on the given split probability and seed. If the seed is not given,
-        the seed is randomly chosen.
-        :param split: The chance of a given frame being put into train
-        :param seed: The seed of the RNG, if None, then it is random
-        """
-        generate_split(self.root_dir, split, seed)
-        self.set_up()
 
     def __len__(self):
         """
