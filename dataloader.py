@@ -1,32 +1,29 @@
 import numpy as np
 from torch.utils.data import Dataset
+import yaml
+import pandas as pd
 
 import os
-from glob import glob
-import random
 
-from utils import get_nsec_times, get_camera, generate_split, SPLIT_NAMES
+from utils import get_camera_data, get_lidar_data, generate_split
 
 
 class KittiDataset(Dataset):
-    def __init__(self, root_dir):
+    def __init__(self, root_dir, pathdf):
         """
         Initializes the Dataset, just given the root directory of the data and sets the original values of the instance
         variables.
         :param root_dir: string containing the path to the root directory
         """
         self.root_dir = root_dir
-        self.len = -1
-        self.train_dir = []
+        self.pathdf = pathdf
 
-    def set_up(self):
-        """
-        Sets up the self.train_dir containing all the directory once called. (Only called once per instance.)
-        """
-        with open(os.path.join(self.root_dir, SPLIT_NAMES[0]), "r") as train:
-            for line in train:
-                self.train_dir.append(line.split())
-        self.len = len(self.train_dir)
+    @classmethod
+    def init_from_config(cls, config_path):
+        with open(config_path, "r") as yml:
+            config = yaml.load(yml, Loader=yaml.Loader)
+            path_df = pd.concat([pd.read_csv(path, sep=" ", header=None) for path in config["dataset_paths"]])
+        return cls(config["root_directory"], path_df)
 
     def reset_split(self, split=0.7, seed=None):
         """
@@ -44,42 +41,31 @@ class KittiDataset(Dataset):
         it simply returns the previously calculated length.
         :return: The frame count in the dataset
         """
-        if self.len < 0:
-            self.set_up()
-        return self.len
+        return len(self.pathdf)
 
-    def __getitem__(self, item):
+    def __getitem__(self, idx):
         """
         Given a specific index, returns a dictionary containing information about the sample (frame) at that index in
         the dataset.
         (If the index is n, returns the nth frame of the dataset and its information.)
         The dictionary's fields are specified in Dataset Fields (Google Sheet file).
 
-        :param item: An int representing the index of the sample to be retrieved
+        :param idx: An int representing the index of the sample to be retrieved
         :return: A dictionary containing fields about the retrieved sample
         """
-        if self.len < 0:
-            self.set_up()
 
-        if item >= self.len or item < 0:
-            raise IndexError("Dataset index out of range. (Less than 0 or greater than or equal to length)")
+        if idx >= len(self.pathdf) or idx < 0:
+            raise IndexError(f"Dataset index out of range. Given: {idx} (Less than 0 or greater than or equal to length)")
 
-        path_name = self.train_dir[item][0]
+        path_name = self.pathdf.iloc[idx, 0]
         date_name = os.path.dirname(path_name)
-        item = int(self.train_dir[item][1])
+        idx = int(self.pathdf.iloc[idx, 1])
 
         # Taking information from the directory and putting it into the sample dictionary
-        sample = {**get_camera(path_name, "stereo_left", item), **get_camera(path_name, "stereo_right", item)}
-
-        nsec_times = get_nsec_times(path_name, item)
-        sample["stereo_left_capture_time_nsec"] = nsec_times[0]
-        sample["stereo_right_capture_time_nsec"] = nsec_times[1]
-        sample["lidar_start_capture_timestamp_nsec"] = nsec_times[2]
-        sample["lidar_end_capture_timestamp_nsec"] = nsec_times[3]
-
-        # Getting the LiDAR coordinates
-        lidar_points = np.fromfile(os.path.join(path_name, "velodyne_points/data/") + f"{item:010}" + ".bin", dtype=np.float32).reshape((-1, 4))
-        sample["lidar_point_coord_velodyne"] = lidar_points[:, :3]
-        sample["lidar_point_reflectivity"] = lidar_points[:, 3]
+        sample = {
+            **get_camera_data(path_name, "stereo_left", idx),
+            **get_camera_data(path_name, "stereo_right", idx),
+            **get_lidar_data(path_name, idx)
+        }
 
         return sample

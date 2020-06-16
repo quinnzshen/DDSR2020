@@ -10,4 +10,6 @@ dependencies:
   - scipy
   - ipykernel
   - pytest
+  - pandas
+  - pyyaml
 prefix: /Users/quinn/anaconda3/envs/ddsr

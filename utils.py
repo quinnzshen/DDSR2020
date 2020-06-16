@@ -5,10 +5,22 @@ import random
 import os
 from glob import glob
 
+from kitti_utils import load_velodyne_points
+
 CAMERAS = {"stereo_left": "image_02", "stereo_right": "image_03"}
-KITTI_TIMESTAMPS = [CAMERAS["stereo_left"] + "/timestamps.txt", CAMERAS["stereo_right"] + "/timestamps.txt",
-                    "velodyne_points/timestamps_start.txt", "velodyne_points/timestamps_end.txt"]
-SPLIT_NAMES = ["train.txt", "validate.txt"]
+KITTI_TIMESTAMPS = ["/timestamps.txt", "velodyne_points/timestamps_start.txt", "velodyne_points/timestamps_end.txt"]
+SPLIT_NAMES = ["dataloader_tests.txt", "validate.txt"]
+CAMERA_FIELD_NAMES = [
+    "_image",
+    "_shape",
+    "_capture_time_nsec"
+]
+LIDAR_FIELD_NAMES = [
+    "lidar_point_coord_velodyne",
+    "lidar_point_reflectivity",
+    "lidar_start_capture_time_nsec",
+    "lidar_end_capture_time_nsec"
+]
 
 
 def iso_string_to_nanoseconds(time_string):
@@ -17,7 +29,7 @@ def iso_string_to_nanoseconds(time_string):
     :param time_string: The string to be converted into nanoseconds
     :return: The number of nanoseconds since midnight
     """
-    total = 0
+    total = np.int64(0)
     total += int(time_string[11:13]) * 3600 * 1000000000
     total += int(time_string[14:16]) * 60 * 1000000000
     total += int(time_string[17:19]) * 1000000000
@@ -25,7 +37,7 @@ def iso_string_to_nanoseconds(time_string):
     return total
 
 
-def get_nsec_times(sample_path, idx):
+def get_nsec_time(sample_path, idx):
     """
     Given the file path to the scene and the frame number within that scene, returns a NumPy array containing the
     time (nanoseconds) of the left frame, right frame, start, and end of the idx'th LiDAR scan, in that order.
@@ -33,20 +45,15 @@ def get_nsec_times(sample_path, idx):
     :param idx: The frame number within the scene
     :return: NumPy array shape (4,) containing the time of the idx'th events (see above)
     """
-    times = np.empty(len(KITTI_TIMESTAMPS), dtype=np.int64)
-    for i in range(len(KITTI_TIMESTAMPS)):
-        with open(os.path.join(sample_path, KITTI_TIMESTAMPS[i])) as f:
-            count = 0
-            for line in f:
-                if count == idx:
-                    times[i] = iso_string_to_nanoseconds(line)
-                    break
-                count += 1
-
-    return times
+    with open(sample_path) as f:
+        count = 0
+        for line in f:
+            if count == idx:
+                return iso_string_to_nanoseconds(line)
+            count += 1
 
 
-def get_camera(path_name, camera_name, idx):
+def get_camera_data(path_name, camera_name, idx):
     """
     Gets the basic camera information given the path name to the scene, the camera name, and the frame number within
     that scene.
@@ -56,13 +63,27 @@ def get_camera(path_name, camera_name, idx):
     :return: A dictionary containing the image (in a NumPy array) and the shape of that array
     """
     img_arr = np.asarray(Image.open(os.path.join(path_name, CAMERAS[camera_name] + f"/data/{idx:010}.png")))
-    return {camera_name + "_image": img_arr, camera_name + "_shape": img_arr.shape}
+    return {
+        camera_name + CAMERA_FIELD_NAMES[0]: img_arr,
+        camera_name + CAMERA_FIELD_NAMES[1]: img_arr.shape,
+        camera_name + CAMERA_FIELD_NAMES[2]: get_nsec_time(os.path.join(path_name, CAMERAS[camera_name] + KITTI_TIMESTAMPS[0]), idx)
+    }
+
+
+def get_lidar_data(path_name, idx):
+    lidar_points = load_velodyne_points(os.path.join(path_name, f"velodyne_points/data/{idx:010}.bin"))
+    return {
+        LIDAR_FIELD_NAMES[0]: lidar_points[:, :3],
+        LIDAR_FIELD_NAMES[1]: lidar_points[:, 3],
+        LIDAR_FIELD_NAMES[2]: get_nsec_time(os.path.join(path_name, KITTI_TIMESTAMPS[1]), idx),
+        LIDAR_FIELD_NAMES[3]: get_nsec_time(os.path.join(path_name, KITTI_TIMESTAMPS[2]), idx)
+    }
 
 
 def generate_split(root_dir, split=0.7, seed=0):
     """
-    Generates the train.txt and validate.txt by using random for every frame and deciding whether to put it in
-    train.txt or validate.txt.
+    Generates the dataloader_tests.txt and validate.txt by using random for every frame and deciding whether to put it in
+    dataloader_tests.txt or validate.txt.
     :param root_dir: The root directory of the dataset
     :param split: The chance of a given frame being put into train
     :param seed: The seed of the RNG, if None, then it is random (default seed is 0)
