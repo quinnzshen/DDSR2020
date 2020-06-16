@@ -78,31 +78,3 @@ def get_lidar_data(path_name, idx):
         LIDAR_FIELD_NAMES[2]: get_nsec_time(os.path.join(path_name, KITTI_TIMESTAMPS[1]), idx),
         LIDAR_FIELD_NAMES[3]: get_nsec_time(os.path.join(path_name, KITTI_TIMESTAMPS[2]), idx)
     }
-
-
-def generate_split(root_dir, split=0.7, seed=0):
-    """
-    Generates the dataloader_tests.txt and validate.txt by using random for every frame and deciding whether to put it in
-    dataloader_tests.txt or validate.txt.
-    :param root_dir: The root directory of the dataset
-    :param split: The chance of a given frame being put into train
-    :param seed: The seed of the RNG, if None, then it is random (default seed is 0)
-    """
-    random.seed(seed)
-
-    with open(os.path.join(root_dir, SPLIT_NAMES[0]), "w") as train:
-        with open(os.path.join(root_dir, SPLIT_NAMES[1]), "w") as val:
-
-            for direc in glob(root_dir + "/*/"):
-                # iterating through all date folders
-                for sub_dir in glob(direc + "/*/"):
-                    # iterating through all date_drive folders
-                    with open(os.path.join(sub_dir, "velodyne_points/timestamps.txt")) as file:
-                        subtotal = 0
-                        for _ in file:
-                            line = sub_dir + " {}\n".format(subtotal)
-                            if random.random() < split:
-                                train.write(line)
-                            else:
-                                val.write(line)
-                            subtotal += 1
