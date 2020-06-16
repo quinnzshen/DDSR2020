@@ -5,9 +5,7 @@ import os
 from glob import glob
 import random
 
-from utils import get_nsec_times, get_camera
-
-SPLIT_NAMES = ["train.txt", "validate.txt"]
+from utils import get_nsec_times, get_camera, generate_split, SPLIT_NAMES
 
 
 class KittiDataset(Dataset):
@@ -21,35 +19,6 @@ class KittiDataset(Dataset):
         self.len = -1
         self.train_dir = []
 
-    def generate_split(self, split=0.7, seed=None):
-        """
-        Generates the train.txt and validate.txt by using random for every frame and deciding whether to put it in
-        train.txt or validate.txt.
-        :param split: The chance of a given frame being put into train
-        :param seed: The seed of the RNG, if None, then it is random
-        """
-        random.seed(seed)
-
-        with open(os.path.join(self.root_dir, SPLIT_NAMES[0]), "w") as train:
-            with open(os.path.join(self.root_dir, SPLIT_NAMES[1]), "w") as val:
-
-                for direc in glob(self.root_dir + "/*/"):
-                    # iterating through all date folders
-                    for sub_dir in glob(direc + "/*/"):
-                        # iterating through all date_drive folders
-                        with open(os.path.join(sub_dir, "velodyne_points/timestamps.txt")) as file:
-                            subtotal = 0
-                            for _ in file:
-                                line = sub_dir + " {}\n".format(subtotal)
-                                if random.random() < split:
-                                    train.write(line)
-                                    self.train_dir.append([sub_dir, subtotal])
-                                else:
-                                    val.write(line)
-                                subtotal += 1
-
-        self.len = len(self.train_dir)
-
     def set_up(self):
         """
         Sets up the self.train_dir containing all the directory once called. (Only called once per instance.)
@@ -58,6 +27,16 @@ class KittiDataset(Dataset):
             for line in train:
                 self.train_dir.append(line.split())
         self.len = len(self.train_dir)
+
+    def reset_split(self, split=0.7, seed=None):
+        """
+        Resets the split files in the dataset based on the given split probability and seed. If the seed is not given,
+        the seed is randomly chosen.
+        :param split: The chance of a given frame being put into train
+        :param seed: The seed of the RNG, if None, then it is random
+        """
+        generate_split(self.root_dir, split, seed)
+        self.set_up()
 
     def __len__(self):
         """
