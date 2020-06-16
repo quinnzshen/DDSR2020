@@ -1,49 +1,15 @@
-import numpy as np
 import torch
-from torch.utils.data import Dataset, DataLoader
-from PIL import Image
+from torch.utils.data import Dataset
 import os
-from glob import glob
 import tensorflow as tf
 import sys
-
-#Couldn't import the Waymo package using pip install so I downloaded it and added it to my path
-sys.path.append("/Users/alexj/Documents/GitHub/waymo-od")
+import waymo_utils as wu
+import matplotlib.pyplot as plt
+#If possible, use pip install waymo-open-dataset. If that doesn't work, clone the repo add at it to your path.
+sys.path.append("C:/Users/alexj/Documents/GitHub/waymo-od")
 from waymo_open_dataset.utils import  frame_utils
 from waymo_open_dataset import dataset_pb2 as open_dataset
-import matplotlib.pyplot as plt
-import matplotlib.patches as patches
-
-
-def show_camera_image(camera_image, camera_labels, layout, cmap=None):
-  """Show a camera image and the given camera labels."""
-
-  ax = plt.subplot(*layout)
-
-  # Draw the camera labels.
-  for camera_labels in camera_labels:
-    # Ignore camera labels that do not correspond to this camera.
-    if camera_labels.name != camera_image.name:
-      continue
-
-    # Iterate over the individual labels.
-    for label in camera_labels.labels:
-      # Draw the object bounding box.
-      ax.add_patch(patches.Rectangle(
-        xy=(label.box.center_x - 0.5 * label.box.length,
-            label.box.center_y - 0.5 * label.box.width),
-        width=label.box.length,
-        height=label.box.width,
-        linewidth=1,
-        edgecolor='red',
-        facecolor='none'))
-
-  # Show the camera image.
-  plt.imshow(tf.image.decode_jpeg(camera_image.image), cmap=cmap)
-  plt.title(open_dataset.CameraName.Name.Name(camera_image.name))
-  plt.grid(False)
-  plt.axis('off')
-
+  
 class WaymoDataset(Dataset):
     def __init__(self,root_dir):
         """
@@ -54,8 +20,27 @@ class WaymoDataset(Dataset):
         """
         self.root_dir = root_dir
         self.len = -1
-        self.record_divisions = []
+        self.train_dir = []
+    
+    def set_up(self):
+        """
+        Sets up self.len and self.train_dir containing all the directories and indices. (Only called once per instance.)
+        """
+        with open(os.path.join(self.root_dir, wu.SPLIT_NAMES[0]), "r") as train:
+            for line in train:
+                self.train_dir.append(line.split())
+        self.len = len(self.train_dir)
    
+    def reset_split(self, split=0.7, seed=None):
+        """
+        Resets the split files in the dataset based on the given split probability and seed. If the seed is not given,
+        the seed is randomly chosen.
+        :param split: The chance of a given frame being put into train
+        :param seed: The seed of the RNG, if None, then it is random
+        """
+        wu.generate_split(self.root_dir, split, seed)
+        self.set_up()    
+    
     def __len__(self):
         """
         Returns the total frame count in the dataset. If the length has not been calculated yet, runs set_len, else
@@ -63,22 +48,10 @@ class WaymoDataset(Dataset):
         :return: The frame count in the dataset
         """
         if self.len < 0:
-            self.set_len()
+            print("hi")
+            self.set_up()
         return self.len
-    def set_len(self):
-        """
-        Sets self.len, self.date_divisions, and self.drive_divisions by iterating through the whole dataset, preparing
-        for future retrivals.
-        Only called once after object initialization, as all the instance variables never change.
-        """
-        total = 0;
-        for filename in os.listdir(self.root_dir):
-            subtotal = 0;
-            if filename.startswith("segment-"):
-                subtotal = sum(1 for _ in tf.data.TFRecordDataset(self.root_dir+'/'+filename))
-                total+=subtotal
-                self.record_divisions.append(subtotal)
-        self.len = total
+
     def __getitem__(self, item):
         """
         Given a specific index (starting from 0), returns a dictionary containing information about the sample (frame) at that index in
@@ -89,58 +62,72 @@ class WaymoDataset(Dataset):
         :param item: An int representing the index of the sample to be retrieved
         :return: A dictionary containing fields about the retrieved sample
         """
+
+        if self.len < 0:
+            self.set_up()
+
+        path_name = self.train_dir[item][0]
+        item = int(self.train_dir[item][1])
+        
         if torch.is_tensor(item):
             item = item.tolist()
 
-        if self.len < 0:
-            self.set_len()
-
         if item >= self.len or item < 0:
             raise IndexError("Dataset index out of range. (Less than 0 or greater than or equal to length)")
-        
-        #Finds what record file it's in
-        record_index = 0
-        count = 0
-        for num in self.record_divisions:
-            if count+num>item:
-                break
-            count += num
-            record_index+=1
-        item-= count
-        print(item)
-        
-        #Finds the filename of the TFRecord file it's in
-        count = 0
-        for file in os.listdir(self.root_dir):
-            if file.startswith("segment-"):
-                if count == record_index:
-                    filename = file
-                    break
-                count += 1
        	
-       	#Displays the targeted frames with labels using mathplot lib
-        item_data = tf.data.TFRecordDataset(self.root_dir + '/' + filename, compression_type='')
+       	#Gets relevant data from TFRecord
+        item_data = tf.data.TFRecordDataset(path_name, compression_type='')
         count = 0
         for data in item_data:
             if (count == item):
                 frame = open_dataset.Frame()
                 frame.ParseFromString(bytearray(data.numpy()))
                 (range_images, camera_projections,
-                range_image_top_pose) = frame_utils.parse_range_image_and_camera_projection(
-                frame)
-                plt.figure(figsize=(25, 20))
+                range_image_top_pose) = frame_utils.parse_range_image_and_camera_projection(frame)
+                points, cp_points = frame_utils.convert_range_image_to_point_cloud(
+                frame,range_images, camera_projections, range_image_top_pose)
                 break
             count+=1
-        for index, image in enumerate(frame.images):
-            show_camera_image(image, frame.camera_labels, [3, 3, index+1])
         
-        #Still a work in progress            
         sample = {}
-        sample['a'] = 1
+        
+        #Frame data
+        sample['frame'] = frame
+        
+        #Camera Images            
+        sample['front'] = frame.images[0].image 
+        sample['front_left'] = frame.images[1].image 
+        sample['side_left'] = frame.images[2].image 
+        sample['front_right'] = frame.images[3].image
+        sample['side_right'] = frame.images[4].image
+        
+        #Camera shapes
+        sample['front_shape'] = tf.shape(wu.conv_to_image(frame.images[0].image)).numpy() #0
+        sample['front_left_shape'] = tf.shape(wu.conv_to_image(frame.images[1].image)).numpy()
+        sample['side_left_shape'] = tf.shape(wu.conv_to_image(frame.images[2].image)).numpy()
+        sample['front_right_shape'] = tf.shape(wu.conv_to_image(frame.images[3].image)).numpy()
+        sample['side_right_shape'] = tf.shape(wu.conv_to_image(frame.images[4].image)).numpy()
+        
+        #Camera time (seconds since Unix Epoch)
+        sample['front_camera_trigger_time'] = frame.images[0].camera_trigger_time
+        sample['front_camera_readout_done_time'] = frame.images[0].camera_readout_done_time
+        sample['front_left_camera_trigger_time'] = frame.images[1].camera_trigger_time
+        sample['front_left_camera_readout_done_time'] = frame.images[1].camera_readout_done_time
+        sample['side_left_camera_trigger_time'] = frame.images[2].camera_trigger_time
+        sample['side_left_camera_readout_done_time'] = frame.images[2].camera_readout_done_time
+        sample['front_right_camera_trigger_time'] = frame.images[3].camera_trigger_time
+        sample['front_right_camera_readout_done_time'] = frame.images[3].camera_readout_done_time 
+        sample['side_right_camera_trigger_time'] = frame.images[4].camera_trigger_time
+        sample['side_right_camera_readout_done_time'] = frame.images[4].camera_readout_done_time
+        
+        #Boundary boxes        
+        sample['projected_lidar_labels'] = frame.projected_lidar_labels
+        
+        #Start timestamp of the first top lidar spin (microseconds since unix epoch)
+        sample['lidar_start_capture_timestamp'] = frame.timestamp_micros
+        
+        #Data from all 5 LiDAR sensors, format is an array of five arrays
+        sample['lidar_point_coord']= points
+        sample['camera_proj_point_coord'] = cp_points
+    
         return sample
-
-#Testing
-test = WaymoDataset(os.getcwd()+"/data")
-print(test[198]['a'])    
-print(test[201]['a'])    
-print(test[500]['a'])  
