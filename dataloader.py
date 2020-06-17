@@ -14,6 +14,7 @@ class KittiDataset(Dataset):
         Initializes the Dataset, just given the root directory of the data and sets the original values of the instance
         variables.
         :param root_dir: string containing the path to the root directory
+        :param pathdf: pandas dataframe containing the path to each frame
         """
         self.root_dir = root_dir
         self.pathdf = pathdf
