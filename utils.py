@@ -34,7 +34,7 @@ def iso_string_to_nanoseconds(time_string):
     return total
 
 
-def get_nsec_time(sample_path, idx):
+def get_timestamp_nsec(sample_path, idx):
     """
     Given the file path to the scene and the frame number within that scene, returns an integer containing the
     time (nanoseconds) retrieved from the idx'th line in the path given.
@@ -59,25 +59,27 @@ def get_camera_data(path_name, camera_name, idx):
     :param [int] idx: The frame number in the scene
     :return [dict]: A dictionary containing the image (in a NumPy array), the shape of that array, and time taken
     """
+    
+    # The f-string is following the format of KITTI, padding the frame number with 10 zeros.
     img_arr = np.asarray(Image.open(os.path.join(path_name, CAMERAS[camera_name] + f"/data/{idx:010}.png")))
     return {
         camera_name + CAMERA_FIELD_NAMES[0]: img_arr,
         camera_name + CAMERA_FIELD_NAMES[1]: img_arr.shape,
-        camera_name + CAMERA_FIELD_NAMES[2]: get_nsec_time(os.path.join(path_name, CAMERAS[camera_name] + KITTI_TIMESTAMPS[0]), idx)
+        camera_name + CAMERA_FIELD_NAMES[2]: get_timestamp_nsec(os.path.join(path_name, CAMERAS[camera_name] + KITTI_TIMESTAMPS[0]), idx)
     }
 
 
 def get_lidar_data(path_name, idx):
     """
-        Gets the basic LiDAR information given the path name to the scene and the frame number within that scene.
-        :param [str] path_name: A file path to a scene within the dataset
-        :param [int] idx: The frame number in the scene
-        :return [dict]: A dictionary containing the points, reflectivity, start, and end times of the LiDAR scan.
-        """
+    Gets the basic LiDAR information given the path name to the scene and the frame number within that scene.
+    :param [str] path_name: A file path to a scene within the dataset
+    :param [int] idx: The frame number in the scene
+    :return [dict]: A dictionary containing the points, reflectivity, start, and end times of the LiDAR scan.
+    """
     lidar_points = load_velodyne_points(os.path.join(path_name, f"velodyne_points/data/{idx:010}.bin"))
     return {
         LIDAR_FIELD_NAMES[0]: lidar_points[:, :3],
         LIDAR_FIELD_NAMES[1]: lidar_points[:, 3],
-        LIDAR_FIELD_NAMES[2]: get_nsec_time(os.path.join(path_name, KITTI_TIMESTAMPS[1]), idx),
-        LIDAR_FIELD_NAMES[3]: get_nsec_time(os.path.join(path_name, KITTI_TIMESTAMPS[2]), idx)
+        LIDAR_FIELD_NAMES[2]: get_timestamp_nsec(os.path.join(path_name, KITTI_TIMESTAMPS[1]), idx),
+        LIDAR_FIELD_NAMES[3]: get_timestamp_nsec(os.path.join(path_name, KITTI_TIMESTAMPS[2]), idx)
     }
