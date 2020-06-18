@@ -2,22 +2,17 @@ import numpy as np
 from PIL import Image
 
 import os
+import enum
 
 from kitti_utils import load_velodyne_points
 
-CAMERAS = {"stereo_left": "image_02", "stereo_right": "image_03"}
+
+class KITTICameraNames(enum.Enum):
+    stereo_left = "image_02"
+    stereo_right = "image_03"
+
+
 KITTI_TIMESTAMPS = ["/timestamps.txt", "velodyne_points/timestamps_start.txt", "velodyne_points/timestamps_end.txt"]
-CAMERA_FIELD_NAMES = [
-    "_image",
-    "_shape",
-    "_capture_time_nsec"
-]
-LIDAR_FIELD_NAMES = [
-    "lidar_point_coord_velodyne",
-    "lidar_point_reflectivity",
-    "lidar_start_capture_time_nsec",
-    "lidar_end_capture_time_nsec"
-]
 
 
 def iso_string_to_nanoseconds(time_string):
@@ -59,13 +54,14 @@ def get_camera_data(path_name, camera_name, idx):
     :param [int] idx: The frame number in the scene
     :return [dict]: A dictionary containing the image (in a NumPy array), the shape of that array, and time taken
     """
-    
+
     # The f-string is following the format of KITTI, padding the frame number with 10 zeros.
-    img_arr = np.asarray(Image.open(os.path.join(path_name, CAMERAS[camera_name] + f"/data/{idx:010}.png")))
+    img_arr = np.asarray(Image.open(os.path.join(path_name, KITTICameraNames[camera_name].value + f"/data/{idx:010}.png")))
+    timestamp = get_timestamp_nsec(os.path.join(path_name, KITTICameraNames[camera_name].value + KITTI_TIMESTAMPS[0]), idx)
     return {
-        camera_name + CAMERA_FIELD_NAMES[0]: img_arr,
-        camera_name + CAMERA_FIELD_NAMES[1]: img_arr.shape,
-        camera_name + CAMERA_FIELD_NAMES[2]: get_timestamp_nsec(os.path.join(path_name, CAMERAS[camera_name] + KITTI_TIMESTAMPS[0]), idx)
+        f"{camera_name}_image": img_arr,
+        f"{camera_name}_shape": img_arr.shape,
+        f"{camera_name}_capture_time_nsec": timestamp
     }
 
 
@@ -77,9 +73,11 @@ def get_lidar_data(path_name, idx):
     :return [dict]: A dictionary containing the points, reflectivity, start, and end times of the LiDAR scan.
     """
     lidar_points = load_velodyne_points(os.path.join(path_name, f"velodyne_points/data/{idx:010}.bin"))
+    start_time = get_timestamp_nsec(os.path.join(path_name, KITTI_TIMESTAMPS[1]), idx)
+    end_time = get_timestamp_nsec(os.path.join(path_name, KITTI_TIMESTAMPS[2]), idx)
     return {
-        LIDAR_FIELD_NAMES[0]: lidar_points[:, :3],
-        LIDAR_FIELD_NAMES[1]: lidar_points[:, 3],
-        LIDAR_FIELD_NAMES[2]: get_timestamp_nsec(os.path.join(path_name, KITTI_TIMESTAMPS[1]), idx),
-        LIDAR_FIELD_NAMES[3]: get_timestamp_nsec(os.path.join(path_name, KITTI_TIMESTAMPS[2]), idx)
+        "lidar_point_coord_velodyne": lidar_points[:, :3],
+        "lidar_point_reflectivity": lidar_points[:, 3],
+        "lidar_start_capture_time_nsec": start_time,
+        "lidar_end_capture_time_nsec": end_time
     }
