@@ -84,5 +84,3 @@ class WaymoDataset(Dataset):
             }
 
         return sample
-data = WaymoDataset.init_from_config("waymoloader_test_config.yml")
-print(data[0]['front_shape'])
