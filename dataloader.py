@@ -9,14 +9,14 @@ from utils import get_camera_data, get_lidar_data
 
 
 class KittiDataset(Dataset):
-    def __init__(self, root_dir, pathdf):
+    def __init__(self, root_dir, dataset_paths):
         """
         Initializes the Dataset, given the root directory of the data and a dataframe of the paths to the dataset.
         :param root_dir [str]: string containing the path to the root directory
-        :param pathdf [pd.DataFrame]: the dataframe containing the paths and indices of the data
+        :param dataset_paths [pd.DataFrame]: the dataframe containing the paths and indices of the data
         """
         self.root_dir = root_dir
-        self.pathdf = pathdf
+        self.pathdf = dataset_paths
 
     @classmethod
     def init_from_config(cls, config_path):
