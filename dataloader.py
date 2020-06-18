@@ -5,7 +5,7 @@ import pandas as pd
 
 import os
 
-from utils import get_camera_data, get_lidar_data
+from kitti_utils import get_camera_data, get_lidar_data
 
 
 class KittiDataset(Dataset):

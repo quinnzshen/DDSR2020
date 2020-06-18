@@ -2,7 +2,7 @@ import pytest
 import numpy as np
 
 from dataloader import KittiDataset
-from utils import iso_string_to_nanoseconds
+from kitti_utils import iso_string_to_nanoseconds
 
 TEST_CONFIG_PATH = "dataloader_test_config.yml"
 
@@ -12,9 +12,9 @@ def dataset():
     return KittiDataset.init_from_config(TEST_CONFIG_PATH)
 
 
-def test_time_to_nano():
-    assert iso_string_to_nanoseconds("2011-09-26 14:14:11.435280384") == int(5.1251E13 + 435280384)
-    assert iso_string_to_nanoseconds("2021-09-36 00:00:00.010000001") == 10000001
+def test_iso_string_to_nanoseconds():
+    assert iso_string_to_nanoseconds("2011-09-26 14:14:11.435280384") == 1317046451435280384
+    assert iso_string_to_nanoseconds("2021-09-16 00:00:00.010000001") == 1631750400010000001
 
 
 def test_dataset_length(dataset):
