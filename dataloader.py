@@ -12,8 +12,8 @@ class KittiDataset(Dataset):
     def __init__(self, root_dir, pathdf):
         """
         Initializes the Dataset, given the root directory of the data and a dataframe of the paths to the dataset.
-        :param root_dir: string containing the path to the root directory
-        :param pathdf: the dataframe containing the paths and indices of the data
+        :param root_dir [str]: string containing the path to the root directory
+        :param pathdf [pd.DataFrame]: the dataframe containing the paths and indices of the data
         """
         self.root_dir = root_dir
         self.pathdf = pathdf
@@ -23,8 +23,8 @@ class KittiDataset(Dataset):
         """
         Creates an instance of the class using a config file. The config file supplies the paths to the text files
         containing the all the paths to the data.
-        :param config_path: The path to the config file
-        :return: The object instance
+        :param [str] config_path: The path to the config file
+        :return [KittiDataset]: The object instance
         """
         with open(config_path, "r") as yml:
             config = yaml.load(yml, Loader=yaml.Loader)
@@ -34,7 +34,7 @@ class KittiDataset(Dataset):
     def __len__(self):
         """
         Returns the total frame count in the dataset.
-        :return: The frame count in the dataset
+        :return [int]: The frame count in the dataset
         """
         return len(self.pathdf)
 
@@ -45,8 +45,8 @@ class KittiDataset(Dataset):
         (If the index is n, returns the nth frame of the dataset and its information.)
         The dictionary's fields are specified in Dataset Fields (Google Sheet file).
 
-        :param idx: An int representing the index of the sample to be retrieved
-        :return: A dictionary containing fields about the retrieved sample
+        :param [int] idx: An int representing the index of the sample to be retrieved
+        :return [dict]: A dictionary containing fields about the retrieved sample
         """
 
         if idx >= len(self.pathdf) or idx < 0:

@@ -23,8 +23,8 @@ LIDAR_FIELD_NAMES = [
 def iso_string_to_nanoseconds(time_string):
     """
     Converts a line in the format provided by timestamps.txt to the number of nanoseconds since the midnight of that day
-    :param time_string: The string to be converted into nanoseconds
-    :return: The number of nanoseconds since midnight
+    :param [str] time_string: The string to be converted into nanoseconds
+    :return [np.int64]: The number of nanoseconds since midnight
     """
     total = np.int64(0)
     total += int(time_string[11:13]) * 3600 * 1000000000
@@ -38,9 +38,9 @@ def get_nsec_time(sample_path, idx):
     """
     Given the file path to the scene and the frame number within that scene, returns an integer containing the
     time (nanoseconds) retrieved from the idx'th line in the path given.
-    :param sample_path: A file_path to a timestamps file
-    :param idx: The frame number within the scene
-    :return: NumPy array shape (4,) containing the time of the idx'th events (see above)
+    :param [str] sample_path: A file_path to a timestamps file
+    :param [int] idx: The frame number within the scene
+    :return [np.int64]: Integer containing the nanosecond taken of the given frame
     """
     with open(sample_path) as f:
         count = 0
@@ -54,10 +54,10 @@ def get_camera_data(path_name, camera_name, idx):
     """
     Gets the basic camera information given the path name to the scene, the camera name, and the frame number within
     that scene.
-    :param path_name: A file path to a scene within the dataset
-    :param camera_name: A camera name as defined in CAMERAS
-    :param idx: The frame number in the scene
-    :return: A dictionary containing the image (in a NumPy array), the shape of that array, and time taken
+    :param [str] path_name: A file path to a scene within the dataset
+    :param [str] camera_name: A camera name as defined in CAMERAS
+    :param [int] idx: The frame number in the scene
+    :return [dict]: A dictionary containing the image (in a NumPy array), the shape of that array, and time taken
     """
     img_arr = np.asarray(Image.open(os.path.join(path_name, CAMERAS[camera_name] + f"/data/{idx:010}.png")))
     return {
@@ -70,9 +70,9 @@ def get_camera_data(path_name, camera_name, idx):
 def get_lidar_data(path_name, idx):
     """
         Gets the basic LiDAR information given the path name to the scene and the frame number within that scene.
-        :param path_name: A file path to a scene within the dataset
-        :param idx: The frame number in the scene
-        :return: A dictionary containing the points, reflectivity, start, and end times of the LiDAR scan.
+        :param [str] path_name: A file path to a scene within the dataset
+        :param [int] idx: The frame number in the scene
+        :return [dict]: A dictionary containing the points, reflectivity, start, and end times of the LiDAR scan.
         """
     lidar_points = load_velodyne_points(os.path.join(path_name, f"velodyne_points/data/{idx:010}.bin"))
     return {
