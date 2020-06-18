@@ -7,9 +7,53 @@ import sys
 #If possible, use pip install waymo-open-dataset. If that doesn't work, clone the repo add at it to your path.
 sys.path.append("C:/Users/alexj/Documents/GitHub/waymo-od")
 from waymo_open_dataset import dataset_pb2 as open_dataset
+from waymo_open_dataset.utils import  frame_utils
 
 SPLIT_NAMES = ["train.txt", "validate.txt"]
+CAMERA_DICT = {
+             'FRONT':0,
+             'FRONT_LEFT':1,
+             'SIDE_LEFT':2,
+             'FRONT_RIGHT':3,
+             'SIDE_RIGHT':4
+         }
 
+def get_camera_data(frame, camera_name):
+    """
+    Gets the basic camera information given the path name to the scene, the camera name, and the frame number within
+    that scene.
+    :param [str] path_name: A file path to a scene within the dataset
+    :param [str] camera_name: A camera name
+    :param [int] idx: The frame number in the scene
+    :return [dict]: A dictionary containing the image (in a NumPy array), the shape of that array, timestamps, intrinsics and extrinsics, and pose
+    """
+    camera_upper = camera_name.upper()
+    return {
+        f"{camera_name}_image": frame.images[CAMERA_DICT[camera_upper]].image,
+        f"{camera_name}_shape": tf.shape(conv_to_image(frame.images[CAMERA_DICT[camera_upper]].image)).numpy(),
+        f"{camera_name}_trigger_time": frame.images[CAMERA_DICT[camera_upper]].camera_trigger_time,
+        f"{camera_name}_readout_done_time": frame.images[CAMERA_DICT[camera_upper]].camera_readout_done_time,
+        f"{camera_name}_intrinsics": np.reshape(frame.context.camera_calibrations[CAMERA_DICT[camera_upper]].intrinsic, (3,3)),
+        f"{camera_name}_extrinsics": np.reshape(frame.context.camera_calibrations[CAMERA_DICT[camera_upper]].extrinsic.transform, (4,4)),
+        f"{camera_name}_pose": np.reshape(frame.images[0].pose.transform, (4,4))
+    }
+def get_lidar_data(frame):
+    """
+    Gets the basic LiDAR information given the path name to the scene and the frame number within that scene.
+    :param [str] path_name: A file path to a scene within the dataset
+    :param [int] idx: The frame number in the scene
+    :return [dict]: A dictionary containing the points, reflectivity, start, and end times of the LiDAR scan.
+    """
+    (range_images, camera_projections,
+    range_image_top_pose) = frame_utils.parse_range_image_and_camera_projection(frame)
+    points, cp_points = frame_utils.convert_range_image_to_point_cloud(
+    frame,range_images, camera_projections, range_image_top_pose)
+    return {
+        "lidar_point_coord": points,
+        "camera_proj_point_coord": cp_points,
+        "lidar_start_capture_timestamp": frame.timestamp_micros,
+        "projected_lidar_labels": frame.projected_lidar_labels
+    }
 def generate_split(root_dir, split=0.7, seed=0):
     """ 
     Generates train.txt or validate.txt.

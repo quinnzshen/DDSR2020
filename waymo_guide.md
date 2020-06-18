@@ -19,7 +19,11 @@ Note: You might need to switch to python 3.6, not sure if 3.7 or 3.8 are suporte
 ## Packages to add
 1. Tensorflow, version = 2.1.0. 
 2. Sys (if pip install waymo-open-dataset doesn't work)
-3. Waymo_open_dataset (references above)
+3. Waymo_open_dataset (referenced above)
+
+## Running my code
+1. Copy the test.txt and train.txt files into the folder containing the Waymo data
+1. Edit the waymo_loader_test_config.yml file to match your setup
 
 ## Questions
 Contact me @ alexjiang8715@gmail.com or via Slack

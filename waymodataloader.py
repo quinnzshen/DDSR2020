@@ -3,146 +3,86 @@ from torch.utils.data import Dataset
 import os
 import tensorflow as tf
 import sys
-import waymo_utils as wu
-import matplotlib.pyplot as plt
-import numpy as np
 #If possible, use pip install waymo-open-dataset. If that doesn't work, clone the repo add at it to your path.
 sys.path.append("C:/Users/alexj/Documents/GitHub/waymo-od")
 from waymo_open_dataset.utils import  frame_utils
 from waymo_open_dataset import dataset_pb2 as open_dataset
+import pandas as pd
+import yaml
+from waymo_utils import get_camera_data, get_lidar_data
   
 class WaymoDataset(Dataset):
-    def __init__(self,root_dir):
+    def __init__(self,root_dir, dataset_paths):
         """
         Initializes the Dataset, just given the root directory of the data and sets the original values of the instance
         variables. 
         Assumes that the data is in TFRecord format and stored in one folder
         :param root_dir: string containing the path to the root directory
+        :param dataset_paths [pd.DataFrame]: the dataframe containing the paths and indicies of the data
         """
         self.root_dir = root_dir
-        self.len = -1
+        self.pathdf = dataset_paths
         self.train_dir = []
-    
-    def set_up(self):
+    @classmethod
+    def init_from_config(cls, config_path):
         """
-        Sets up self.len and self.train_dir containing all the directories and indices. (Only called once per instance.)
+        Creates an instance of the class using a config file. The config file supplies the paths to the text files
+        containing the all the paths to the data.
+        :param [str] config_path: The path to the config file
+        :return [WaymoDataset]: The object instance
         """
-        with open(os.path.join(self.root_dir, wu.SPLIT_NAMES[0]), "r") as train:
-            for line in train:
-                self.train_dir.append(line.split())
-        self.len = len(self.train_dir)
-   
-    def reset_split(self, split=0.7, seed=None):
-        """
-        Resets the split files in the dataset based on the given split probability and seed. If the seed is not given,
-        the seed is randomly chosen.
-        :param split: The chance of a given frame being put into train
-        :param seed: The seed of the RNG, if None, then it is random
-        """
-        wu.generate_split(self.root_dir, split, seed)
-        self.set_up()    
+        with open(config_path,"r") as yml:
+            config = yaml.load(yml, Loader=yaml.Loader)
+            path_df = pd.concat([pd.read_csv(path, sep = " ", header = None) for path in config["dataset_paths"]])
+            return cls(config["root_directory"],path_df)
     
     def __len__(self):
         """
-        Returns the total frame count in the dataset. If the length has not been calculated yet, runs set_len, else
-        it simply returns the previously calculated length.
-        :return: The frame count in the dataset
+        Returns the total frame count in the dataset
+        :return [int]: Frame count in dataset
         """
-        if self.len < 0:
-            self.set_up()
-        return self.len
+        return len(self.pathdf)
 
-    def __getitem__(self, item):
+    def __getitem__(self, idx):
         """
         Given a specific index (starting from 0), returns a dictionary containing information about the sample (frame) at that index in
         the dataset.
         (If the index is n, returns the nth frame of the dataset and its information.)
         The dictionary's fields are specified in Dataset Fields (Google Sheet file).
 
-        :param item: An int representing the index of the sample to be retrieved
+        :param idx: An int representing the index of the sample to be retrieved
         :return: A dictionary containing fields about the retrieved sample
         """
-
-        if self.len < 0:
-            self.set_up()
-
-        path_name = self.train_dir[item][0]
-        item = int(self.train_dir[item][1])
         
-        if torch.is_tensor(item):
-            item = item.tolist()
-
-        if item >= self.len or item < 0:
+        #Data validation
+        if idx >= len(self.pathdf) or idx < 0:
             raise IndexError("Dataset index out of range. (Less than 0 or greater than or equal to length)")
        	
-       	#Gets relevant data from TFRecord
+        #Finding filename and index
+        path_name = self.pathdf.iloc[idx,0]
+        idx = int(self.pathdf.iloc[idx,1])
+
+       	#Gets frame data from TFRecord
         item_data = tf.data.TFRecordDataset(path_name, compression_type='')
         count = 0
         for data in item_data:
-            if (count == item):
+            if (count == idx):
                 frame = open_dataset.Frame()
                 frame.ParseFromString(bytearray(data.numpy()))
-                
-                #calib = open_dataset.CameraCalibration()
-                #calib.ParseFromString(bytearray(data.numpy()))
-                
-                (range_images, camera_projections,
-                range_image_top_pose) = frame_utils.parse_range_image_and_camera_projection(frame)
-                points, cp_points = frame_utils.convert_range_image_to_point_cloud(
-                frame,range_images, camera_projections, range_image_top_pose)
                 break
             count+=1
         
-        sample = {}
+        #Puts all info into the dictionary
+        sample = {
+            "frame":frame,
+            **get_camera_data(frame, "front"),
+            **get_camera_data(frame, "front_left"),
+            **get_camera_data(frame, "side_left"),
+            **get_camera_data(frame, "front_right"),
+            **get_camera_data(frame, "side_right"),
+            **get_lidar_data(frame)
+            }
 
-        #Frame data
-        sample['frame'] = frame
-        
-        #Camera Images            
-        sample['front'] = frame.images[0].image 
-        sample['front_left'] = frame.images[1].image 
-        sample['side_left'] = frame.images[2].image 
-        sample['front_right'] = frame.images[3].image
-        sample['side_right'] = frame.images[4].image
-        
-        #Camera shapes
-        sample['front_shape'] = tf.shape(wu.conv_to_image(frame.images[0].image)).numpy() #0
-        sample['front_left_shape'] = tf.shape(wu.conv_to_image(frame.images[1].image)).numpy()
-        sample['side_left_shape'] = tf.shape(wu.conv_to_image(frame.images[2].image)).numpy()
-        sample['front_right_shape'] = tf.shape(wu.conv_to_image(frame.images[3].image)).numpy()
-        sample['side_right_shape'] = tf.shape(wu.conv_to_image(frame.images[4].image)).numpy()
-        
-        #Camera time (seconds since Unix Epoch)
-        sample['front_camera_trigger_time'] = frame.images[0].camera_trigger_time
-        sample['front_camera_readout_done_time'] = frame.images[0].camera_readout_done_time
-        sample['front_left_camera_trigger_time'] = frame.images[1].camera_trigger_time
-        sample['front_left_camera_readout_done_time'] = frame.images[1].camera_readout_done_time
-        sample['side_left_camera_trigger_time'] = frame.images[2].camera_trigger_time
-        sample['side_left_camera_readout_done_time'] = frame.images[2].camera_readout_done_time
-        sample['front_right_camera_trigger_time'] = frame.images[3].camera_trigger_time
-        sample['front_right_camera_readout_done_time'] = frame.images[3].camera_readout_done_time 
-        sample['side_right_camera_trigger_time'] = frame.images[4].camera_trigger_time
-        sample['side_right_camera_readout_done_time'] = frame.images[4].camera_readout_done_time
-        
-        #Camera intrinsics
-        sample['front_intrinsics'] = np.reshape(frame.context.camera_calibrations[0].intrinsic, (3,3))
-        sample['front_left_intrinsics'] = np.reshape(frame.context.camera_calibrations[1].intrinsic, (3,3))
-        sample['side_left_intrinsics'] = np.reshape(frame.context.camera_calibrations[2].intrinsic, (3,3))
-        sample['front_right_intrinsics'] = np.reshape(frame.context.camera_calibrations[3].intrinsic, (3,3))
-        sample['side_right_intrinsics'] = np.reshape(frame.context.camera_calibrations[4].intrinsic, (3,3))
-
-        #Pose
-        sample['pose'] = np.reshape(frame.images[0].pose.transform, (4,4))
-        sample['extrinsic'] = np.reshape(frame.context.camera_calibrations[0].extrinsic.transform, (4,4))
-        
-        #Boundary boxes        
-        sample['projected_lidar_labels'] = frame.projected_lidar_labels
-        
-        #Start timestamp of the first top lidar spin (microseconds since unix epoch)
-        sample['lidar_start_capture_timestamp'] = frame.timestamp_micros
-        
-        #Data from all 5 LiDAR sensors, format is an array of five arrays
-        sample['lidar_point_coord']= points
-        sample['camera_proj_point_coord'] = cp_points
-    
         return sample
+data = WaymoDataset.init_from_config("waymoloader_test_config.yml")
+print(data[0]['front_shape'])
