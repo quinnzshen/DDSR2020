@@ -5,6 +5,7 @@ import tensorflow as tf
 import sys
 import waymo_utils as wu
 import matplotlib.pyplot as plt
+import numpy as np
 #If possible, use pip install waymo-open-dataset. If that doesn't work, clone the repo add at it to your path.
 sys.path.append("C:/Users/alexj/Documents/GitHub/waymo-od")
 from waymo_open_dataset.utils import  frame_utils
@@ -48,7 +49,6 @@ class WaymoDataset(Dataset):
         :return: The frame count in the dataset
         """
         if self.len < 0:
-            print("hi")
             self.set_up()
         return self.len
 
@@ -82,6 +82,10 @@ class WaymoDataset(Dataset):
             if (count == item):
                 frame = open_dataset.Frame()
                 frame.ParseFromString(bytearray(data.numpy()))
+                
+                #calib = open_dataset.CameraCalibration()
+                #calib.ParseFromString(bytearray(data.numpy()))
+                
                 (range_images, camera_projections,
                 range_image_top_pose) = frame_utils.parse_range_image_and_camera_projection(frame)
                 points, cp_points = frame_utils.convert_range_image_to_point_cloud(
@@ -90,7 +94,7 @@ class WaymoDataset(Dataset):
             count+=1
         
         sample = {}
-        
+
         #Frame data
         sample['frame'] = frame
         
@@ -119,6 +123,17 @@ class WaymoDataset(Dataset):
         sample['front_right_camera_readout_done_time'] = frame.images[3].camera_readout_done_time 
         sample['side_right_camera_trigger_time'] = frame.images[4].camera_trigger_time
         sample['side_right_camera_readout_done_time'] = frame.images[4].camera_readout_done_time
+        
+        #Camera intrinsics
+        sample['front_intrinsics'] = np.reshape(frame.context.camera_calibrations[0].intrinsic, (3,3))
+        sample['front_left_intrinsics'] = np.reshape(frame.context.camera_calibrations[1].intrinsic, (3,3))
+        sample['side_left_intrinsics'] = np.reshape(frame.context.camera_calibrations[2].intrinsic, (3,3))
+        sample['front_right_intrinsics'] = np.reshape(frame.context.camera_calibrations[3].intrinsic, (3,3))
+        sample['side_right_intrinsics'] = np.reshape(frame.context.camera_calibrations[4].intrinsic, (3,3))
+
+        #Pose
+        sample['pose'] = np.reshape(frame.images[0].pose.transform, (4,4))
+        sample['extrinsic'] = np.reshape(frame.context.camera_calibrations[0].extrinsic.transform, (4,4))
         
         #Boundary boxes        
         sample['projected_lidar_labels'] = frame.projected_lidar_labels
