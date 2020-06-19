@@ -4,7 +4,7 @@ import numpy as np
 from dataloader import KittiDataset
 from kitti_utils import iso_string_to_nanoseconds
 
-TEST_CONFIG_PATH = "dataloader_test_config.yml"
+TEST_CONFIG_PATH = "configs/kitti_dataset.yml"
 
 
 @pytest.fixture

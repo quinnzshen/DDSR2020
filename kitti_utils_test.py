@@ -6,7 +6,7 @@ import os
 
 def test_load_lidar_points():
     """
-    Tests the return of the load_velodyne_points funtion in kitti_utils.py
+    Tests the return of the load_lidar_points funtion in kitti_utils.py
     """
     SAMPLE_LIDAR_POINTS_PATH = 'data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/velodyne_points/data/0000000010.bin'
     lidar_point_coord_velodyne = ku.load_lidar_points(SAMPLE_LIDAR_POINTS_PATH)
