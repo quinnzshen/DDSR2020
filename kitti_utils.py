@@ -64,3 +64,21 @@ def compute_image_from_velodyne_matrices(calibration_dir):
         camera_image_from_velodyne_dict.update({f"cam{camera_name}" : camera_image_from_velodyne})
     
     return camera_image_from_velodyne_dict
+
+
+def get_camera_intrinsic_dict(calibration_dir): 
+    """
+    This function gets the intrinsic matrix for each camera from the KITTI claibation file
+    :param: [string] calibration_dir: directory where the KITTI calbration files are located
+    :return: dictionary of length 4 containing the 3x3 intrinsic matrix for each camera (keys: cam00, cam01, cam02, cam03)
+    """
+    # Load cam_to_cam calib file.
+    cam2cam = read_calibration_file(os.path.join(calibration_dir, 'calib_cam_to_cam.txt'))
+
+    camera_intrinsic_dict = {}
+    KITTI_CAMERA_NAMES = ['00', '01', '02', '03']
+    for camera_name in KITTI_CAMERA_NAMES:
+        intrinsic_matrix = cam2cam[f"K_{camera_name}"].reshape(3,3)
+        camera_intrinsic_dict.update({f"cam{camera_name}" : intrinsic_matrix})
+    
+    return camera_intrinsic_dict
