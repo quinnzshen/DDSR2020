@@ -1,16 +1,16 @@
 from __future__ import absolute_import, division, print_function
-import os
+
 import numpy as np
+import os
+import pandas as pd
 
 def load_lidar_points(filename):
     """
     This function loads 3D point cloud from KITTI file format.
     :param [string] filename: File path for 3d point cloud data.
-    :return [np.array]: [N, 3] N lidar points represented as (X, Y, Z) points.
+    :return [np.array]: [N, 4] N lidar points represented as (X, Y, Z, reflectivity) points.
     """
-    lidar_point_coord_velodyne = np.fromfile(filename, dtype=np.float32).reshape(-1, 4)
-    # Delete bottom row of reflectance value so columns are just [X, Y, Z]
-    return lidar_point_coord_velodyne[:, :3]
+    return np.fromfile(filename, dtype=np.float32).reshape(-1, 4)
 
 def read_calibration_file(path):
     """
@@ -64,3 +64,39 @@ def compute_image_from_velodyne_matrices(calibration_dir):
         camera_image_from_velodyne_dict.update({f"cam{camera_name}" : camera_image_from_velodyne})
     
     return camera_image_from_velodyne_dict
+
+
+def get_imu_data(scene_path, idx):
+    """
+    Get Intertial Measurement Unit (IMU) data. 
+    :param [string] scene_path: A file path to a scene within the KITTI dataset.
+    :param [int] idx: The frame number in the scene. 
+    :return [dict]: Return a dictionary of imu data (key: field name, value: field value).
+    """
+    imu_data_path = os.path.join(scene_path, f"oxts/data/{idx:010}.txt")
+    imu_format_path = os.path.join(scene_path, "oxts/dataformat.txt")
+    
+    with open(imu_format_path) as f:
+        # The data is formatted as "name: description". We only care about the name here.
+        imu_keys = [line.split(':')[0] for line in f.readlines()]
+
+    with open(imu_data_path) as f:
+        imu_values = f.read().split()
+
+    return dict(zip(imu_keys, imu_values))
+
+
+def get_imu_dataframe(scene_path):
+    """
+    Get Intertial Measurement Unit (IMU) data for an entire scene.
+    :param [string] scene_path: A file path to a scene within the KITTI dataset.
+    :return [pd.DataFrame]: A dataframe with the entire scenes IMU data.
+    """
+    num_frames = len(os.listdir(os.path.join(scene_path, 'oxts/data')))
+
+    imu_values = []
+    for idx in range(num_frames):
+        imu_data = get_imu_data(scene_path, idx)
+        imu_values.append(list(imu_data.values()))
+
+    return pd.DataFrame(imu_values, columns=list(imu_data.keys()))
