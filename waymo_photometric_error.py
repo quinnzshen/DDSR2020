@@ -31,21 +31,84 @@ def plot_sparse_image(lidar_point_coord_camera_image, image, shape):
     plt.scatter(xs,ys,c=colors,s=10,marker='s')
 
 def pixel_to_world(pixel, intrinsics, extrinsics, pose, depth):
+    """
+    pose_rot = pose[:3,:3]
+    pose_trans = pose[:3,3:]
+    ext_rot = extrinsics[:3,:3]
+    ext_trans = extrinsics[:3,3:]
+    pixel = np.concatenate((pixel, [[1]]))
+    cam = np.matmul(np.linalg.inv(intrinsics),depth*pixel)
+    vehicle = np.matmul(np.linalg.inv(ext_rot), cam)+ext_trans
+    world = np.matmul(np.linalg.inv(pose_rot), vehicle)+pose_trans
+    [[-7.77104399e+04]
+     [-1.29457807e+04]
+     [ 3.25182212e+01]]
+    ------
+    pixel = depth*np.concatenate((pixel, [[1]]))
+    camera_coord = np.concatenate((np.matmul(np.linalg.inv(intrinsics), pixel), [[1]]))
+    vehicle_coord = np.matmul(np.linalg.inv(extrinsics), camera_coord)
+    world = np.matmul(np.linalg.inv(pose), vehicle_coord)
+    [[-5.23229696e+04]
+     [-6.51712132e+03]
+     [ 3.25569636e+01]]
+    -----
+    pixel = np.concatenate((pixel, [[1]]))
+    rot = pose[:3,:3] 
+    trans = pose[:3,3:]
+    world = np.matmul(np.linalg.inv(rot),np.matmul(np.linalg.inv(intrinsics),pixel))+trans
+    [[-7.47743082e+04]
+     [-1.16970724e+04]
+     [ 3.25092834e+01]]
+    -----
     extrinsics = extrinsics[:3,:]
     pose = pose[:3,:]
     pixel = np.concatenate((pixel, [[1]]))
     cam = np.matmul(np.linalg.inv(intrinsics),depth*pixel)
     vehicle = np.matmul(extrinsics, np.concatenate((cam, [[1]])))
     output = np.matmul(pose, np.concatenate((vehicle, [[1]])))
-    """
+    [[1.37474261e+05]
+     [1.34586117e+04]
+     [3.37785696e+01]]
+    -----
     pixel = np.concatenate((pixel, [[1]]))
     rot = extrinsics[:3,:3]
     trans = extrinsics[:3,3:]
     pixel_to_vehicle = np.matmul(np.linalg.inv(rot),(np.matmul((np.linalg.inv(intrinsics)),(depth*pixel))-trans))
     vehicle_to_world = np.matmul((pose[0:3, 0:3]), pixel_to_vehicle) + pose[:3, 3:]
+    [[1.43030492e+05]
+     [1.58508770e+04]
+     [3.37590930e+01]]
     """
-    return output
+    return world
 def world_to_pixel(world_coord, intrinsics, extrinsics, pose):
+    """    
+    pose_rot = pose[:3,:3]
+    pose_trans = pose[:3,3:]
+    ext_rot = extrinsics[:3,:3]
+    ext_trans = extrinsics[:3,3:]
+    vehicle = np.matmul(pose_rot, (world_coord-pose_trans))
+    cam = np.matmul(ext_rot, (vehicle-ext_trans))
+    image_coord = np.matmul(intrinsics, cam)
+    [[-7.77104399e+04]
+     [-1.29457807e+04]
+     [ 3.25182212e+01]]
+    ------
+    vehicle_coord = np.matmul(pose, world_coord)
+    camera_coord = np.matmul(extrinsics, vehicle_coord)
+    image_coord = np.matmul(intrinsics, camera_coord[:3,:])
+    [[-5.23229696e+04]
+     [-6.51712132e+03]
+     [ 3.25569636e+01]]
+    ------
+    world_coord = np.concatenate((world_coord,[[1]]))
+    identity = np.array([[1,0,0],[0,1,0],[0,0,1]])
+    transform = np.concatenate((identity, -pose[:3,3:]), axis = 1)
+    rot = pose[:3,:3]
+    image_coord = np.matmul(intrinsics,np.matmul(rot,np.matmul(transform,world_coord)))
+    [[-7.47743082e+04]
+     [-1.16970724e+04]
+     [ 3.25092834e+01]]
+    ------
     pose_rot = pose[:3,:3]
     pose_trans = pose[:3,3:]
     ext_rot = extrinsics[:3,:3]
@@ -53,15 +116,21 @@ def world_to_pixel(world_coord, intrinsics, extrinsics, pose):
     vehicle = np.matmul(np.linalg.inv(pose_rot), (world_coord-pose_trans))
     cam = np.matmul(np.linalg.inv(ext_rot), (vehicle-ext_trans))
     output = np.matmul(intrinsics, cam)
-    """
+    [[1.37474261e+05]
+     [1.34586117e+04]
+     [3.37785696e+01]]
+    ------
     rot = pose[:3,:3]
     trans = pose[:3,3:]
     world_to_cam = np.matmul(np.linalg.inv(rot),(world_coord-trans))
     cam_cord = np.concatenate((world_to_cam, [[1]]))
     extrinsics = extrinsics[:3,:]
-    coord = np.matmul(intrinsics, np.matmul(extrinsics,cam_cord))
-    output = np.array([coord[0]/coord[2], coord[1]/coord[2], coord[2]])
+    image_coord = np.matmul(intrinsics, np.matmul(extrinsics,cam_cord))
+    [[1.43030492e+05]
+     [1.58508770e+04]
+     [3.37590930e+01]]
     """
+    output = np.array([image_coord[0]/image_coord[2], image_coord[1]/image_coord[2], image_coord[2]])
     return output
 
 def relative_pose(pose, prev_pose):
@@ -91,6 +160,10 @@ target_pose= data[1]['front_pose']
 target_extrinsics = data[1]['front_extrinsics']
 
 target_lidar_to_cam = wu.generate_lidar_point_coord_camera_image(target, target_lidar, target_lidar_cp, 'front') 
+
+#target_lidar_to_cam = np.vstack(target_lidar)
+
+
 #plot_sparse_image(target_lidar_to_cam, data[1]['front_image'], data[1]['front_shape'])
 wu.plot_image(data[1]['front_image'])
 

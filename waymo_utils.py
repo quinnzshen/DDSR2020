@@ -47,16 +47,19 @@ def get_lidar_data(frame):
     (range_images, camera_projections,
     range_image_top_pose) = frame_utils.parse_range_image_and_camera_projection(frame)
     points, cp_points = frame_utils.convert_range_image_to_point_cloud(
-    frame,range_images, camera_projections, range_image_top_pose)
+    frame, range_images, camera_projections, range_image_top_pose)
     return {
+        ""
         "lidar_point_coord": points,
         "camera_proj_point_coord": cp_points,
         "lidar_start_capture_timestamp": frame.timestamp_micros,
-        "projected_lidar_labels": frame.projected_lidar_labels
+        "projected_lidar_labels": frame.projected_lidar_labels,
+        "range_image_pose": range_image_top_pose
     }
+
 def generate_split(root_dir, split=0.7, seed=0):
     """ 
-    Generates train.txt or validate.txt.
+    Generates train.txt or validate.txt
     :param root_dir: The root directory of the dataset
     :param split: The chance of a given frame being put into train
     :param seed: The seed of the RNG, if None, then it is random (default seed is 0)
