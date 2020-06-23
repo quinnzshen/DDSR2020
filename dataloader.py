@@ -9,7 +9,7 @@ from kitti_utils import get_camera_data, get_lidar_data, get_nearby_frames_data
 
 
 class KittiDataset(Dataset):
-    def __init__(self, root_dir, dataset_index, delta):
+    def __init__(self, root_dir, dataset_index, previous_frames, next_frames):
         """
         Initializes the Dataset, given the root directory of the data and a dataframe of the paths to the dataset.
         :param root_dir [str]: string containing the path to the root directory
@@ -17,10 +17,11 @@ class KittiDataset(Dataset):
         """
         self.root_dir = root_dir
         self.dataset_index = dataset_index
-        self.delta = delta
+        self.previous_frames = previous_frames
+        self.next_frames = next_frames
 
     @classmethod
-    def init_from_config(cls, config_path):
+    def init_from_config(self, config_path):
         """
         Creates an instance of the class using a config file. The config file supplies the paths to the text files
         containing the all the paths to the data.
@@ -30,7 +31,7 @@ class KittiDataset(Dataset):
         with open(config_path, "r") as yml:
             config = yaml.load(yml, Loader=yaml.Loader)
             dataset_index = pd.concat([pd.read_csv(path, sep=" ", header=None) for path in config["dataset_paths"]])
-        return cls(root_dir=config["root_directory"], dataset_index=dataset_index, delta=config["delta"])
+        return self(root_dir=config["root_directory"], dataset_index=dataset_index, previous_frames=config["previous_frames"], next_frames=config["next_frames"])
 
     def __len__(self):
         """
@@ -57,7 +58,7 @@ class KittiDataset(Dataset):
         date_name = os.path.dirname(path_name)
         idx = int(self.dataset_index.iloc[idx, 1])
 
-        nearby_frames_data = get_nearby_frames_data(path_name, idx, self.delta)
+        nearby_frames_data = get_nearby_frames_data(path_name, idx, self.previous_frames, self.next_frames)
         # Taking information from the directory and putting it into the sample dictionary
         sample = {
             **get_camera_data(path_name, idx),

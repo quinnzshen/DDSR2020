@@ -110,7 +110,7 @@ def get_timestamp_nsec(sample_path, idx):
                 return iso_string_to_nanoseconds(line)
             count += 1
 
-def get_nearby_frames_data(path_name, idx, delta):
+def get_nearby_frames_data(path_name, idx, previous_frames, next_frames):
         """
         Given a specific index, return a dictionary containing information about the frame n frames before and after the target index
         in the dataset.
@@ -120,7 +120,7 @@ def get_nearby_frames_data(path_name, idx, delta):
                         (e.g. -1 would be the previous image, 2 would be the next-next image).
         """
         nearby_frames = {}
-        for nearby_idx in range(idx - delta, idx + delta + 1):
+        for nearby_idx in range(idx - previous_frames, idx + next_frames + 1):
             # We do not want to include the current frame in the nearby frames data.
             if nearby_idx == 0:
                 continue

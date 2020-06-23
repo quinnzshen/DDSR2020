@@ -1,4 +1,5 @@
 root_directory: data/kitti_example
 dataset_paths:
   - dataloader_tests.txt
-delta: 1
+previous_frames: 1
+next_frames: 1
