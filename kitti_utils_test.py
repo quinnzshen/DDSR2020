@@ -13,7 +13,7 @@ def test_load_lidar_points():
     """
     SAMPLE_LIDAR_POINTS_PATH = 'data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/velodyne_points/data/0000000010.bin'
     lidar_point_coord_velodyne = ku.load_lidar_points(SAMPLE_LIDAR_POINTS_PATH)
-    assert lidar_point_coord_velodyne.shape == (116006, 3)
+    assert lidar_point_coord_velodyne.shape == (116006, 4)
     assert math.isclose(lidar_point_coord_velodyne[0][0], 73.89, rel_tol = .00001)
     assert math.isclose(lidar_point_coord_velodyne[0][1], 7.028, rel_tol = .00001)
 
