@@ -104,6 +104,24 @@ def get_timestamp_nsec(sample_path, idx):
                 return iso_string_to_nanoseconds(line)
             count += 1
 
+def get_nearby_frames(delta):
+        """
+        Given a specific index, return a dictionary containing information about the frame n frames before and after the target index
+        in the dataset.
+        """
+        prev_frame = get_camera_data(path_name, camera_name, (idx - delta))
+        next_frame = get_camera_data(path_name, camera_name, (idx + delta))
+        if (idx + delta) >= len(self.pathdf) and (idx - delta) < 0:
+            raise IndexError(f"Dataset index out of range. Given: {idx + delta} and {idx - delta} (Less than 0 and greater than or equal to length)")
+        elif (idx - delta) < 0:
+            raise IndexError(f"Dataset index out of range. Given: {idx - delta} (Less than 0")
+            return next_frame
+        elif (idx + delta) >= len(self.pathdf):
+            raise IndexError(f"Dataset index out of range. Given: {idx + delta} (Greater than or equal to length")
+            return prev_frame
+        else:
+            return prev_frame, next_frame
+
 
 def get_camera_data(path_name, camera_names, idx):
     """
