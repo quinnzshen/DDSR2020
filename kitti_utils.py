@@ -9,8 +9,13 @@ from enum import Enum
 
 
 class KITTICameraNames(str, Enum):
-    stereo_left = "image_02"
-    stereo_right = "image_03"
+    stereo_left = "stereo_left"
+    stereo_right = "stereo_right"
+
+CAMERA_NAME_TO_PATH_MAPPING = {
+    KITTICameraNames.stereo_left: "image_02",
+    KITTICameraNames.stereo_right: "image_03"
+}
 
 
 KITTI_TIMESTAMPS = ["/timestamps.txt", "velodyne_points/timestamps_start.txt", "velodyne_points/timestamps_end.txt"]
@@ -105,44 +110,52 @@ def get_timestamp_nsec(sample_path, idx):
                 return iso_string_to_nanoseconds(line)
             count += 1
 
-def get_nearby_frames(delta):
+def get_nearby_frames_data(path_name, idx, delta):
         """
         Given a specific index, return a dictionary containing information about the frame n frames before and after the target index
         in the dataset.
+        :param dataset_index [pd.DataFrame]: The dataframe containing the paths and indices of the data
+        :param [int] delta: Number of frames before and after target frame to retrieve.
+        :return [dict]: Dictionary containing camera data of nearby frames, the key is the relative index and the value is the data.
+                        (e.g. -1 would be the previous image, 2 would be the next-next image).
         """
-        prev_frame = get_camera_data(path_name, camera_name, (idx - delta))
-        next_frame = get_camera_data(path_name, camera_name, (idx + delta))
-        if (idx + delta) >= len(self.pathdf) and (idx - delta) < 0:
-            raise IndexError(f"Dataset index out of range. Given: {idx + delta} and {idx - delta} (Less than 0 and greater than or equal to length)")
-        elif (idx - delta) < 0:
-            raise IndexError(f"Dataset index out of range. Given: {idx - delta} (Less than 0")
-            return next_frame
-        elif (idx + delta) >= len(self.pathdf):
-            raise IndexError(f"Dataset index out of range. Given: {idx + delta} (Greater than or equal to length")
-            return prev_frame
-        else:
-            return prev_frame, next_frame
+        nearby_frames = {}
+        for nearby_idx in range(idx - delta, idx + delta + 1):
+            # We do not want to include the current frame in the nearby frames data.
+            if nearby_idx == 0:
+                continue
+
+            print("idx", nearby_idx)
+            nearby_frames[nearby_idx] = get_camera_data(path_name, nearby_idx)
+        return nearby_frames
 
 
-def get_camera_data(path_name, camera_names, idx):
+def get_camera_data(path_name, idx):
     """
     Gets the basic camera information given the path name to the scene, the camera name, and the frame number within
     that scene.
     :param [str] path_name: A file path to a scene within the dataset
-    :param [list] camera_names: A list of camera names as defined in CAMERAS
     :param [int] idx: The frame number in the scene
-    :return [dict]: A dictionary containing the image (in a NumPy array), the shape of that array, and time taken
+    :return [dict]: A dictionary containing camera data. If the camera data cannot be found, return an empty dictionary.
     """
-    out = dict()
-    for camera_name in camera_names:
-        # The f-string is following the format of KITTI, padding the frame number with 10 zeros.
-        camera_image = np.asarray(Image.open(os.path.join(path_name, f"{KITTICameraNames[camera_name]}/data/{idx:010}.png")))
-        timestamp = get_timestamp_nsec(os.path.join(path_name, f"{KITTICameraNames[camera_name]}/timestamps.txt"), idx)
-        out[f"{camera_name}_image"] = camera_image
-        out[f"{camera_name}_shape"] = camera_image.shape
-        out[f"{camera_name}_capture_time_nsec"] = timestamp
+    camera_data = dict()
 
-    return out
+    for camera_name in KITTICameraNames:
+        camera_path = CAMERA_NAME_TO_PATH_MAPPING[camera_name]
+        
+        # Check if required paths exist.
+        camera_image_path = os.path.join(path_name, f"{camera_path}/data/{idx:010}.png")
+        timestamp_path = os.path.join(path_name, f"{camera_path}/timestamps.txt")
+
+        if os.path.exists(camera_image_path) and os.path.exists(timestamp_path):
+            # The f-string is following the format of KITTI, padding the frame number with 10 zeros.
+            camera_image = np.asarray(Image.open(camera_image_path))
+            timestamp = get_timestamp_nsec(timestamp_path, idx)
+            camera_data[f"{camera_name}_image"] = camera_image
+            camera_data[f"{camera_name}_shape"] = camera_image.shape
+            camera_data[f"{camera_name}_capture_time_nsec"] = timestamp
+
+    return camera_data
 
 
 def get_lidar_data(path_name, idx):
