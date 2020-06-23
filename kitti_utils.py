@@ -9,9 +9,7 @@ def load_lidar_points(filename):
     :param [string] filename: File path for 3d point cloud data.
     :return [np.array]: [N, 3] N lidar points represented as (X, Y, Z) points.
     """
-    lidar_point_coord_velodyne = np.fromfile(filename, dtype=np.float32).reshape(-1, 4)
-    # Delete bottom row of reflectance value so columns are just [X, Y, Z]
-    return lidar_point_coord_velodyne[:, :3]
+    return np.fromfile(filename, dtype=np.float32).reshape(-1, 4)
 
 
 def read_calibration_file(path):

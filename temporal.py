@@ -1,6 +1,14 @@
 import numpy as np
+import matplotlib.image as mpimg
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
 import os
+
+from kitti_utils import compute_image_from_velodyne_matrices, read_calibration_file, load_lidar_points
+from overlay_lidar_utils import generate_lidar_point_coord_camera_image
+from compute_photometric_error_utils import plot_sparse_image
+import plotly_utils
 
 
 def iso_string_to_nanoseconds(time_string):
@@ -25,8 +33,8 @@ def get_relative_pose(scene_path, target, source):
         datat = ft.readline().split()
         with open(os.path.join(scene_path, f"oxts/data/{source:010}.txt")) as fs:
             datas = fs.readline().split()
-            rot = np.array(datas[3:6]) - np.array(datat[3:6])
-            velo = (np.array(datat[8:11]) + np.array(datas[8:11])) / 2
+            rot = np.array(datas[3:6], dtype=np.float) - np.array(datat[3:6], dtype=np.float)
+            velo = (np.array(datat[8:11], dtype=np.float) + np.array(datas[8:11], dtype=np.float)) / 2
     with open(os.path.join(scene_path, "oxts/timestamps.txt")) as time:
         i = 0
         target_time = 0
@@ -72,28 +80,11 @@ def calc_transformation_matrix(rotation, translation):
     ], dtype=np.float64)
 
 
-if __name__ == "__main__":
-    path = r"data\kitti_example\2011_09_26\2011_09_26_drive_0048_sync"
-
-    rot = np.deg2rad([45, 0, 0])
-    print(rot)
-    t_mat = calc_transformation_matrix(rot, [0, 3, 0])
-    print(t_mat)
-    inarr = np.array([
-        [0, 1, 0, 1],
-        [0, -1, 0, 1],
-        [1, 0, 0, 1],
-        [-1, 0, 0, 1],
-        [1, 1, 0, 1],
-        [1, 1, 1, 1]
-    ])
-    inarr = np.transpose(inarr)
+def test_transform(inarr, t_mat):
     outarr = t_mat @ inarr
     print(outarr)
     # print(np.array([0, 1, 0, 1]) @ np.transpose(t_mat))
-    import plotly.graph_objects as go
-    from plotly.subplots import make_subplots
-    import plotly_utils
+
 
     fig = go.Figure(layout=go.Layout(
         scene=dict(camera=dict(eye=dict(x=1.14, y=1.14, z=1.14)),  # the default values are 1.25, 1.25, 1.25
@@ -103,7 +94,7 @@ if __name__ == "__main__":
                    aspectmode="cube",  # this string can be 'data', 'cube', 'auto', 'manual'
                    # a custom aspectratio is defined as follows:
                    aspectratio=dict(x=1, y=1, z=1)
-                   )    ))
+                   )))
     fig.add_trace(go.Scatter3d(x=inarr[0],
                                y=inarr[1],
                                z=inarr[2],
@@ -136,14 +127,93 @@ if __name__ == "__main__":
     #                     name='lidar'), row=1, col=2
     #               )
 
-
-
-
     # plotly_utils.setup_layout(fig)
     fig.show()
 
-    print("hi")
+def plot_lidar_3d(lidar):
+    fig = go.Figure()
+    fig.add_trace(go.Scatter3d(x=lidar[:, 0],
+                               y=lidar[:, 1],
+                               z=lidar[:, 2],
+                               mode='markers',
+                               marker=dict(size=3, color=1, colorscale='Viridis'),
+                               name='lidar')
+                  )
 
+    plotly_utils.setup_layout(fig)
+    fig.show()
+
+
+if __name__ == "__main__":
+    path = r"data\kitti_example\2011_09_26\2011_09_26_drive_0048_sync"
+
+    rot = np.deg2rad([45, 0, 0])
+    # print(rot)
+    t_mat = calc_transformation_matrix(rot, [0, 3, 0])
+    # print(t_mat)
+    inarr = np.array([
+        [0, 1, 0, 1],
+        [0, -1, 0, 1],
+        [1, 0, 0, 1],
+        [-1, 0, 0, 1],
+        [1, 1, 0, 1],
+        [1, 1, 1, 1],
+        [3, 3, 3, 1]
+    ])
+    inarr = np.transpose(inarr)
+
+    # test_transform(inarr, t_mat)
+
+    d = compute_image_from_velodyne_matrices(r"data\kitti_example\2011_09_26")
+
+    print(d["cam02"], "\n")
+    print(d["cam02"] @ inarr)
+
+    cam2cam = read_calibration_file(os.path.join(r"data\kitti_example\2011_09_26", 'calib_cam_to_cam.txt'))
+
+    velo2cam = read_calibration_file(os.path.join(r"data\kitti_example\2011_09_26", 'calib_velo_to_cam.txt'))
+    velo2cam = np.hstack((velo2cam['R'].reshape(3, 3), velo2cam['T'].reshape(3, 1)))
+    velo2cam = np.vstack((velo2cam, np.array([0, 0, 0, 1.0])))
+
+    lidar_point_coord_velodyne = load_lidar_points(
+        'data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/velodyne_points/data/0000000001.bin')
+
+    print(lidar_point_coord_velodyne.shape)
+
+    # plot_lidar_3d(lidar_point_coord_velodyne)
+
+
+    lidar_point_coord_velodyne = lidar_point_coord_velodyne @ np.transpose(velo2cam)
+
+    # plot_lidar_3d(lidar_point_coord_velodyne)
+
+
+    rel_pose = get_relative_pose(r"data\kitti_example\2011_09_26\2011_09_26_drive_0048_sync", 1, 0)
+    lidar_point_coord_velodyne = lidar_point_coord_velodyne @ np.transpose(rel_pose)
+    plot_lidar_3d(lidar_point_coord_velodyne)
+
+
+    R_cam2rect = np.eye(4)
+    R_cam2rect[:3, :3] = cam2cam["R_rect_02"].reshape(3, 3)
+    P_rect = cam2cam["P_rect_02"].reshape(3, 4)
+    camera_image_from_velodyne = np.dot(P_rect, R_cam2rect)
+    camera_image_from_velodyne = np.vstack((camera_image_from_velodyne, np.array([[0, 0, 0, 1.0]])))
+    # intrinsic_matrix = cam2cam["K_02"].reshape(3, 3)
+
+
+
+
+
+    lidar_point_coord_camera_image = generate_lidar_point_coord_camera_image(lidar_point_coord_velodyne[:, :3],
+                                                                             camera_image_from_velodyne, 1242, 375)[
+                                     :, :3]
+
+    # Load image file.
+    image = mpimg.imread('data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/image_02/data/0000000000.png')
+
+    plot_sparse_image(lidar_point_coord_camera_image, image)
+
+    print("hi")
 
 # def calc_transformation_mat(sample_path, idx):
 #     """
