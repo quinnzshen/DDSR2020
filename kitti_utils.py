@@ -114,16 +114,16 @@ def get_camera_data(path_name, camera_names, idx):
     :param [int] idx: The frame number in the scene
     :return [dict]: A dictionary containing the image (in a NumPy array), the shape of that array, and time taken
     """
-    out = dict()
+    camera_data = dict()
     for camera_name in camera_names:
         # The f-string is following the format of KITTI, padding the frame number with 10 zeros.
         camera_image = np.asarray(Image.open(os.path.join(path_name, f"{KITTICameraNames[camera_name]}/data/{idx:010}.png")))
         timestamp = get_timestamp_nsec(os.path.join(path_name, f"{KITTICameraNames[camera_name]}/timestamps.txt"), idx)
-        out[f"{camera_name}_image"] = camera_image
-        out[f"{camera_name}_shape"] = camera_image.shape
-        out[f"{camera_name}_capture_time_nsec"] = timestamp
+        camera_data[f"{camera_name}_image"] = camera_image
+        camera_data[f"{camera_name}_shape"] = camera_image.shape
+        camera_data[f"{camera_name}_capture_time_nsec"] = timestamp
 
-    return out
+    return camera_data
 
 
 def get_lidar_data(path_name, idx):
