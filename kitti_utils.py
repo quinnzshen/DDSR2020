@@ -2,6 +2,7 @@ from __future__ import absolute_import, division, print_function
 import os
 import numpy as np
 
+
 def load_lidar_points(filename):
     """
     This function loads 3D point cloud from KITTI file format.
@@ -11,6 +12,7 @@ def load_lidar_points(filename):
     lidar_point_coord_velodyne = np.fromfile(filename, dtype=np.float32).reshape(-1, 4)
     # Delete bottom row of reflectance value so columns are just [X, Y, Z]
     return lidar_point_coord_velodyne[:, :3]
+
 
 def read_calibration_file(path):
     """
@@ -36,9 +38,10 @@ def read_calibration_file(path):
 
     return data
 
+
 def compute_image_from_velodyne_matrices(calibration_dir):
     """
-    This function computes the transformation matrix to project 3D lidar points into the 2D image plane.
+    This function computes the translation matrix to project 3D lidar points into the 2D image plane.
     :param [String] calibration_dir: Directory to folder containing camera/lidar calibration files
     :return:  dictionary of numpy.arrays of shape [4, 4] that converts 3D lidar points to 2D image plane for each camera
     (keys: cam00, cam01, cam02, cam03)

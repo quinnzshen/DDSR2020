@@ -75,9 +75,9 @@ def calc_transformation_matrix(rotation, translation):
 if __name__ == "__main__":
     path = r"data\kitti_example\2011_09_26\2011_09_26_drive_0048_sync"
 
-    rot = np.deg2rad([30, 0, 0])
+    rot = np.deg2rad([45, 0, 0])
     print(rot)
-    t_mat = calc_transformation_matrix(rot, [0, 0, 0])
+    t_mat = calc_transformation_matrix(rot, [0, 3, 0])
     print(t_mat)
     inarr = np.array([
         [0, 1, 0, 1],

@@ -24,6 +24,7 @@ def plot_sparse_image(lidar_point_coord_camera_image, image):
     plt.scatter(lidar_point_coord_camera_image[:, 0], lidar_point_coord_camera_image[:, 1], c = colors, s = 7, marker = 's')
     plt.show()
 
+
 def get_depth_map_for_target_image(lidar_point_coord_camera_image, img_height, img_width):
     """
     This function creates a depth map the size of the image where each location contains the depth at that pixel, 
@@ -42,6 +43,7 @@ def get_depth_map_for_target_image(lidar_point_coord_camera_image, img_height, i
     
     return full_image_depth_map
 
+
 def get_meshgrid(img_height, img_width):
     """
     This function creates a meshgrid, or an array where each location contains an array containing the homogeneous coordinates 
@@ -58,6 +60,7 @@ def get_meshgrid(img_height, img_width):
         for col in range (len(meshgrid[0])):
             meshgrid[row][col] = np.array([[row, col, 1]])
     return meshgrid
+
 
 def convert_source_pixel_coords_to_camera_frame(pixel_coordinates, full_image_depth_map, source_intrinsic, img_height, img_width):
     """
@@ -85,6 +88,7 @@ def convert_source_pixel_coords_to_camera_frame(pixel_coordinates, full_image_de
     
     return camera_coordinates
 
+
 def get_target_pixel_frame_from_source_camera_frame_matrix(rotation_source_to_target, translation_source_to_target, target_intrinsic):
     """
     This function computes the matrix needed to convert source camera coordinates to target pixel coordinates.
@@ -105,6 +109,7 @@ def get_target_pixel_frame_from_source_camera_frame_matrix(rotation_source_to_ta
     target_camera_frame_from_source_camera_frame = target_intrinsic_4x4 @ relative_pose_matrix
     return target_camera_frame_from_source_camera_frame
 
+
 def compute_relative_rotation_stereo(calibration_dir):
     """
     This function computes the relative rotation matrix between stereo cameras for KITTI.
@@ -122,6 +127,7 @@ def compute_relative_rotation_stereo(calibration_dir):
     
     return rotation_source_to_target
 
+
 def compute_relative_translation_stereo(calibration_dir):
     """
     This function computes the relative translation vector between stereo cameras for KITTI.
@@ -138,6 +144,7 @@ def compute_relative_translation_stereo(calibration_dir):
     rotation_source = cam2cam['R_rect_03'].reshape(3,3)
     translation_source_to_target = np.linalg.inv(rotation_source) @ (translation_target - translation_source)
     return translation_source_to_target
+
 
 def project_source_camera_to_target_pixel_frame(camera_coordinates, target_camera_frame_from_source_pixel_frame, img_height, img_width):
     """
@@ -159,6 +166,3 @@ def project_source_camera_to_target_pixel_frame(camera_coordinates, target_camer
     target_pixel_coord_norm = np.reshape(target_pixel_coord_norm, (2, img_height, img_width)) 
     
     return target_pixel_coord_norm
-
-
-
