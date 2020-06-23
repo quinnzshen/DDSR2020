@@ -4,6 +4,7 @@ import numpy as np
 from PIL import Image
 
 import os
+import pandas as pd
 from enum import Enum
 
 
@@ -160,3 +161,37 @@ def get_lidar_data(path_name, idx):
         "lidar_start_capture_time_nsec": start_time,
         "lidar_end_capture_time_nsec": end_time
     }
+def get_imu_data(scene_path, idx):
+    """
+    Get Intertial Measurement Unit (IMU) data. 
+    :param [string] scene_path: A file path to a scene within the KITTI dataset.
+    :param [int] idx: The frame number in the scene. 
+    :return [dict]: Return a dictionary of imu data (key: field name, value: field value).
+    """
+    imu_data_path = os.path.join(scene_path, f"oxts/data/{idx:010}.txt")
+    imu_format_path = os.path.join(scene_path, "oxts/dataformat.txt")
+    
+    with open(imu_format_path) as f:
+        # The data is formatted as "name: description". We only care about the name here.
+        imu_keys = [line.split(':')[0] for line in f.readlines()]
+
+    with open(imu_data_path) as f:
+        imu_values = f.read().split()
+
+    return dict(zip(imu_keys, imu_values))
+
+
+def get_imu_dataframe(scene_path):
+    """
+    Get Intertial Measurement Unit (IMU) data for an entire scene.
+    :param [string] scene_path: A file path to a scene within the KITTI dataset.
+    :return [pd.DataFrame]: A dataframe with the entire scenes IMU data.
+    """
+    num_frames = len(os.listdir(os.path.join(scene_path, 'oxts/data')))
+
+    imu_values = []
+    for idx in range(num_frames):
+        imu_data = get_imu_data(scene_path, idx)
+        imu_values.append(list(imu_data.values()))
+
+    return pd.DataFrame(imu_values, columns=list(imu_data.keys()))
