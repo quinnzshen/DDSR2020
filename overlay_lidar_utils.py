@@ -29,11 +29,11 @@ def generate_lidar_point_coord_camera_image(lidar_point_coord_velodyne, camera_i
     # Round X and Y pixel coordinates to int.
     lidar_point_coord_camera_image = np.around(lidar_point_coord_camera_image).astype(int)
 
-    # Filtering points to only inlude those in image field of view.
+    # Create filtered index only inlude those in image field of view.
     filtered_index = (lidar_point_coord_camera_image[:, 0] >= 0) & (lidar_point_coord_camera_image[:, 1] >= 0) & \
                     (lidar_point_coord_camera_image[:, 0] < im_width) & (lidar_point_coord_camera_image[:, 1] < im_height)
     
-    return lidar_point_coord_camera_image[filtered_index, :]
+    return lidar_point_coord_camera_image, filtered_index
 
 def plot_lidar_on_image(image, lidar_point_coord_camera_image):
     """

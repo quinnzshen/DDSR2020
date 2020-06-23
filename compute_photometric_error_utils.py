@@ -12,7 +12,7 @@ def plot_sparse_image(lidar_point_coord_camera_image, image):
     :return: None, plots a sparse image where only the pixels woth corresponding depth values are shown (pixels are dilated).
     """
     # Create array of colors for each pixel.
-    colors = np.zeros(lidar_point_coord_camera_image.shape)
+    colors = np.zeros(lidar_point_coord_camera_image[:, :3].shape)
     for idx in range(len(colors)):
         y = lidar_point_coord_camera_image[idx][0]
         x = lidar_point_coord_camera_image[idx][1]
@@ -31,7 +31,7 @@ def get_depth_map_for_target_image(lidar_point_coord_camera_image, img_height, i
     :param: [numpy.array] lidar_point_coord_camera_image: [N, 4], contains lidar depth values for points on image plane, each row is format [X, Y, depth, 1].
     :param: [int] im_height: Height of the image that a depth map is being produced for in pixels.
     :param: [int] im_width: Width of the image that a depth map is being produced for in pixels.
-    :return: numpy.array of shape [im_height, im_width] that contains the lidar depth value for ech pixel location in the image, 
+    :return: numpy.array of shape [img_height, img_width] that contains the lidar depth value for ech pixel location in the image, 
     or zero if there is no depth value for a point.
     """
     # Create array of zeros that is the same shape as the image.
@@ -118,8 +118,8 @@ def compute_relative_rotation_stereo(calibration_dir):
     # Compute relative rotation matrix.
     rotation_target = cam2cam['R_rect_02'].reshape(3, 3)
     rotation_source = cam2cam['R_rect_03'].reshape(3,3)
-    rotation_source_to_target = np.linalg.inv(rotation_source) @ rotation_target
-    
+    rotation_source_to_target = rotation_source @ np.linalg.inv(rotation_target)
+
     return rotation_source_to_target
 
 def compute_relative_translation_stereo(calibration_dir):
@@ -135,9 +135,16 @@ def compute_relative_translation_stereo(calibration_dir):
     # Compute relative translation vector.
     translation_target = cam2cam['T_02'].reshape(3, 1)
     translation_source = cam2cam['T_03'].reshape(3, 1)
-    rotation_source = cam2cam['R_rect_03'].reshape(3,3)
-    translation_source_to_target = np.linalg.inv(rotation_source) @ (translation_target - translation_source)
+    rotation_source = cam2cam['R_03'].reshape(3,3)
+    translation_source_to_target = (np.linalg.inv(rotation_source) @ (translation_target - translation_source))
+
+    
+    temp = translation_source_to_target[0][0]
+    translation_source_to_target[0] = translation_source_to_target[1]
+    translation_source_to_target[1][0] = temp
+
     return translation_source_to_target
+    
 
 def project_source_camera_to_target_pixel_frame(camera_coordinates, target_camera_frame_from_source_pixel_frame, img_height, img_width):
     """
