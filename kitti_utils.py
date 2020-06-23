@@ -125,7 +125,6 @@ def get_nearby_frames_data(path_name, idx, delta):
             if nearby_idx == 0:
                 continue
 
-            print("idx", nearby_idx)
             nearby_frames[nearby_idx] = get_camera_data(path_name, nearby_idx)
         return nearby_frames
 
