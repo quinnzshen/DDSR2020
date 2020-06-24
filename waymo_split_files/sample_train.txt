@@ -1,0 +1,2 @@
+data\waymo_example\frames.tfrecord 0
+data\waymo_example\frames.tfrecord 1

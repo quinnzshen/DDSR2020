@@ -4,10 +4,8 @@ import numpy as np
 import random
 import os
 import sys
-#If possible, use pip install waymo-open-dataset. If that doesn't work, clone the repo add at it to your path.
-sys.path.append("C:/Users/alexj/Documents/GitHub/waymo-od")
-from waymo_open_dataset import dataset_pb2 as open_dataset
-from waymo_open_dataset.utils import  frame_utils
+sys.path.append('third_party/waymo_open_dataset')
+from utils import frame_utils
 
 SPLIT_NAMES = ["train.txt", "validate.txt"]
 CAMERA_DICT = {
@@ -57,7 +55,6 @@ def get_lidar_data(frame):
         "lidar_point_coord": points,
         "camera_proj_point_coord": cp_points,
         "lidar_start_capture_timestamp": frame.timestamp_micros,
-        "projected_lidar_labels": frame.projected_lidar_labels
     }
 def generate_split(root_dir, split=0.7, seed=0):
     """ 

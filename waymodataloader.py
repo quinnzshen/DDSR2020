@@ -1,12 +1,8 @@
-import torch
 from torch.utils.data import Dataset
-import os
 import tensorflow as tf
 import sys
-#If possible, use pip install waymo-open-dataset. If that doesn't work, clone the repo add at it to your path.
-sys.path.append("thirdparty/waymo-od")
-from waymo_open_dataset.utils import  frame_utils
-from waymo_open_dataset import dataset_pb2 as open_dataset
+sys.path.append('third_party/waymo_open_dataset')
+import dataset_pb2 as open_dataset
 import pandas as pd
 import yaml
 from waymo_utils import get_camera_data, get_lidar_data
@@ -81,6 +77,3 @@ class WaymoDataset(Dataset):
             }
 
         return sample
-
-data = WaymoDataset.init_from_config("waymoloader_test_config.yml")
-print(data[0]['front_left_readout_done_time'])
