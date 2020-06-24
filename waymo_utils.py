@@ -56,8 +56,8 @@ def get_lidar_data(frame):
     return {
         "lidar_point_coord": points,
         "camera_proj_point_coord": cp_points,
+        "projected_lidar_labels": frame.projected_lidar_labels,
         "lidar_start_capture_timestamp": frame.timestamp_micros,
-        "projected_lidar_labels": frame.projected_lidar_labels
     }
 def generate_split(root_dir, split=0.7, seed=0):
     """ 
