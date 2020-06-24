@@ -17,26 +17,31 @@ CAMERA_DICT = {
              'FRONT_RIGHT':3,
              'SIDE_RIGHT':4
          }
+CAMERA_NAMES = ['front', 'front_left', 'side_left', 'front_right', 'side_right']
 
-def get_camera_data(frame, camera_name):
+def get_camera_data(frame):
     """
     Gets the basic camera information given the path name to the scene, the camera name, and the frame number within
     that scene.
-    :param [str] path_name: A file path to a scene within the dataset
-    :param [str] camera_name: A camera name
-    :param [int] idx: The frame number in the scene
+    :param [str] frame: A frame from a TFRecord file
     :return [dict]: A dictionary containing the image (in a NumPy array), the shape of that array, timestamps, intrinsics and extrinsics, and pose
     """
-    camera_upper = camera_name.upper()
-    return {
-        f"{camera_name}_image": frame.images[CAMERA_DICT[camera_upper]].image,
-        f"{camera_name}_shape": tf.shape(conv_to_image(frame.images[CAMERA_DICT[camera_upper]].image)).numpy(),
-        f"{camera_name}_trigger_time": frame.images[CAMERA_DICT[camera_upper]].camera_trigger_time,
-        f"{camera_name}_readout_done_time": frame.images[CAMERA_DICT[camera_upper]].camera_readout_done_time,
-        f"{camera_name}_intrinsics": np.reshape(frame.context.camera_calibrations[CAMERA_DICT[camera_upper]].intrinsic, (3,3)),
-        f"{camera_name}_extrinsics": np.reshape(frame.context.camera_calibrations[CAMERA_DICT[camera_upper]].extrinsic.transform, (4,4)),
-        f"{camera_name}_pose": np.reshape(frame.images[0].pose.transform, (4,4))
-    }
+    dictionary = {}
+    for camera_name in CAMERA_NAMES:
+        camera_upper = camera_name.upper()
+        dictionary.update(
+            {
+                f"{camera_name}_image": frame.images[CAMERA_DICT[camera_upper]].image,
+                f"{camera_name}_shape": tf.shape(conv_to_image(frame.images[CAMERA_DICT[camera_upper]].image)).numpy(),
+                f"{camera_name}_trigger_time": frame.images[CAMERA_DICT[camera_upper]].camera_trigger_time,
+                f"{camera_name}_readout_done_time": frame.images[CAMERA_DICT[camera_upper]].camera_readout_done_time,
+                f"{camera_name}_intrinsics": np.reshape(frame.context.camera_calibrations[CAMERA_DICT[camera_upper]].intrinsic, (3,3)),
+                f"{camera_name}_extrinsics": np.reshape(frame.context.camera_calibrations[CAMERA_DICT[camera_upper]].extrinsic.transform, (4,4)),
+                f"{camera_name}_pose": np.reshape(frame.images[0].pose.transform, (4,4))
+            }
+        )
+    return dictionary
+
 def get_lidar_data(frame):
     """
     Gets the basic LiDAR information given the path name to the scene and the frame number within that scene.

@@ -4,7 +4,7 @@ import os
 import tensorflow as tf
 import sys
 #If possible, use pip install waymo-open-dataset. If that doesn't work, clone the repo add at it to your path.
-sys.path.append("C:/Users/alexj/Documents/GitHub/waymo-od")
+sys.path.append("thirdparty/waymo-od")
 from waymo_open_dataset.utils import  frame_utils
 from waymo_open_dataset import dataset_pb2 as open_dataset
 import pandas as pd
@@ -23,6 +23,7 @@ class WaymoDataset(Dataset):
         self.root_dir = root_dir
         self.pathdf = dataset_paths
         self.train_dir = []
+    
     @classmethod
     def init_from_config(cls, config_path):
         """
@@ -54,15 +55,15 @@ class WaymoDataset(Dataset):
         :return: A dictionary containing fields about the retrieved sample
         """
         
-        #Data validation
+        # Data validation
         if idx >= len(self.pathdf) or idx < 0:
             raise IndexError("Dataset index out of range. (Less than 0 or greater than or equal to length)")
        	
-        #Finding filename and index
+        # Finding filename and index
         path_name = self.pathdf.iloc[idx,0]
         idx = int(self.pathdf.iloc[idx,1])
 
-       	#Gets frame data from TFRecord
+       	# Gets frame data from TFRecord
         item_data = tf.data.TFRecordDataset(path_name, compression_type='')
         count = 0
         for data in item_data:
@@ -72,15 +73,14 @@ class WaymoDataset(Dataset):
                 break
             count+=1
         
-        #Puts all info into the dictionary
+        # Puts all info into the dictionary
         sample = {
             "frame":frame,
-            **get_camera_data(frame, "front"),
-            **get_camera_data(frame, "front_left"),
-            **get_camera_data(frame, "side_left"),
-            **get_camera_data(frame, "front_right"),
-            **get_camera_data(frame, "side_right"),
+            **get_camera_data(frame),
             **get_lidar_data(frame)
             }
 
         return sample
+
+data = WaymoDataset.init_from_config("waymoloader_test_config.yml")
+print(data[0]['front_left_readout_done_time'])

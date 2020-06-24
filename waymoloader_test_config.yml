@@ -1,5 +1,4 @@
----
 root_directory:
 - C:\Users\alexj\Desktop\Waymo\data
 dataset_paths:
-- C:\Users\alexj\Desktop\Waymo\data\train.txt
+- waymo_split_files\train.txt
