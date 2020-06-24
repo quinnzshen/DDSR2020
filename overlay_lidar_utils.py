@@ -8,7 +8,7 @@ def generate_lidar_point_coord_camera_image(lidar_point_coord_velodyne, camera_i
     """
     This function removes the lidar pointts that are not in the image plane, rounds x/y pixel values for lidar points, 
     and projects the lidar points onto the image plane
-    :param [numpy.array] lidar_point_coord_velodyne: [N, 3], matrix of lidar points, each row is format [X, Y, Z]
+    :param [numpy.array] lidar_point_coord_velodyne: [N, 4], matrix of lidar points, each row is format [X, Y, Z, reflectivity]
     :param [numpy.array] camera_image_from_velodyne: [4, 4], converts 3D lidar points to 2D image plane
     :param [int] im_width: width of image in pixels
     :param [int] im_height: height of image in pixels
@@ -17,7 +17,7 @@ def generate_lidar_point_coord_camera_image(lidar_point_coord_velodyne, camera_i
     # Based on code from monodepth2 repo.
 
     # Add right column of ones to lidar_point_coord_velodyne.
-    lidar_point_coord_velodyne = np.hstack((lidar_point_coord_velodyne, np.ones((np.size(lidar_point_coord_velodyne, 0)))[:, None]))
+    lidar_point_coord_velodyne[:, 3] =  np.ones((len(lidar_point_coord_velodyne)))
     
     # Remove points behind velodyne sensor.
     lidar_point_coord_velodyne = lidar_point_coord_velodyne[lidar_point_coord_velodyne[:, 0] >=0, :]

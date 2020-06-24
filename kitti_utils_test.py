@@ -8,11 +8,9 @@ import kitti_utils as ku
 
 
 SAMPLE_SCENE_PATH = 'data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/'
+CALIBRATION_DIR = 'data/kitti_example/2011_09_26'
 
 def test_load_lidar_points():
-    """
-    Tests the return of the load_lidar_points funtion in kitti_utils.py
-    """
     SAMPLE_LIDAR_POINTS_PATH = 'data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/velodyne_points/data/0000000010.bin'
     lidar_point_coord_velodyne = ku.load_lidar_points(SAMPLE_LIDAR_POINTS_PATH)
     assert lidar_point_coord_velodyne.shape == (116006, 4)
@@ -21,10 +19,6 @@ def test_load_lidar_points():
 
 
 def test_read_calibration_file():
-    """
-    Tests the return of the read_calibration_file funtion in kitti_utils.py
-    """
-    CALIBRATION_DIR = 'data/kitti_example/2011_09_26'
     cam2cam = ku.read_calibration_file(os.path.join(CALIBRATION_DIR, 'calib_cam_to_cam.txt'))
     velo2cam = ku.read_calibration_file(os.path.join(CALIBRATION_DIR, 'calib_velo_to_cam.txt'))
     imu2cam = ku.read_calibration_file(os.path.join(CALIBRATION_DIR, 'calib_imu_to_velo.txt'))
@@ -34,20 +28,15 @@ def test_read_calibration_file():
 
 
 def test_compute_image_from_velodyne_matrices():
-    """
-    Tests the return of the compute_image_from_velodyne_matrices funtion in kitti_utils.py
-    """
-    CALIBRATION_DIR = 'data/kitti_example/2011_09_26'
     camera_image_from_velodyne_dict = ku.compute_image_from_velodyne_matrices(CALIBRATION_DIR)
-    assert len(camera_image_from_velodyne_dict) == 4
-    camera_image_from_velodyne = camera_image_from_velodyne_dict.get('cam00')
-    # Check shape.
-    testarr = np.array([[609.695409, -721.421597, -1.25125855, -167.899086], \
-                        [180.384202,  7.64479802, -719.651474, -101.233067], \
-                        [.999945389,  .000124365378,  .0104513030, -.272132796], \
+    assert len(camera_image_from_velodyne_dict) == 2
+    camera_image_from_velodyne = camera_image_from_velodyne_dict.get('stereo_left')
+    testarr = np.array([[613.040929, -718.575854, -2.95002805, -124.072003], \
+                        [182.759005,  12.2395125, -718.988552, -101.607812], \
+                        [.999893357,  .00469739411,  .0138291498, -.269119537], \
                         [0., 0., 0., 1.]])
     assert np.allclose(camera_image_from_velodyne, testarr)
-
+test_compute_image_from_velodyne_matrices()
 
 def test_iso_string_to_nanoseconds():
     assert ku.iso_string_to_nanoseconds("2011-09-26 14:14:11.435280384") == 1317046451435280384
@@ -118,3 +107,20 @@ def test_get_imu_data():
 def test_get_imu_dataframe():
     imu_df = ku.get_imu_dataframe(SAMPLE_SCENE_PATH)
     assert imu_df.shape == (22, 30)
+
+def test_get_camera_intrinsic_dict():
+    sample_cam_intrinsic_dict = ku.get_camera_intrinsic_dict(CALIBRATION_DIR)
+    assert len(sample_cam_intrinsic_dict) == 2
+    test_arr = np.array([[959.791, 0., 696.0217], [0., 956.9251, 224.1806], [0., 0., 1.]])
+    assert np.allclose(test_arr, sample_cam_intrinsic_dict.get('stereo_left'))
+
+def test_get_relative_rotation_stereo():
+    rel_rotation_sample = ku.get_relative_rotation_stereo(CALIBRATION_DIR)
+    test_arr = np.array([[.9995572, -.02222673, .01978616], [.02225614, .99975152, -.00126738], [-.01975307, .00170718, .99980338]])
+    assert np.allclose(test_arr, rel_rotation_sample)
+
+def test_get_relative_translation_stereo():
+    rel_translation_sample = ku.get_relative_translation_stereo(CALIBRATION_DIR)
+    test_arr = np.array([[-0.53267121], [0.00526146], [-0.00782809]])
+    assert np.allclose(test_arr, rel_translation_sample)
+

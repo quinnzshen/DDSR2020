@@ -8,8 +8,9 @@ def test_generate_lidar_point_coord_camera_image():
     """
     lidar_point_coord_velodyne = np.array([[10, 10, 10], [10, 10, 10]])
     camera_image_from_velodyne = np.eye(4)
-    lidar_point_coord_camera_image = olu.generate_lidar_point_coord_camera_image(lidar_point_coord_velodyne, camera_image_from_velodyne, 100, 100)
-    assert np.array_equal(lidar_point_coord_camera_image, np.array([[1., 1., 10., 1.], [1., 1., 10., 1.]]))
+    lidar_point_coord_camera_image, filt_index = olu.generate_lidar_point_coord_camera_image(lidar_point_coord_velodyne, camera_image_from_velodyne, 100, 100)
+    lidar_point_coord_camera_image = lidar_point_coord_camera_image[filt_index]
+    assert np.allclose(lidar_point_coord_camera_image, np.array([[1., 1., 10., 1.], [1., 1., 10., 1.]]))
 
 def test_normalize_depth():
     """
