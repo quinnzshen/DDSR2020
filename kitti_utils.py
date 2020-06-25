@@ -6,6 +6,8 @@ import pandas as pd
 
 import os
 from enum import Enum
+import random
+import glob
 
 
 class KITTICameraNames(str, Enum):
@@ -179,3 +181,34 @@ def get_imu_dataframe(scene_path):
         imu_values.append(list(imu_data.values()))
 
     return pd.DataFrame(imu_values, columns=list(imu_data.keys()))
+
+
+def generate_split(dataset_dir, target_dir, train_name="train.txt", val_name="validate.txt", split=0.7, seed=0):
+    """
+    Splits the training and validation data by using random for every frame and deciding whether to put it in
+    the training or validation set. Creates/overrides files with the given names within the target directory.
+    :param val_name: The name of the validation file. (Defaults to validate.txt)
+    :param train_name: The name of the train file. (Defaults to train.txt)
+    :param target_dir: The target directory where both the training and validation files are created
+    :param dataset_dir: The root directory of the dataset
+    :param split: The chance of a given frame being put into train
+    :param seed: The seed of the RNG, if None, then it is random (default seed is 0)
+    """
+    random.seed(seed)
+
+    with open(os.path.join(target_dir, train_name), "w") as train:
+        with open(os.path.join(target_dir, val_name), "w") as val:
+
+            for direc in glob(dataset_dir + "/*/"):
+                # iterating through all date folders
+                for sub_dir in glob(direc + "/*/"):
+                    # iterating through all date_drive folders
+                    with open(os.path.join(sub_dir, "velodyne_points/timestamps.txt")) as file:
+                        subtotal = 0
+                        for _ in file:
+                            line = sub_dir + " {}\n".format(subtotal)
+                            if random.random() < split:
+                                train.write(line)
+                            else:
+                                val.write(line)
+                            subtotal += 1
