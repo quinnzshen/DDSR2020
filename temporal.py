@@ -48,11 +48,12 @@ def get_relative_pose(scene_path, target, source):
                 source_time = iso_string_to_nanoseconds(line)
                 if target_time:
                     break
+            i += 1
         delta_time = source_time - target_time
 
-    pos = velo * delta_time / 10E9
+    pos = velo * delta_time / 1E9
+    # print(delta_time / 1e9)
     return calc_transformation_matrix(rot, pos)
-
 
 def calc_transformation_matrix(rotation, translation):
     sin_rot = np.sin(rotation)
@@ -130,18 +131,7 @@ def test_transform(inarr, t_mat):
     # plotly_utils.setup_layout(fig)
     fig.show()
 
-def plot_lidar_3d(lidar):
-    fig = go.Figure()
-    fig.add_trace(go.Scatter3d(x=lidar[:, 0],
-                               y=lidar[:, 1],
-                               z=lidar[:, 2],
-                               mode='markers',
-                               marker=dict(size=3, color=1, colorscale='Viridis'),
-                               name='lidar')
-                  )
 
-    plotly_utils.setup_layout(fig)
-    fig.show()
 
 def get_associated_colors(points_on_image, src_image):
     colors = np.zeros(points_on_image.shape, dtype=np.uint8)
@@ -179,7 +169,18 @@ def plot_source_in_target(velo_points, src_image, pose_mat):
 
     pass
 
+def plot_lidar_3d(lidar, orig):
+    fig = go.Figure()
+    fig.add_trace(go.Scatter3d(x=lidar[:, 0],
+                               y=lidar[:, 1],
+                               z=lidar[:, 2],
+                               mode='markers',
+                               marker=dict(size=1, color=orig, colorscale='Viridis'),
+                               name='lidar')
+                  )
 
+    plotly_utils.setup_layout(fig)
+    fig.show()
 
 if __name__ == "__main__":
     path = r"data\kitti_example\2011_09_26\2011_09_26_drive_0048_sync"
@@ -203,8 +204,8 @@ if __name__ == "__main__":
 
     d = compute_image_from_velodyne_matrices(r"data\kitti_example\2011_09_26")
 
-    print(d["cam02"], "\n")
-    print(d["cam02"] @ inarr)
+    # print(d["cam02"], "\n")
+    # print(d["cam02"] @ inarr)
 
     cam2cam = read_calibration_file(os.path.join(r"data\kitti_example\2011_09_26", 'calib_cam_to_cam.txt'))
 
@@ -217,18 +218,23 @@ if __name__ == "__main__":
 
     print(lidar_point_coord_velodyne.shape)
 
-    # plot_lidar_3d(lidar_point_coord_velodyne)
+    orig_colors = np.copy(lidar_point_coord_velodyne[:, 3])
+    lidar_point_coord_velodyne[:, 3] = 1
+    plot_lidar_3d(lidar_point_coord_velodyne, orig_colors)
 
+    print(lidar_point_coord_velodyne)
 
     lidar_point_coord_velodyne = lidar_point_coord_velodyne @ np.transpose(velo2cam)
 
-    # plot_lidar_3d(lidar_point_coord_velodyne)
+    plot_lidar_3d(lidar_point_coord_velodyne, orig_colors)
 
 
     rel_pose = get_relative_pose(r"data\kitti_example\2011_09_26\2011_09_26_drive_0048_sync", 1, 0)
     lidar_point_coord_velodyne = lidar_point_coord_velodyne @ np.transpose(rel_pose)
-    plot_lidar_3d(lidar_point_coord_velodyne)
+    plot_lidar_3d(lidar_point_coord_velodyne, orig_colors)
 
+    print(lidar_point_coord_velodyne)
+    print(orig_colors)
 
     R_cam2rect = np.eye(4)
     R_cam2rect[:3, :3] = cam2cam["R_rect_02"].reshape(3, 3)
@@ -251,7 +257,7 @@ if __name__ == "__main__":
     image = mpimg.imread('data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/image_02/data/0000000000.png')
 
     plot_sparse_image(lidar_point_coord_camera_image, image)
-
+    print(rel_pose)
     print("hi")
 
 # def calc_transformation_mat(sample_path, idx):
