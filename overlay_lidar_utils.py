@@ -20,10 +20,11 @@ def generate_lidar_point_coord_camera_image(lidar_point_coord_velodyne, camera_i
     lidar_point_coord_velodyne = np.hstack((lidar_point_coord_velodyne, np.ones((np.size(lidar_point_coord_velodyne, 0)))[:, None]))
     
     # Remove points behind velodyne sensor.
-    lidar_point_coord_velodyne = lidar_point_coord_velodyne[lidar_point_coord_velodyne[:, 0] >=0, :]
+    # lidar_point_coord_velodyne = lidar_point_coord_velodyne[lidar_point_coord_velodyne[:, 0] >=0, :]
     
     # Project points to image plane.
     lidar_point_coord_camera_image = np.dot(camera_image_from_velodyne, lidar_point_coord_velodyne.T).T
+    lidar_point_coord_camera_image = lidar_point_coord_camera_image[lidar_point_coord_camera_image[:, 2] > 0]
     lidar_point_coord_camera_image[:, :2] = lidar_point_coord_camera_image[:, :2] / lidar_point_coord_camera_image[:, 2][..., np.newaxis]
     
     # Round X and Y pixel coordinates to int.
@@ -54,7 +55,7 @@ def plot_lidar_on_image(image, lidar_point_coord_camera_image):
     plt.imshow(image, cmap='Greys_r')
     
     # Plot lidar points.
-    plt.scatter(lidar_point_coord_camera_image[:, 0], lidar_point_coord_camera_image[:, 1], c = colors, s = 5)
+    plt.scatter(lidar_point_coord_camera_image[:, 0], lidar_point_coord_camera_image[:, 1], c = colors, s = 2)
     plt.show()
 
 def normalize_depth(lidar_point_coord_camera_image):
