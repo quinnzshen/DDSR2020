@@ -166,3 +166,24 @@ def generate_lidar_point_coord_camera_image(frame, points, cp_points, image_name
     [cp_points_all_tensor[..., 1:3], points_all_tensor], axis=-1).numpy()
    
     return projected_points_all_from_raw_data
+
+def plot_sparse_image(lidar_point_coord_camera_image, image, shape):
+    """
+    Plots the pixels of an image with corresponding depth values
+    :param:[numpy.array] lidar_point_coord_camera_image: [N,3], lidar coordinates in camera frame
+    :param: [numpy.array] image: [H,W,3], contains R, G, B values for every pixel of the image
+    :return: none, plots a sparse image containing pixels with corresponding depth values
+    """
+    image = conv_to_image(image)
+    xs = []
+    ys = []
+    colors = []
+
+    for point in lidar_point_coord_camera_image:
+        if (point[0]<=shape[1] and point[1]<=shape[0]):
+            xs.append(point[0])  # width, col
+            ys.append(point[1])  # height, row
+            colortuple = (image[int(point[1])][int(point[0])][0], image[int(point[1])][int(point[0])][1], image[int(point[1])][int(point[0])][2])
+            colors.append('#%02x%02x%02x' % colortuple)
+    plt.figure(figsize=(20, 12)).gca().invert_yaxis()
+    plt.scatter(xs,ys,c=colors,s=10,marker='s')
