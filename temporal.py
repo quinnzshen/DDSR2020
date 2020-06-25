@@ -212,6 +212,9 @@ if __name__ == "__main__":
     velo2cam = read_calibration_file(os.path.join(r"data\kitti_example\2011_09_26", 'calib_velo_to_cam.txt'))
     velo2cam = np.hstack((velo2cam['R'].reshape(3, 3), velo2cam['T'].reshape(3, 1)))
     velo2cam = np.vstack((velo2cam, np.array([0, 0, 0, 1.0])))
+    imu2velo = read_calibration_file(os.path.join(r"data\kitti_example\2011_09_26", 'calib_imu_to_velo.txt'))
+    imu2velo = np.hstack((imu2velo['R'].reshape(3, 3), imu2velo['T'].reshape(3, 1)))
+    imu2velo = np.vstack((imu2velo, np.array([0, 0, 0, 1.0])))
 
     lidar_point_coord_velodyne = load_lidar_points(
         'data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/velodyne_points/data/0000000001.bin')
@@ -220,17 +223,23 @@ if __name__ == "__main__":
 
     orig_colors = np.copy(lidar_point_coord_velodyne[:, 3])
     lidar_point_coord_velodyne[:, 3] = 1
-    plot_lidar_3d(lidar_point_coord_velodyne, orig_colors)
+    # plot_lidar_3d(lidar_point_coord_velodyne, orig_colors)
 
     print(lidar_point_coord_velodyne)
 
-    lidar_point_coord_velodyne = lidar_point_coord_velodyne @ np.transpose(velo2cam)
 
+    # lidar_point_coord_velodyne = lidar_point_coord_velodyne @ np.transpose(velo2cam)
+    # plot_lidar_3d(lidar_point_coord_velodyne, orig_colors)
+
+
+
+    # rel_pose = get_relative_pose(r"data\kitti_example\2011_09_26\2011_09_26_drive_0048_sync", 1, 0)
+    rel_pose = imu2velo @ get_relative_pose(r"data\kitti_example\2011_09_26\2011_09_26_drive_0048_sync", 1, 0)
+
+    lidar_point_coord_velodyne = lidar_point_coord_velodyne @ np.transpose(rel_pose)
     plot_lidar_3d(lidar_point_coord_velodyne, orig_colors)
 
-
-    rel_pose = get_relative_pose(r"data\kitti_example\2011_09_26\2011_09_26_drive_0048_sync", 1, 0)
-    lidar_point_coord_velodyne = lidar_point_coord_velodyne @ np.transpose(rel_pose)
+    lidar_point_coord_velodyne = lidar_point_coord_velodyne @ np.transpose(velo2cam)
     plot_lidar_3d(lidar_point_coord_velodyne, orig_colors)
 
     print(lidar_point_coord_velodyne)
@@ -240,6 +249,9 @@ if __name__ == "__main__":
     R_cam2rect[:3, :3] = cam2cam["R_rect_02"].reshape(3, 3)
     P_rect = cam2cam["P_rect_02"].reshape(3, 4)
     camera_image_from_velodyne = np.dot(P_rect, R_cam2rect)
+
+    # camera_image_from_velodyne = np.dot(np.dot(P_rect, R_cam2rect), velo2cam)
+
     camera_image_from_velodyne = np.vstack((camera_image_from_velodyne, np.array([[0, 0, 0, 1.0]])))
     # intrinsic_matrix = cam2cam["K_02"].reshape(3, 3)
 
@@ -248,10 +260,11 @@ if __name__ == "__main__":
 
 
 
+    orig_points = load_lidar_points(
+        'data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/velodyne_points/data/0000000001.bin')
 
-    lidar_point_coord_camera_image = generate_lidar_point_coord_camera_image(lidar_point_coord_velodyne[:, :3],
-                                                                             camera_image_from_velodyne, 1242, 375)[
-                                     :, :3]
+    lidar_point_coord_camera_image = generate_lidar_point_coord_camera_image(
+        lidar_point_coord_velodyne[:, :3], camera_image_from_velodyne, 1242, 375)[:, :3]
 
     # Load image file.
     image = mpimg.imread('data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/image_02/data/0000000000.png')
