@@ -7,8 +7,7 @@ import pandas as pd
 import os
 from enum import Enum
 import random
-import glob
-
+from glob import glob
 
 class KITTICameraNames(str, Enum):
     stereo_left = "image_02"
@@ -206,7 +205,7 @@ def generate_split(dataset_dir, target_dir, train_name="train.txt", val_name="va
                     with open(os.path.join(sub_dir, "velodyne_points/timestamps.txt")) as file:
                         subtotal = 0
                         for _ in file:
-                            line = sub_dir + " {}\n".format(subtotal)
+                            line = os.path.normpath(sub_dir) + " {}\n".format(subtotal)
                             if random.random() < split:
                                 train.write(line)
                             else:
