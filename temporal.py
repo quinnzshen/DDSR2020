@@ -143,6 +143,43 @@ def plot_lidar_3d(lidar):
     plotly_utils.setup_layout(fig)
     fig.show()
 
+def get_associated_colors(points_on_image, src_image):
+    colors = np.zeros(points_on_image.shape, dtype=np.uint8)
+    # iterate through points_on_image and store the associated color in colors
+    return colors
+
+def color_image(shape, positions, colors):
+    img = np.zeros(shape, dtype=np.uint8)
+    img.fill(255)
+    # iterate through positions and assign respective colors
+    return img
+
+def get_transform_velo2cam():
+    pass
+
+def get_transform_coord2image():
+    pass
+
+def project_points_on_image(velo_points, d):
+    coord2image = get_transform_coord2image()
+    return velo_points
+
+def plot_source_in_target(velo_points, src_image, pose_mat):
+    # transform velo_points into
+    velo2cam = get_transform_velo2cam()
+    velo_points = velo_points @ velo2cam.T @ pose_mat.T
+    colors = get_associated_colors(project_points_on_image(velo_points, "source"), src_image)
+
+    pixel_positions = project_points_on_image(velo_points, "target")
+
+    out_image = color_image(src_image.shape, pixel_positions, colors)
+
+    # Do something with the image
+
+
+    pass
+
+
 
 if __name__ == "__main__":
     path = r"data\kitti_example\2011_09_26\2011_09_26_drive_0048_sync"
@@ -199,6 +236,8 @@ if __name__ == "__main__":
     camera_image_from_velodyne = np.dot(P_rect, R_cam2rect)
     camera_image_from_velodyne = np.vstack((camera_image_from_velodyne, np.array([[0, 0, 0, 1.0]])))
     # intrinsic_matrix = cam2cam["K_02"].reshape(3, 3)
+
+
 
 
 
