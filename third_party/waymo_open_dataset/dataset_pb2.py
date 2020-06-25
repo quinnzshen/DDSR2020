@@ -12,7 +12,6 @@ from google.protobuf import symbol_database as _symbol_database
 
 _sym_db = _symbol_database.Default()
 
-
 from waymo_open_dataset import label_pb2 as waymo__open__dataset_dot_label__pb2
 
 

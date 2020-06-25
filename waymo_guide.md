@@ -1,25 +1,21 @@
 # Waymo Guide
 
-Quick tutorial on how to use the Waymo dataset
+Quick tutorial on how to use Waymoloader
 
-## Downloading data
-1. Visit https://waymo.com/open/download/
-2. Install training_0000.tar
-3. Extract using winzip
-
-You should have 24 TFrecord files in total.
-
-## Installing Waymo-Open-Dataset
-1. Upgrade pip with command "python -m pip install --upgrade pip" or "pip3 install --upgrade pip"
-2. Try the command "pip3 install waymo-open-dataset-tf-2-1-0==1.2.0" or "pip install waymo-open-dataset"
-3. If that doesn't work, clone the repo here: https://github.com/waymo-research/waymo-open-dataset, and add it to your python path with sys.path.append(directory)
-
-Note: You might need to switch to python 3.6, not sure if 3.7 or 3.8 are suported
-
-## Packages to add
+## Packages to add to your environment
 1. Tensorflow, version = 2.1.0. 
-2. Sys (if pip install waymo-open-dataset doesn't work)
-3. Waymo_open_dataset (referenced above)
+2. Sys
+
+## Using the Dataloader
+1. Create an instance of the WaymoDataset class
+	
+	dataset = WaymoDataset.init_from_config("waymoloader_test_config.yml")
+
+2. Specify a frame and the field you want from it. The different fields can be found in the waymo_utils.py file.
+	
+	dataset[index]['field'] 
+
+There should be two frames in total located in the data/waymo_example folder
 
 ## Running my code
 1. Edit the waymo_loader_test_config.yml file to match your setup

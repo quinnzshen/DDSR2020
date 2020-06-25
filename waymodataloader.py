@@ -77,3 +77,4 @@ class WaymoDataset(Dataset):
             }
 
         return sample
+dataset = WaymoDataset.init_from_config("waymoloader_test_config.yml")
