@@ -1,5 +1,0 @@
----
-root_directory:
-  - C:\Users\Evan's Laptop\Documents\Dev\Projects\DDSR2020\data\kitti_example
-dataset_paths:
-  - C:\Users\Evan's Laptop\Documents\Dev\Projects\DDSR2020\data\kitti_example\splits\dataloader_tests.txt
