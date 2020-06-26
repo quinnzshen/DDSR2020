@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.image as mpimg
+import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
@@ -27,7 +28,7 @@ def iso_string_to_nanoseconds(time_string):
 
 
 def get_relative_pose(scene_path, target, source):
-    # target coord to source coord
+    # source frame to target frame
     with open(os.path.join(scene_path, f"oxts/data/{target:010}.txt")) as ft:
         # start index 8
         # end index 10
@@ -35,7 +36,7 @@ def get_relative_pose(scene_path, target, source):
         with open(os.path.join(scene_path, f"oxts/data/{source:010}.txt")) as fs:
             datas = fs.readline().split()
             rot = np.array(datas[3:6], dtype=np.float) - np.array(datat[3:6], dtype=np.float)
-            velo = (np.array(datat[8:11], dtype=np.float) + np.array(datas[8:11], dtype=np.float)) / 2
+            velo = (np.array(datas[8:11], dtype=np.float) + np.array(datat[8:11], dtype=np.float)) / 2
     with open(os.path.join(scene_path, "oxts/timestamps.txt")) as time:
         i = 0
         target_time = 0
@@ -238,7 +239,7 @@ if __name__ == "__main__":
     # lidar_point_coord_velodyne = lidar_point_coord_velodyne @ np.transpose(velo2cam)
     # plot_lidar_3d(lidar_point_coord_velodyne, orig_colors)
 
-    rel_pose = get_relative_pose(r"data\kitti_example\2011_09_26\2011_09_26_drive_0048_sync", 1, 0)
+    rel_pose = get_relative_pose(r"data\kitti_example\2011_09_26\2011_09_26_drive_0048_sync", 10, 1)
     # rel_pose = imu2velo @ get_relative_pose(r"data\kitti_example\2011_09_26\2011_09_26_drive_0048_sync", 1, 0)
 
     lidar_point_coord_velodyne = lidar_point_coord_velodyne @ np.transpose(rel_pose)
@@ -281,27 +282,42 @@ if __name__ == "__main__":
            (lidar_point_coord_camera_image[:, 0] < 1242) & (lidar_point_coord_camera_image[:, 1] < 375)
 
     # Load image file.
-    image = mpimg.imread('data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/image_02/data/0000000000.png')
+    image = mpimg.imread('data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/image_02/data/0000000010.png')
 
     filtered = lidar_point_coord_camera_image[filt, :3]
     colors = np.zeros(filtered.shape, dtype=np.float32)
     for i in range(colors.shape[0]):
         colors[i] = image[filtered[i, 1], filtered[i, 0]]
         # print(image[filtered[i, 0], filtered[i, 1]])
+    fig = plt.figure(figsize=(32, 9))
 
-    plot_lidar_on_image(image, lidar_point_coord_camera_image[filt])
+    plot_lidar_on_image(image, lidar_point_coord_camera_image[filt], fig, 1)
 
-    plot_sparse_img_and_surrounding_lidar(lidar_point_coord_camera_image, filtered, colors)
+    # plot_sparse_img_and_surrounding_lidar(lidar_point_coord_camera_image, filtered, colors)
 
     orig_points = load_lidar_points(
         'data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/velodyne_points/data/0000000001.bin')
 
     camera_image_from_velodyne = np.dot(np.dot(P_rect, R_cam2rect), velo2cam)
-    lidar_point_coord_camera_image = generate_lidar_point_coord_camera_image(
-        orig_points, camera_image_from_velodyne, 1242, 375)[:, :3]
-    image = mpimg.imread('data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/image_02/data/0000000000.png')
+    # lidar_point_coord_camera_image = generate_lidar_point_coord_camera_image(
+    #     orig_points, camera_image_from_velodyne, 1242, 375)[:, :3]
 
-    plot_lidar_on_image(image, lidar_point_coord_camera_image)
+    lidar_point_coord_camera_image = orig_points @ camera_image_from_velodyne.T
+    lidar_point_coord_camera_image = lidar_point_coord_camera_image[lidar_point_coord_camera_image[:, 2] > 0]
+    lidar_point_coord_camera_image[:, :2] = lidar_point_coord_camera_image[:, :2] / \
+                                            lidar_point_coord_camera_image[:, 2][..., np.newaxis]
+
+    # Round X and Y pixel coordinates to int.
+    lidar_point_coord_camera_image = np.around(lidar_point_coord_camera_image).astype(int)
+
+    # Create filtered index only inlude those in image field of view.
+    filt = (lidar_point_coord_camera_image[:, 0] >= 0) & (lidar_point_coord_camera_image[:, 1] >= 0) & \
+           (lidar_point_coord_camera_image[:, 0] < 1242) & (lidar_point_coord_camera_image[:, 1] < 375)
+
+    image = mpimg.imread('data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/image_02/data/0000000010.png')
+
+    plot_lidar_on_image(image, lidar_point_coord_camera_image[filt], fig, 2)
+    plt.show()
     print(rel_pose)
     print("hi")
 

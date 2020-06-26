@@ -36,7 +36,7 @@ def generate_lidar_point_coord_camera_image(lidar_point_coord_velodyne, camera_i
     
     return lidar_point_coord_camera_image, filtered_index
 
-def plot_lidar_on_image(image, lidar_point_coord_camera_image):
+def plot_lidar_on_image(image, lidar_point_coord_camera_image, fig, ind):
     """
     This function plots lidar points on the image with colors corresponding to their depth(higher hsv hue val = further away) 
     :param [numpy.array] image: [H, W], contains image data
@@ -52,11 +52,12 @@ def plot_lidar_on_image(image, lidar_point_coord_camera_image):
         colors[idx] = np.asarray(colorsys.hsv_to_rgb(lidar_point_coord_camera_image[idx][2] * (240/360), 1.0, 1.0))
     
     # Show grayscale image.
+    fig.add_subplot(2, 1, ind)
     plt.imshow(image, cmap='Greys_r')
     
     # Plot lidar points.
-    plt.scatter(lidar_point_coord_camera_image[:, 0], lidar_point_coord_camera_image[:, 1], c = colors, s = 2)
-    plt.show()
+    plt.scatter(lidar_point_coord_camera_image[:, 0], lidar_point_coord_camera_image[:, 1], c = colors, s = 5)
+    # plt.show()
 
 def normalize_depth(lidar_point_coord_camera_image):
     """
