@@ -136,24 +136,14 @@ def test_transform(inarr, t_mat):
 
 
 def get_associated_colors(points_on_image, src_image):
-    img_channels = 3
-    if len(src_image.shape) == 2:
-        img_channels = 1
-    colors = np.zeros((points_on_image.shape[0], img_channels), dtype=np.uint8)
-    for i in range(points_on_image.shape[0]):
-        curr_pixel = points_on_image[i]
-        if curr_pixel[2] <= 0:
-            colors[i] = -1
-
-        r = np.around(curr_pixel[1] / curr_pixel[2]).astype(int)
-        c = np.around(curr_pixel[0] / curr_pixel[2]).astype(int)
-
-        if 0 <= r < src_image.shape[0] and 0 <= c < src_image.shape[1]:
-            colors[i] = src_image[r, c]
-        else:
-            colors[i] = -1
-
-    return colors
+    src_colors = np.zeros((points_on_image.shape[0], 4), dtype=points_on_image.dtype)
+    src_colors[:, :3] = src_image[points_on_image[:, 1], points_on_image[:, 0]]
+    src_colors[:, 3] = points_on_image[:, 4]
+    # extended = np.zeros((points_on_image.shape[0], points_on_image.shape[1] + 3), dtype=points_on_image.dtype)
+    # extended[:, :points_on_image.shape[1]] = points_on_image
+    # extended = filter_to_fov(extended, src_image.shape)
+    # extended[:, points_on_image.shape[1]:] = src_image[extended[:, 1], extended[:, 0]]
+    return src_colors
 
 
 def color_image(shape, positions, colors):
@@ -185,6 +175,8 @@ def get_transform_coord2image():
 def project_points_on_image(velo_points, coord2image):
     point_on_image = np.copy(velo_points)
     point_on_image[:, :4] = point_on_image[:, :4] @ coord2image.T
+
+
     # point_on_image = point_on_image[point_on_image[:, 2] > 0]
     # point_on_image[:, :2] = point_on_image[:, :2] / point_on_image[:, 2][..., np.newaxis]
 
@@ -194,29 +186,53 @@ def project_points_on_image(velo_points, coord2image):
     return point_on_image
 
 
-def plot_image(shape, positions, colors):
-    plt.figure(figsize=(40, 7.5))
-    points = np.concatenate((positions, colors), axis=1)
-    points = points[points[:, 2] > 0]
-    points[:, :2] = points[:, :2] / points[:, 2][..., np.newaxis]
-    points = points[(points[:, 4] >= 0) & (points[:, 1] >= 0) & (points[:, 1] < shape[0]) & (points[:, 0] >= 0) & (points[:, 0] < shape[1])] #
-    plt.scatter(points[:, 0], points[:, 1], c=points[:, 4:]/255, s=7, marker='s')
-    plt.axis([-500,1750,375,100])
-    plt.show()
+def filter_to_plane(positions):
+    positions = positions[positions[:, 2] > 0]
+    positions[:, :2] = positions[:, :2] / positions[:, 2].reshape(-1, 1)
+    return np.around(positions).astype(int)
+
+
+def filter_to_fov(positions, shape):
+    # plt.figure(figsize=(40, 7.5))
+
+    # plt.scatter(positions[:, 0], positions[:, 1], c=np.array([[0.75, 0.75, 0.75]]), s=7, marker="s")
+
+    # plt.scatter(positions[:, 0], positions[:, 1], c=positions[:, 4:]/255, s=7, marker='s')
+    # plt.axis([-500,1750,375,100])
+    # plt.show()
+    return positions[
+        (positions[:, 1] >= 0) & (positions[:, 1] < shape[0]) & (positions[:, 0] >= 0) & (positions[:, 0] < shape[1])]
 
 
 def plot_source_in_target(velo_points_tgt, src_image, coord2image, rel_pose_mat):
+    # print("\n\n\n\nbruh")
     # transform velo_points into
-    velo_points_src = velo_points_tgt @ rel_pose_mat.T
+    # tracked_points = np.empty(velo_points_tgt.shape, dtype=velo_points_tgt.dtype)
+    # tracked_points[:, velo_points_tgt.shape[1]] = np.arange(velo_points_tgt.shape[0])
+    # tracked_points[:, :velo_points_tgt.shape[1]] = velo_points_tgt
 
-    colors = get_associated_colors(project_points_on_image(velo_points_src, coord2image), src_image)
+    tracked_points = np.empty((velo_points_tgt.shape[0], 5), dtype=velo_points_tgt.dtype)
+    tracked_points[:, :4] = velo_points_tgt @ rel_pose_mat.T
+    tracked_points[:, 4] = np.arange(tracked_points.shape[0])
 
-    pixel_positions = project_points_on_image(velo_points_tgt, coord2image)
+    velo_colors = get_associated_colors(filter_to_fov(filter_to_plane(project_points_on_image(tracked_points, coord2image)), src_image.shape), src_image)
+    # print(velo_colors)
+
+
+    # velo_colors[:, :4] = velo_colors[:, :4] @ (rel_pose_mat @ np.linalg.inv(coord2image)).T
+    tgt_points_image = project_points_on_image(velo_points_tgt, coord2image)
+    tgt_points_color = np.empty((velo_points_tgt.shape[0], 7), dtype=velo_points_tgt.dtype)
+    # print(tgt_points_color.shape)
+    tgt_points_color.fill(np.nan)
+    # print(tgt_points_color)
+    tgt_points_color[:, :4] = tgt_points_image
+    tgt_points_color[velo_colors[:, 3], 4:] = velo_colors[:, :3]
+    tgt_points_color = tgt_points_color[~np.isnan(tgt_points_color[:, 4])]
+    tgt_points_color = filter_to_fov(filter_to_plane(tgt_points_color), src_image.shape)
+
 
     # out_image = color_image(src_image.shape, pixel_positions, colors)
-
-
-    plot_image(src_image.shape, pixel_positions, colors)
+    plot_sparse_img_and_surrounding_lidar(filter_to_plane(tgt_points_image), tgt_points_color[:, :4], tgt_points_color[:, 4:] / 255)
     # Do something with the image
     # Image.fromarray(out_image).show()
     pass
@@ -273,7 +289,7 @@ if __name__ == "__main__":
     imu2velo = np.vstack((imu2velo, np.array([0, 0, 0, 1.0])))
 
     lidar_point_coord_velodyne = load_lidar_points(
-        'data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/velodyne_points/data/0000000001.bin')
+        'data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/velodyne_points/data/0000000011.bin')
 
     print(lidar_point_coord_velodyne.shape)
 
@@ -286,7 +302,7 @@ if __name__ == "__main__":
     # lidar_point_coord_velodyne = lidar_point_coord_velodyne @ np.transpose(coord2image)
     # plot_lidar_3d(lidar_point_coord_velodyne, orig_colors)
 
-    rel_pose = get_relative_pose(r"data\kitti_example\2011_09_26\2011_09_26_drive_0048_sync", 10, 1)
+    rel_pose = get_relative_pose(r"data\kitti_example\2011_09_26\2011_09_26_drive_0048_sync", 21, 11)
     # rel_pose = imu2velo @ get_relative_pose(r"data\kitti_example\2011_09_26\2011_09_26_drive_0048_sync", 1, 0)
     intr = np.eye(4)
     intr[:3, :3] = get_camera_intrinsic_dict(r"data\kitti_example\2011_09_26").get("stereo_left")
@@ -329,21 +345,21 @@ if __name__ == "__main__":
            (lidar_point_coord_camera_image[:, 0] < 1242) & (lidar_point_coord_camera_image[:, 1] < 375)
 
     # Load image file.
-    image = np.array(Image.open('data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/image_02/data/0000000010.png'))
+    src_image = np.array(Image.open('data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/image_02/data/0000000021.png'))
 
     filtered = lidar_point_coord_camera_image[filt, :3]
     colors = np.zeros(filtered.shape, dtype=np.uint8)
     for i in range(colors.shape[0]):
-        colors[i] = image[filtered[i, 1], filtered[i, 0]]
+        colors[i] = src_image[filtered[i, 1], filtered[i, 0]]
         # print(image[filtered[i, 0], filtered[i, 1]])
     fig = plt.figure(figsize=(32, 9))
 
-    plot_lidar_on_image(image, lidar_point_coord_camera_image[filt], fig, 1)
+    plot_lidar_on_image(src_image, lidar_point_coord_camera_image[filt], fig, 1)
 
     # plot_sparse_img_and_surrounding_lidar(lidar_point_coord_camera_image, filtered, colors)
 
     orig_points = load_lidar_points(
-        'data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/velodyne_points/data/0000000001.bin')
+        'data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/velodyne_points/data/0000000011.bin')
 
     camera_image_from_velodyne = np.dot(np.dot(P_rect, R_cam2rect), velo2cam)
     camera_image_from_velodyne = np.vstack((camera_image_from_velodyne, np.array([[0, 0, 0, 1.0]])))
@@ -362,15 +378,15 @@ if __name__ == "__main__":
     filt = (lidar_point_coord_camera_image[:, 0] >= 0) & (lidar_point_coord_camera_image[:, 1] >= 0) & \
            (lidar_point_coord_camera_image[:, 0] < 1242) & (lidar_point_coord_camera_image[:, 1] < 375)
 
-    image = np.array(Image.open('data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/image_02/data/0000000010.png'))
+    tgt_image = np.array(Image.open('data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/image_02/data/0000000011.png'))
 
-    plot_lidar_on_image(image, lidar_point_coord_camera_image[filt], fig, 2)
+    plot_lidar_on_image(tgt_image, lidar_point_coord_camera_image[filt], fig, 2)
     plt.show()
     print(rel_pose)
     print("hi")
 
     print(camera_image_from_velodyne.shape)
-    plot_source_in_target(orig_points, image, camera_image_from_velodyne, rel_pose)
+    plot_source_in_target(orig_points, src_image, camera_image_from_velodyne, rel_pose)
 
 # def calc_transformation_mat(sample_path, idx):
 #     """
