@@ -145,8 +145,8 @@ def get_associated_colors(points_on_image, src_image):
         if curr_pixel[2] <= 0:
             colors[i] = -1
 
-        r = np.around(curr_pixel[1] / curr_pixel[2])
-        c = np.around(curr_pixel[0] / curr_pixel[2])
+        r = np.around(curr_pixel[1] / curr_pixel[2]).astype(int)
+        c = np.around(curr_pixel[0] / curr_pixel[2]).astype(int)
 
         if 0 <= r < src_image.shape[0] and 0 <= c < src_image.shape[1]:
             colors[i] = src_image[r, c]
@@ -164,8 +164,8 @@ def color_image(shape, positions, colors):
         if curr_pixel[2] <= 0 or colors[i][0] < 0:
             continue
 
-        r = np.around(curr_pixel[1] / curr_pixel[2])
-        c = np.around(curr_pixel[0] / curr_pixel[2])
+        r = np.around(curr_pixel[1] / curr_pixel[2]).astype(int)
+        c = np.around(curr_pixel[0] / curr_pixel[2]).astype(int)
 
         if 0 <= r < shape[0] and 0 <= c < shape[1]:
             img[r, c] = colors[i]
@@ -194,6 +194,17 @@ def project_points_on_image(velo_points, coord2image):
     return point_on_image
 
 
+def plot_image(shape, positions, colors):
+    plt.figure(figsize=(40, 7.5))
+    points = np.concatenate((positions, colors), axis=1)
+    points = points[points[:, 2] > 0]
+    points[:, :2] = points[:, :2] / points[:, 2][..., np.newaxis]
+    points = points[(points[:, 4] >= 0) & (points[:, 1] >= 0) & (points[:, 1] < shape[0]) & (points[:, 0] >= 0) & (points[:, 0] < shape[1])] #
+    plt.scatter(points[:, 0], points[:, 1], c=points[:, 4:]/255, s=7, marker='s')
+    plt.axis([-500,1750,375,100])
+    plt.show()
+
+
 def plot_source_in_target(velo_points_tgt, src_image, coord2image, rel_pose_mat):
     # transform velo_points into
     velo_points_src = velo_points_tgt @ rel_pose_mat.T
@@ -202,10 +213,12 @@ def plot_source_in_target(velo_points_tgt, src_image, coord2image, rel_pose_mat)
 
     pixel_positions = project_points_on_image(velo_points_tgt, coord2image)
 
-    out_image = color_image(src_image.shape, pixel_positions, colors)
+    # out_image = color_image(src_image.shape, pixel_positions, colors)
 
+
+    plot_image(src_image.shape, pixel_positions, colors)
     # Do something with the image
-
+    # Image.fromarray(out_image).show()
     pass
 
 
@@ -333,6 +346,7 @@ if __name__ == "__main__":
         'data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/velodyne_points/data/0000000001.bin')
 
     camera_image_from_velodyne = np.dot(np.dot(P_rect, R_cam2rect), velo2cam)
+    camera_image_from_velodyne = np.vstack((camera_image_from_velodyne, np.array([[0, 0, 0, 1.0]])))
     # lidar_point_coord_camera_image = generate_lidar_point_coord_camera_image(
     #     orig_points, camera_image_from_velodyne, 1242, 375)[:, :3]
 
@@ -354,6 +368,9 @@ if __name__ == "__main__":
     plt.show()
     print(rel_pose)
     print("hi")
+
+    print(camera_image_from_velodyne.shape)
+    plot_source_in_target(orig_points, image, camera_image_from_velodyne, rel_pose)
 
 # def calc_transformation_mat(sample_path, idx):
 #     """
