@@ -246,28 +246,40 @@ def string_to_nano(time_string):
 
 
 def get_relative_pose(scene_path, target, source):
-    # target frame to source frame
+    """
+    Computes relative pose matrix [4x4] between the 2 given frames in a scene.
+    By multiplying, transforms target coordinates into source coordinates.
+    :param [str] scene_path: Path name to the scene folder
+    :param [int] target : The target frame number
+    :param [int] source: The source frame number
+    :return [np.ndarray]: Shape of (4, 4) containing the values to transform between target frame to source frame
+    """
     with open(os.path.join(scene_path, f"oxts/data/{target:010}.txt")) as ft:
         datat = ft.readline().split()
         with open(os.path.join(scene_path, f"oxts/data/{source:010}.txt")) as fs:
             datas = fs.readline().split()
+
+            # Calculates relative rotation and velocity
             rot = np.array(datat[3:6], dtype=np.float) - np.array(datas[3:6], dtype=np.float)
             velo = (np.array(datat[8:11], dtype=np.float) + np.array(datas[8:11], dtype=np.float)) / 2
+
+    # Determines the relative time passed between the 2 frames, as target - source
     with open(os.path.join(scene_path, "oxts/timestamps.txt")) as time:
         i = 0
         target_time = 0
         source_time = 0
         for line in time:
             if i == target:
-                target_time = iso_string_to_nanoseconds(line)
+                target_time = string_to_nano(line)
                 if source_time:
                     break
             elif i == source:
-                source_time = iso_string_to_nanoseconds(line)
+                source_time = string_to_nano(line)
                 if target_time:
                     break
             i += 1
         delta_time_nsec = target_time - source_time
 
+    # Determines displacement by multiplying velocity by time
     pos = velo * delta_time_nsec / 1E9
     return calc_transformation_matrix(rot, pos)
