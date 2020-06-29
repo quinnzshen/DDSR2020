@@ -139,28 +139,14 @@ def get_associated_colors(points_on_image, src_image):
     src_colors = np.zeros((points_on_image.shape[0], 4), dtype=points_on_image.dtype)
     src_colors[:, :3] = src_image[points_on_image[:, 1], points_on_image[:, 0]]
     src_colors[:, 3] = points_on_image[:, 4]
-    # extended = np.zeros((points_on_image.shape[0], points_on_image.shape[1] + 3), dtype=points_on_image.dtype)
-    # extended[:, :points_on_image.shape[1]] = points_on_image
-    # extended = filter_to_fov(extended, src_image.shape)
-    # extended[:, points_on_image.shape[1]:] = src_image[extended[:, 1], extended[:, 0]]
     return src_colors
 
 
-def color_image(shape, positions, colors):
+def color_image(color_points, shape):
     img = np.zeros(shape, dtype=np.uint8)
     img.fill(255)
-    for i in range(positions.shape[0]):
-        curr_pixel = positions[i]
-        if curr_pixel[2] <= 0 or colors[i][0] < 0:
-            continue
 
-        r = np.around(curr_pixel[1] / curr_pixel[2]).astype(int)
-        c = np.around(curr_pixel[0] / curr_pixel[2]).astype(int)
-
-        if 0 <= r < shape[0] and 0 <= c < shape[1]:
-            img[r, c] = colors[i]
-
-    # iterate through positions and assign respective colors
+    img[color_points[:, 1], color_points[:, 0]] = color_points[:, 4:]
     return img
 
 
@@ -175,14 +161,6 @@ def get_transform_coord2image():
 def project_points_on_image(velo_points, coord2image):
     point_on_image = np.copy(velo_points)
     point_on_image[:, :4] = point_on_image[:, :4] @ coord2image.T
-
-
-    # point_on_image = point_on_image[point_on_image[:, 2] > 0]
-    # point_on_image[:, :2] = point_on_image[:, :2] / point_on_image[:, 2][..., np.newaxis]
-
-    # Round X and Y pixel coordinates to int.
-    # point_on_image = np.around(point_on_image).astype(int)
-    # [0 <= point_on_image[:, 0] < width and 0 <= point_on_image[:, 1] < height]
     return point_on_image
 
 
@@ -193,49 +171,28 @@ def filter_to_plane(positions):
 
 
 def filter_to_fov(positions, shape):
-    # plt.figure(figsize=(40, 7.5))
-
-    # plt.scatter(positions[:, 0], positions[:, 1], c=np.array([[0.75, 0.75, 0.75]]), s=7, marker="s")
-
-    # plt.scatter(positions[:, 0], positions[:, 1], c=positions[:, 4:]/255, s=7, marker='s')
-    # plt.axis([-500,1750,375,100])
-    # plt.show()
     return positions[
         (positions[:, 1] >= 0) & (positions[:, 1] < shape[0]) & (positions[:, 0] >= 0) & (positions[:, 0] < shape[1])]
 
 
 def plot_source_in_target(velo_points_tgt, src_image, coord2image, rel_pose_mat):
-    # print("\n\n\n\nbruh")
-    # transform velo_points into
-    # tracked_points = np.empty(velo_points_tgt.shape, dtype=velo_points_tgt.dtype)
-    # tracked_points[:, velo_points_tgt.shape[1]] = np.arange(velo_points_tgt.shape[0])
-    # tracked_points[:, :velo_points_tgt.shape[1]] = velo_points_tgt
-
     tracked_points = np.empty((velo_points_tgt.shape[0], 5), dtype=velo_points_tgt.dtype)
     tracked_points[:, :4] = velo_points_tgt @ rel_pose_mat.T
     tracked_points[:, 4] = np.arange(tracked_points.shape[0])
 
     velo_colors = get_associated_colors(filter_to_fov(filter_to_plane(project_points_on_image(tracked_points, coord2image)), src_image.shape), src_image)
-    # print(velo_colors)
 
-
-    # velo_colors[:, :4] = velo_colors[:, :4] @ (rel_pose_mat @ np.linalg.inv(coord2image)).T
     tgt_points_image = project_points_on_image(velo_points_tgt, coord2image)
     tgt_points_color = np.empty((velo_points_tgt.shape[0], 7), dtype=velo_points_tgt.dtype)
-    # print(tgt_points_color.shape)
     tgt_points_color.fill(np.nan)
-    # print(tgt_points_color)
     tgt_points_color[:, :4] = tgt_points_image
     tgt_points_color[velo_colors[:, 3], 4:] = velo_colors[:, :3]
     tgt_points_color = tgt_points_color[~np.isnan(tgt_points_color[:, 4])]
     tgt_points_color = filter_to_fov(filter_to_plane(tgt_points_color), src_image.shape)
 
-
-    # out_image = color_image(src_image.shape, pixel_positions, colors)
+    out_image = color_image(tgt_points_color, src_image.shape)
     plot_sparse_img_and_surrounding_lidar(filter_to_plane(tgt_points_image), tgt_points_color[:, :4], tgt_points_color[:, 4:] / 255)
-    # Do something with the image
     # Image.fromarray(out_image).show()
-    pass
 
 
 def plot_lidar_3d(lidar, orig):
