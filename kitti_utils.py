@@ -231,6 +231,20 @@ def get_relative_translation_stereo(calibration_dir):
     return translation_source_to_target
 
 
+def string_to_nano(time_string):
+    """
+    Converts a line in the format provided by timestamps.txt to the number of nanoseconds since the midnight of that day
+    :param time_string: The string to be converted into nanoseconds
+    :return: The number of nanoseconds since midnight
+    """
+    total = 0
+    total += int(time_string[11:13]) * 3600 * 1000000000
+    total += int(time_string[14:16]) * 60 * 1000000000
+    total += int(time_string[17:19]) * 1000000000
+    total += int(time_string[20:])
+    return total
+
+
 def get_relative_pose(scene_path, target, source):
     # target frame to source frame
     with open(os.path.join(scene_path, f"oxts/data/{target:010}.txt")) as ft:

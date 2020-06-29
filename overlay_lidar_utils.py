@@ -1,6 +1,9 @@
 import numpy as np
 from matplotlib import pyplot as plt
 import colorsys
+from plotly import graph_objects as go
+
+import plotly_utils
 
 
 def generate_lidar_point_coord_camera_image(lidar_point_coord_velodyne, camera_image_from_velodyne, im_width, im_height):
@@ -87,3 +90,17 @@ def color_image(color_points, shape):
 
     img[color_points[:, 1], color_points[:, 0]] = color_points[:, 4:]
     return img
+
+
+def plot_lidar_3d(lidar, colors):
+    fig = go.Figure()
+    fig.add_trace(go.Scatter3d(x=lidar[:, 0],
+                               y=lidar[:, 1],
+                               z=lidar[:, 2],
+                               mode='markers',
+                               marker=dict(size=1, color=colors, colorscale='Viridis'),
+                               name='lidar')
+                  )
+
+    plotly_utils.setup_layout(fig)
+    fig.show()

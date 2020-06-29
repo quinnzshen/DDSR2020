@@ -98,12 +98,11 @@ def plot_source_in_target(velo_points_tgt, src_image, coord2image, rel_pose_mat)
     tgt_points_color[:, :4] = tgt_points_image
     tgt_points_color[velo_colors[:, 3], 4:] = velo_colors[:, :3]
     tgt_points_color = tgt_points_color[~np.isnan(tgt_points_color[:, 4])]
-    # tgt_points_color = filter_to_fov(filter_to_plane(tgt_points_color), src_image.shape)
-    tgt_points_color = filter_to_plane(tgt_points_color)
+    tgt_points_color = filter_to_fov(filter_to_plane(tgt_points_color), src_image.shape)
+    # tgt_points_color = filter_to_plane(tgt_points_color)
 
     # out_image = color_image(tgt_points_color, src_image.shape)
     plot_sparse_img_and_surrounding_lidar(filter_to_plane(tgt_points_image), tgt_points_color[:, :4], tgt_points_color[:, 4:] / 255)
-    # Image.fromarray(out_image).show()
 
 
 def calc_transformation_matrix(rotation, translation):
