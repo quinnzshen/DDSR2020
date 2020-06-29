@@ -21,7 +21,7 @@ class KittiDataset(Dataset):
         self.next_frames = next_frames
 
     @classmethod
-    def init_from_config(self, config_path):
+    def init_from_config(cls, config_path):
         """
         Creates an instance of the class using a config file. The config file supplies the paths to the text files
         containing the all the paths to the data.
@@ -31,7 +31,10 @@ class KittiDataset(Dataset):
         with open(config_path, "r") as yml:
             config = yaml.load(yml, Loader=yaml.Loader)
             dataset_index = pd.concat([pd.read_csv(path, sep=" ", header=None) for path in config["dataset_paths"]])
-        return self(root_dir=config["root_directory"], dataset_index=dataset_index, previous_frames=config["previous_frames"], next_frames=config["next_frames"])
+        return cls(root_dir=config["root_directory"], 
+                   dataset_index=dataset_index, 
+                   previous_frames=config["previous_frames"], 
+                   next_frames=config["next_frames"])
 
     def __len__(self):
         """
