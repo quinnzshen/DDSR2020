@@ -120,12 +120,12 @@ def get_nearby_frames_data(path_name, idx, previous_frames, next_frames):
                         (e.g. -1 would be the previous image, 2 would be the next-next image).
         """
         nearby_frames = {}
-        for nearby_idx in range(idx - previous_frames, idx + next_frames + 1):
+        for relative_idx in range(-previous_frames, next_frames + 1):
             # We do not want to include the current frame in the nearby frames data.
-            if nearby_idx == 0:
+            if relative_idx == 0:
                 continue
 
-            nearby_frames[nearby_idx] = get_camera_data(path_name, nearby_idx)
+            nearby_frames[relative_idx] = get_camera_data(path_name, idx + relative_idx)
         return nearby_frames
 
 

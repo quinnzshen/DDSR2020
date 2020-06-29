@@ -3,6 +3,8 @@ import pytest
 import math
 import numpy as np
 import os
+import pandas as pd
+from dataloader import KittiDataset
 
 SAMPLE_SCENE_PATH = 'data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/'
 
@@ -86,3 +88,42 @@ def test_get_imu_data():
 def test_get_imu_dataframe():
     imu_df = ku.get_imu_dataframe(SAMPLE_SCENE_PATH)
     assert imu_df.shape == (22, 30)
+
+@pytest.fixture
+def kitti_root_directory():
+    return 'data/kitti_example'
+
+@pytest.fixture
+def kitti_dataset_index():
+    test_data = {'path_name': ['data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/', 
+                               'data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/',
+                               'data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/'],
+                 'index': ['0', '1', '2']}
+    
+    return pd.DataFrame(test_data, columns = ['path_name', 'index'])
+
+def test_get_nearby_frames(kitti_root_directory, kitti_dataset_index):
+    """
+    Tests the return of get_nearby_frames in the kitti_utils.py
+    """
+    dataset = KittiDataset(root_dir=kitti_root_directory, 
+                           dataset_index=kitti_dataset_index, 
+                           previous_frames=2,
+                           next_frames=2)
+
+    # On index 0, we expect there to be data for the relative index +1 and an empty dictionary for the relative index -1
+    expected_fields = ['stereo_left_image', 'stereo_left_shape', 'stereo_left_capture_time_nsec', 'stereo_right_image', 'stereo_right_shape', 'stereo_right_capture_time_nsec']
+    data = dataset[0]
+    data1 = dataset[1]
+    assert data['nearby_frames'][-1] == {}
+    assert data['nearby_frames'][-2] == {}
+    assert data1['nearby_frames'][-1] != {}
+    assert data1['nearby_frames'][-2] == {}
+    assert list(data['nearby_frames'].keys()) == [-2, -1, 1, 2]
+    assert list(data1['nearby_frames'].keys()) == [-2, -1, 1, 2]
+    assert list(data['nearby_frames'][1].keys()) == expected_fields
+    assert list(data1['nearby_frames'][-1].keys()) == expected_fields
+    assert list(data['nearby_frames'][-1].keys()) == []
+
+    
+
