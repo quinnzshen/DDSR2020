@@ -44,11 +44,13 @@ def plot_lidar_on_image(image, lidar_point_coord_camera_image, fig, ind):
     This function plots lidar points on the image with colors corresponding to their depth(higher hsv hue val = further away) 
     :param [numpy.array] image: [H, W], contains image data
     :param [numpy.array] lidar_point_coord_camera_image: [N, 4], contains lidar points on image plane, each row is format [X, Y, depth, 1]
+    :param [plt.Figure] fig: The figure for the image to be plotted on
+    :param [int] ind: The plot number in the figure
     :return: None. Plots image w/ lidar overlay.
     """
     # Normalize depth values.
     lidar_point_coord_camera_image = normalize_depth(lidar_point_coord_camera_image[:, :3])
-    
+
     # Make array of colors (row number is equal to row number containing corresponding x/y point in lidar_point_coord_camera_image)
     colors = np.zeros(lidar_point_coord_camera_image.shape)
     for idx in range(len(colors)):
@@ -59,8 +61,7 @@ def plot_lidar_on_image(image, lidar_point_coord_camera_image, fig, ind):
     plt.imshow(image, cmap='Greys_r')
     
     # Plot lidar points.
-    plt.scatter(lidar_point_coord_camera_image[:, 0], lidar_point_coord_camera_image[:, 1], c = colors, s = 5)
-    # plt.show()
+    plt.scatter(lidar_point_coord_camera_image[:, 0], lidar_point_coord_camera_image[:, 1], c=colors, s=5)
 
 
 def normalize_depth(lidar_point_coord_camera_image):

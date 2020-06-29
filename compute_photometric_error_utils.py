@@ -133,9 +133,10 @@ def plot_source_in_target(velo_points_tgt, src_image, coord2image, rel_pose_mat)
     tgt_points_color = tgt_points_color[~np.isnan(tgt_points_color[:, 4])]
     # Filters out points not in the camera image
     tgt_points_color = filter_to_fov(filter_to_plane(tgt_points_color), src_image.shape)
-    # tgt_points_color = filter_to_plane(tgt_points_color)
 
+    # tgt_points_color = filter_to_plane(tgt_points_color)
     # out_image = color_image(tgt_points_color, src_image.shape)
+
     # Plots points
     plot_sparse_img_and_surrounding_lidar(filter_to_plane(tgt_points_image), tgt_points_color[:, :4], tgt_points_color[:, 4:] / 255)
 
