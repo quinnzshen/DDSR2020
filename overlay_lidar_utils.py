@@ -1,8 +1,7 @@
 import numpy as np
-from collections import Counter
 from matplotlib import pyplot as plt
 import colorsys
-import kitti_utils
+
 
 def generate_lidar_point_coord_camera_image(lidar_point_coord_velodyne, camera_image_from_velodyne, im_width, im_height):
     """
@@ -17,14 +16,14 @@ def generate_lidar_point_coord_camera_image(lidar_point_coord_velodyne, camera_i
     # Based on code from monodepth2 repo.
 
     # Add right column of ones to lidar_point_coord_velodyne.
-    lidar_point_coord_velodyne[:, 3] =  np.ones((len(lidar_point_coord_velodyne)))
+    lidar_point_coord_velodyne[:, 3] = np.ones((len(lidar_point_coord_velodyne)))
     
     # Remove points behind velodyne sensor.
-    # lidar_point_coord_velodyne = lidar_point_coord_velodyne[lidar_point_coord_velodyne[:, 0] >=0, :]
+    lidar_point_coord_velodyne = lidar_point_coord_velodyne[lidar_point_coord_velodyne[:, 0] >=0, :]
     
     # Project points to image plane.
     lidar_point_coord_camera_image = np.dot(camera_image_from_velodyne, lidar_point_coord_velodyne.T).T
-    lidar_point_coord_camera_image = lidar_point_coord_camera_image[lidar_point_coord_camera_image[:, 2] > 0]
+    # lidar_point_coord_camera_image = lidar_point_coord_camera_image[lidar_point_coord_camera_image[:, 2] > 0]
     lidar_point_coord_camera_image[:, :2] = lidar_point_coord_camera_image[:, :2] / lidar_point_coord_camera_image[:, 2][..., np.newaxis]
     
     # Round X and Y pixel coordinates to int.
@@ -35,6 +34,7 @@ def generate_lidar_point_coord_camera_image(lidar_point_coord_velodyne, camera_i
                     (lidar_point_coord_camera_image[:, 0] < im_width) & (lidar_point_coord_camera_image[:, 1] < im_height)
     
     return lidar_point_coord_camera_image, filtered_index
+
 
 def plot_lidar_on_image(image, lidar_point_coord_camera_image, fig, ind):
     """
@@ -59,6 +59,7 @@ def plot_lidar_on_image(image, lidar_point_coord_camera_image, fig, ind):
     plt.scatter(lidar_point_coord_camera_image[:, 0], lidar_point_coord_camera_image[:, 1], c = colors, s = 5)
     # plt.show()
 
+
 def normalize_depth(lidar_point_coord_camera_image):
     """
     This function normalizes the depth values in lidar_point_coord_camera_image so they are between 0 and 1, inclusive 
@@ -71,3 +72,18 @@ def normalize_depth(lidar_point_coord_camera_image):
     min = lidar_point_coord_camera_image[:, 2].min()
     lidar_point_coord_camera_image[:, 2] = (lidar_point_coord_camera_image[:, 2] - min)/(max-min)
     return lidar_point_coord_camera_image
+
+
+def get_associated_colors(points_on_image, src_image):
+    src_colors = np.zeros((points_on_image.shape[0], 4), dtype=points_on_image.dtype)
+    src_colors[:, :3] = src_image[points_on_image[:, 1], points_on_image[:, 0]]
+    src_colors[:, 3] = points_on_image[:, 4]
+    return src_colors
+
+
+def color_image(color_points, shape):
+    img = np.zeros(shape, dtype=np.uint8)
+    img.fill(255)
+
+    img[color_points[:, 1], color_points[:, 0]] = color_points[:, 4:]
+    return img

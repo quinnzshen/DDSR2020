@@ -6,6 +6,7 @@ import pandas as pd
 
 import os
 from enum import Enum
+from compute_photometric_error_utils import calc_transformation_matrix
 
 
 class KITTICameraNames(str, Enum):
@@ -15,7 +16,6 @@ class KITTICameraNames(str, Enum):
 
 KITTI_TIMESTAMPS = ["/timestamps.txt", "velodyne_points/timestamps_start.txt", "velodyne_points/timestamps_end.txt"]
 EPOCH = np.datetime64("1970-01-01")
-
 
 
 def load_lidar_points(filename):
@@ -76,9 +76,10 @@ def compute_image_from_velodyne_matrices(calibration_dir):
         P_rect = cam2cam[f"P_rect_{camera_name[-2:]}"].reshape(3, 4)
         camera_image_from_velodyne = np.dot(np.dot(P_rect, R_cam2rect), velo2cam)
         camera_image_from_velodyne = np.vstack((camera_image_from_velodyne, np.array([[0, 0, 0, 1.0]])))
-        camera_image_from_velodyne_dict.update({KITTICameraNames(camera_name).name : camera_image_from_velodyne})
+        camera_image_from_velodyne_dict.update({KITTICameraNames(camera_name).name: camera_image_from_velodyne})
 
     return camera_image_from_velodyne_dict
+
 
 def iso_string_to_nanoseconds(time_string):
     """
@@ -117,7 +118,8 @@ def get_camera_data(path_name, camera_names, idx):
     camera_data = dict()
     for camera_name in camera_names:
         # The f-string is following the format of KITTI, padding the frame number with 10 zeros.
-        camera_image = np.asarray(Image.open(os.path.join(path_name, f"{KITTICameraNames[camera_name]}/data/{idx:010}.png")))
+        camera_image = np.asarray(
+            Image.open(os.path.join(path_name, f"{KITTICameraNames[camera_name]}/data/{idx:010}.png")))
         timestamp = get_timestamp_nsec(os.path.join(path_name, f"{KITTICameraNames[camera_name]}/timestamps.txt"), idx)
         camera_data[f"{camera_name}_image"] = camera_image
         camera_data[f"{camera_name}_shape"] = camera_image.shape
@@ -143,7 +145,7 @@ def get_lidar_data(path_name, idx):
         "lidar_end_capture_time_nsec": end_time
     }
 
-  
+
 def get_imu_data(scene_path, idx):
     """
     Get Intertial Measurement Unit (IMU) data. 
@@ -153,7 +155,7 @@ def get_imu_data(scene_path, idx):
     """
     imu_data_path = os.path.join(scene_path, f"oxts/data/{idx:010}.txt")
     imu_format_path = os.path.join(scene_path, "oxts/dataformat.txt")
-    
+
     with open(imu_format_path) as f:
         # The data is formatted as "name: description". We only care about the name here.
         imu_keys = [line.split(':')[0] for line in f.readlines()]
@@ -179,7 +181,8 @@ def get_imu_dataframe(scene_path):
 
     return pd.DataFrame(imu_values, columns=list(imu_data.keys()))
 
-def get_camera_intrinsic_dict(calibration_dir): 
+
+def get_camera_intrinsic_dict(calibration_dir):
     """
     This function gets the intrinsic matrix for each camera from the KITTI calibration file
     :param: [string] calibration_dir: directory where the KITTI calbration files are located
@@ -190,10 +193,11 @@ def get_camera_intrinsic_dict(calibration_dir):
 
     camera_intrinsic_dict = {}
     for camera_name in KITTICameraNames:
-        intrinsic_matrix = cam2cam[f"K_{camera_name[-2:]}"].reshape(3,3)
-        camera_intrinsic_dict.update({KITTICameraNames(camera_name).name : intrinsic_matrix})
-    
+        intrinsic_matrix = cam2cam[f"K_{camera_name[-2:]}"].reshape(3, 3)
+        camera_intrinsic_dict.update({KITTICameraNames(camera_name).name: intrinsic_matrix})
+
     return camera_intrinsic_dict
+
 
 def get_relative_rotation_stereo(calibration_dir):
     """
@@ -206,9 +210,10 @@ def get_relative_rotation_stereo(calibration_dir):
     cam2cam = read_calibration_file(os.path.join(calibration_dir, 'calib_cam_to_cam.txt'))
     # Compute relative rotation matrix.
     rotation_target = cam2cam['R_02'].reshape(3, 3)
-    rotation_source = cam2cam['R_03'].reshape(3,3)
+    rotation_source = cam2cam['R_03'].reshape(3, 3)
     rotation_source_to_target = np.linalg.inv(rotation_source) @ rotation_target
     return rotation_source_to_target
+
 
 def get_relative_translation_stereo(calibration_dir):
     """
@@ -217,10 +222,38 @@ def get_relative_translation_stereo(calibration_dir):
     :return: numpy.array of shape [3, 1], vector representing the relative translation between the camera that captured the source 
     image and the camera that captured the target image.
     """
-     # Read calibration file.
+    # Read calibration file.
     cam2cam = read_calibration_file(os.path.join(calibration_dir, 'calib_cam_to_cam.txt'))
     # Compute relative translation vector.
     translation_target = cam2cam['T_02'].reshape(3, 1)
     translation_source = cam2cam['T_03'].reshape(3, 1)
     translation_source_to_target = translation_source - translation_target
     return translation_source_to_target
+
+
+def get_relative_pose(scene_path, target, source):
+    # target frame to source frame
+    with open(os.path.join(scene_path, f"oxts/data/{target:010}.txt")) as ft:
+        datat = ft.readline().split()
+        with open(os.path.join(scene_path, f"oxts/data/{source:010}.txt")) as fs:
+            datas = fs.readline().split()
+            rot = np.array(datat[3:6], dtype=np.float) - np.array(datas[3:6], dtype=np.float)
+            velo = (np.array(datat[8:11], dtype=np.float) + np.array(datas[8:11], dtype=np.float)) / 2
+    with open(os.path.join(scene_path, "oxts/timestamps.txt")) as time:
+        i = 0
+        target_time = 0
+        source_time = 0
+        for line in time:
+            if i == target:
+                target_time = iso_string_to_nanoseconds(line)
+                if source_time:
+                    break
+            elif i == source:
+                source_time = iso_string_to_nanoseconds(line)
+                if target_time:
+                    break
+            i += 1
+        delta_time_nsec = target_time - source_time
+
+    pos = velo * delta_time_nsec / 1E9
+    return calc_transformation_matrix(rot, pos)
