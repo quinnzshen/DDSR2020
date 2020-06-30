@@ -6,16 +6,16 @@ import math
 
 import kitti_utils as ku
 
-
 EXAMPLE_SCENE_PATH = 'data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/'
 EXAMPLE_CALIBRATION_DIR = 'data/kitti_example/2011_09_26'
+
 
 def test_load_lidar_points():
     SAMPLE_LIDAR_POINTS_PATH = 'data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/velodyne_points/data/0000000010.bin'
     lidar_point_coord_velodyne = ku.load_lidar_points(SAMPLE_LIDAR_POINTS_PATH)
     assert lidar_point_coord_velodyne.shape == (116006, 4)
-    assert math.isclose(lidar_point_coord_velodyne[0][0], 73.89, rel_tol = .00001)
-    assert math.isclose(lidar_point_coord_velodyne[0][1], 7.028, rel_tol = .00001)
+    assert math.isclose(lidar_point_coord_velodyne[0][0], 73.89, rel_tol=.00001)
+    assert math.isclose(lidar_point_coord_velodyne[0][1], 7.028, rel_tol=.00001)
 
 
 def test_read_calibration_file():
@@ -32,10 +32,11 @@ def test_compute_image_from_velodyne_matrices():
     assert len(camera_image_from_velodyne_dict) == 2
     camera_image_from_velodyne = camera_image_from_velodyne_dict.get('stereo_left')
     testarr = np.array([[613.040929, -718.575854, -2.95002805, -124.072003], \
-                        [182.759005,  12.2395125, -718.988552, -101.607812], \
-                        [.999893357,  .00469739411,  .0138291498, -.269119537], \
+                        [182.759005, 12.2395125, -718.988552, -101.607812], \
+                        [.999893357, .00469739411, .0138291498, -.269119537], \
                         [0., 0., 0., 1.]])
     assert np.allclose(camera_image_from_velodyne, testarr)
+
 
 def test_iso_string_to_nanoseconds():
     assert ku.iso_string_to_nanoseconds("2011-09-26 14:14:11.435280384") == 1317046451435280384
@@ -43,12 +44,15 @@ def test_iso_string_to_nanoseconds():
 
 
 def test_get_timestamp_nsec():
-    assert ku.get_timestamp_nsec(r"data\kitti_example\2011_09_26\2011_09_26_drive_0048_sync\image_03\timestamps.txt", 3) == 1317046451221580544
-    assert ku.get_timestamp_nsec(r"data\kitti_example\2011_09_26\2011_09_26_drive_0048_sync\image_02\timestamps.txt", 5).dtype == np.int64
+    assert ku.get_timestamp_nsec(r"data\kitti_example\2011_09_26\2011_09_26_drive_0048_sync\image_03\timestamps.txt",
+                                 3) == 1317046451221580544
+    assert ku.get_timestamp_nsec(r"data\kitti_example\2011_09_26\2011_09_26_drive_0048_sync\image_02\timestamps.txt",
+                                 5).dtype == np.int64
 
 
 def test_get_camera_data():
-    cam_data = ku.get_camera_data(r"data\kitti_example\2011_09_26\2011_09_26_drive_0048_sync", ["stereo_left", "stereo_right"], 3)
+    cam_data = ku.get_camera_data(r"data\kitti_example\2011_09_26\2011_09_26_drive_0048_sync",
+                                  ["stereo_left", "stereo_right"], 3)
     assert type(cam_data) == dict
     assert cam_data["stereo_left_image"].dtype == np.uint8
     assert cam_data["stereo_left_image"].shape == (375, 1242, 3)
@@ -63,7 +67,7 @@ def test_get_lidar_data():
     assert lidar_data["lidar_start_capture_time_nsec"].dtype == np.int64
     assert lidar_data["lidar_end_capture_time_nsec"] == 1317046451573549201
 
-    
+
 def test_get_imu_data():
     imu_data = ku.get_imu_data(EXAMPLE_SCENE_PATH, 0)
     expected_imu_data = {
@@ -107,19 +111,22 @@ def test_get_imu_dataframe():
     imu_df = ku.get_imu_dataframe(EXAMPLE_SCENE_PATH)
     assert imu_df.shape == (22, 30)
 
+
 def test_get_camera_intrinsic_dict():
     sample_cam_intrinsic_dict = ku.get_camera_intrinsic_dict(EXAMPLE_CALIBRATION_DIR)
     assert len(sample_cam_intrinsic_dict) == 2
     test_arr = np.array([[959.791, 0., 696.0217], [0., 956.9251, 224.1806], [0., 0., 1.]])
     assert np.allclose(test_arr, sample_cam_intrinsic_dict.get('stereo_left'))
 
+
 def test_get_relative_rotation_stereo():
     rel_rotation_sample = ku.get_relative_rotation_stereo(EXAMPLE_CALIBRATION_DIR)
-    test_arr = np.array([[.9995572, -.02222673, .01978616], [.02225614, .99975152, -.00126738], [-.01975307, .00170718, .99980338]])
+    test_arr = np.array(
+        [[.9995572, -.02222673, .01978616], [.02225614, .99975152, -.00126738], [-.01975307, .00170718, .99980338]])
     assert np.allclose(test_arr, rel_rotation_sample)
+
 
 def test_get_relative_translation_stereo():
     rel_translation_sample = ku.get_relative_translation_stereo(EXAMPLE_CALIBRATION_DIR)
     test_arr = np.array([[-0.53267121], [0.00526146], [-0.00782809]])
     assert np.allclose(test_arr, rel_translation_sample)
-

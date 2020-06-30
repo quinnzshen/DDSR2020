@@ -68,35 +68,6 @@ def normalize_depth(lidar_point_coord_camera_image):
     return lidar_point_coord_camera_image
 
 
-def get_associated_colors(points_on_image, src_image):
-    """
-    Given point coordinates on the image plane, associates those points with the color of its position on src_image
-    :param [np.ndarray] points_on_image: Shape of [N, 5], where [:, 0 & 1] are the xy coordinates, [:, 2] is the depth, [:, 3] is 1, and [:, 4] is the point number
-    :param [np.ndarray] src_image: Shape of [H, W, 3] representing the image in RGB format
-    :return [np.ndarray]: Shape of [N, 4], where [:, 0:3] are the color values and [:, 3] is the associated point number
-    """
-    src_colors = np.zeros((points_on_image.shape[0], 4), dtype=points_on_image.dtype)
-    src_colors[:, :3] = src_image[points_on_image[:, 1], points_on_image[:, 0]]
-    # Copies over point indices
-    src_colors[:, 3] = points_on_image[:, 4]
-    return src_colors
-
-
-def color_image(color_points, shape):
-    """
-    Colors a blank image with given positions and colors
-    :param [np.ndarray] color_points: Shape of [N, 7] representing point coordinates on the image and their colors. [:, :2] is the xy coordinates and [:, 4:] are the color values
-    :param [tuple] shape: The shape of the image to be created
-    :return [np.ndarray]: The new blank image with pixels painted in based on color_points
-    """
-    img = np.zeros(shape, dtype=np.uint8)
-    # Makes it all white
-    img.fill(255)
-
-    img[color_points[:, 1], color_points[:, 0]] = color_points[:, 4:]
-    return img
-
-
 def plot_lidar_3d(lidar, colors):
     """
     Function to help visualize lidar points by plotting them in a point cloud
