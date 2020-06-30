@@ -1,6 +1,7 @@
 import numpy as np
 from matplotlib import pyplot as plt
 import colorsys
+import matplotlib.colors as mcolor
 from plotly import graph_objects as go
 
 import plotly_utils
@@ -49,19 +50,8 @@ def plot_lidar_on_image(image, lidar_point_coord_camera_image, fig, ind):
     :return: None. Plots image w/ lidar overlay.
     """
     # Normalize depth values.
-    lidar_point_coord_camera_image = normalize_depth(lidar_point_coord_camera_image[:, :3])
-
-    # Make array of colors (row number is equal to row number containing corresponding x/y point in lidar_point_coord_camera_image)
-    colors = np.zeros(lidar_point_coord_camera_image.shape)
-    for idx in range(len(colors)):
-        colors[idx] = np.asarray(colorsys.hsv_to_rgb(lidar_point_coord_camera_image[idx][2] * (240/360), 1.0, 1.0))
-    
-    # Show grayscale image.
-    fig.add_subplot(2, 1, ind)
-    plt.imshow(image, cmap='Greys_r')
-    
-    # Plot lidar points.
-    plt.scatter(lidar_point_coord_camera_image[:, 0], lidar_point_coord_camera_image[:, 1], c=colors, s=5)
+    norm_depth = normalize_depth(lidar_point_coord_camera_image[:, :3])
+    plot_point_hue_on_image(image, norm_depth[:, :2], norm_depth[:, 2], fig, ind)
 
 
 def normalize_depth(lidar_point_coord_camera_image):
@@ -125,3 +115,27 @@ def plot_lidar_3d(lidar, colors):
 
     plotly_utils.setup_layout(fig)
     fig.show()
+
+
+def plot_point_hue_on_image(img, positions, scale, fig, ind):
+    """
+    Plots points on an image with a chosen color based on the corresponding scale value. 0 < scale < 1, and if scale
+    is 0, then the point is red, if scale is 1, it is blue, and so forth.
+    :param [np.ndarray] img: Shape of [H, W, 3], the image background the points are plotted on
+    :param [np.ndarray] positions: Shape of [N, 2] or more, representing the positions of the points
+    :param [np.ndarray] scale: Shape of [N], the hue of each point
+    :param [plt.Figure] fig: The plt figure
+    :param [int] ind: Which subplot it is a part of
+    :return: Nothing, just creates an additional plt figure
+    """
+
+    colors = np.ones((scale.shape[0], 3), dtype=np.float32)
+    colors[:, 0] = scale * 240 / 360
+    colors = mcolor.hsv_to_rgb(colors)
+
+    # Show grayscale image.
+    fig.add_subplot(2, 1, ind)
+    plt.imshow(img, cmap='Greys_r')
+
+    # Plot lidar points.
+    plt.scatter(positions[:, 0], positions[:, 1], c=colors, s=5)

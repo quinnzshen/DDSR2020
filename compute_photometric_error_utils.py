@@ -102,7 +102,7 @@ def filter_to_fov(positions, shape):
         (positions[:, 1] >= 0) & (positions[:, 1] < shape[0]) & (positions[:, 0] >= 0) & (positions[:, 0] < shape[1])]
 
 
-def plot_source_in_target(velo_points_tgt, src_image, coord2image, rel_pose_mat):
+def color_target_points_with_source(velo_points_tgt, src_image, coord2image, rel_pose_mat):
     """
     Plots the source image into target frame given target velodyne points, relative pose, and a matrix to convert
     velodyne points into camera plane.
@@ -110,7 +110,8 @@ def plot_source_in_target(velo_points_tgt, src_image, coord2image, rel_pose_mat)
     :param [np.ndarray] src_image: Shape of [H, W, 3] which contains the RGB data of the source image (255 scale)
     :param [np.ndarray] coord2image: 4x4 matrix transforming velodyne coordinates into camera plane coordinates
     :param [np.ndarray] rel_pose_mat: 4x4 matrix containing pose information to transform target to source frame
-    :return: Nothing, just plots the source image projected into the target frame
+    :return [tuple]: A tuple of 2 elements containing the target lidar points with color information in camera image,
+    and all target lidar points with a positive depth in camera image, respectively
     """
     # Expands the given points by one column to fit the point index tracker
     tracked_points = np.empty((velo_points_tgt.shape[0], 5), dtype=velo_points_tgt.dtype)
@@ -137,8 +138,10 @@ def plot_source_in_target(velo_points_tgt, src_image, coord2image, rel_pose_mat)
     # tgt_points_color = filter_to_plane(tgt_points_color)
     # out_image = color_image(tgt_points_color, src_image.shape)
 
+    return tgt_points_color, filter_to_plane(tgt_points_image)
+
     # Plots points
-    plot_sparse_img_and_surrounding_lidar(filter_to_plane(tgt_points_image), tgt_points_color[:, :4], tgt_points_color[:, 4:] / 255)
+    # plot_sparse_img_and_surrounding_lidar(filter_to_plane(tgt_points_image), tgt_points_color[:, :4], tgt_points_color[:, 4:] / 255)
 
 
 def calc_transformation_matrix(rotation, translation):
@@ -171,3 +174,29 @@ def calc_transformation_matrix(rotation, translation):
         ],
         [0, 0, 0, 1],
     ], dtype=np.float32)
+
+
+def calc_photo_error(tgt_image, color_points):
+    """
+    Calculates photometric error given the target image and coordinates of the projected points and their colors
+    :param [np.ndarray] tgt_image: Shape of [H, W, 3], the target image to be compared to
+    :param [np.ndarray] color_points: The projected point information, in format [x, y, depth, 1, R, G, B]
+    :return [np.ndarray]: Float array of shape [H, W], where each value is the photometric error at that position if
+    there is was a color point there. If not, that position is just 0
+    """
+    pixel_error = np.zeros((tgt_image.shape[0], tgt_image[1]), dtype=np.float32)
+    pixel_error[color_points[:, 1], color_points[:, 0]] = np.sqrt(np.sum(np.square(color_points[:, 4:] - tgt_image[color_points[:, 1], color_points[:, 0]]), axis=1))
+    return pixel_error
+
+
+def calc_photo_error_velo(tgt_image, color_points):
+    """
+    Calculates photometric error given the target image and coordinates of the projected points and their colors
+    :param [np.ndarray] tgt_image: Shape of [H, W, 3], the target image to be compared to
+    :param [np.ndarray] color_points: The projected point information, in format [x, y, depth, 1, R, G, B]
+    :return [np.ndarray]: Float array of shape [N], where N is the number of color_points. Each value represents the
+    photometric error of the associated point in color_points when compared to the image
+    """
+    velo_error = np.zeros(color_points.shape[0], dtype=np.float32)
+    velo_error[:] = np.sqrt(np.sum(np.square(color_points[:, 4:] - tgt_image[color_points[:, 1], color_points[:, 0]]), axis=1))
+    return velo_error
