@@ -211,7 +211,7 @@ def calc_photo_error(tgt_image, color_points):
     :return [np.ndarray]: Float array of shape [H, W], where each value is the photometric error at that position if
     there is was a color point there. If not, that position is just 0
     """
-    pixel_error = np.zeros((tgt_image.shape[0], tgt_image[1]), dtype=np.float32)
+    pixel_error = np.zeros((tgt_image.shape[0], tgt_image.shape[1]), dtype=np.float32)
     pixel_error[color_points[:, 1], color_points[:, 0]] = np.sqrt(np.sum(np.square(color_points[:, 4:] - tgt_image[color_points[:, 1], color_points[:, 0]]), axis=1))
     return pixel_error
 

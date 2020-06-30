@@ -130,3 +130,15 @@ def test_get_relative_translation_stereo():
     rel_translation_sample = ku.get_relative_translation_stereo(EXAMPLE_CALIBRATION_DIR)
     test_arr = np.array([[-0.53267121], [0.00526146], [-0.00782809]])
     assert np.allclose(test_arr, rel_translation_sample)
+
+
+def test_get_relative_pose():
+    pose1 = ku.get_relative_pose(EXAMPLE_SCENE_PATH, 0, 0)
+    np.testing.assert_allclose(pose1, np.eye(4))
+    pose2 = ku.get_relative_pose(EXAMPLE_SCENE_PATH, 3, 4)
+    np.testing.assert_allclose(pose2, np.array([
+        [0.999993, -0.002484, 0.002805, -0.825348],
+        [0.002504, 0.999971, -0.007216, 0.004602],
+        [-0.002787, 0.007216, 0.99997, 0.003038],
+        [0., 0., 0., 1.]
+    ], dtype=np.float32), rtol=1e-4)

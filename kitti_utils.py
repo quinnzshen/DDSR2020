@@ -257,6 +257,9 @@ def get_relative_pose(scene_path, target, source):
     :param [int] source: The source frame number
     :return [np.ndarray]: Shape of (4, 4) containing the values to transform between target frame to source frame
     """
+    if target == source:
+        return np.eye(4, dtype=np.float32)
+
     with open(os.path.join(scene_path, f"oxts/data/{target:010}.txt")) as ft:
         datat = ft.readline().split()
         with open(os.path.join(scene_path, f"oxts/data/{source:010}.txt")) as fs:
