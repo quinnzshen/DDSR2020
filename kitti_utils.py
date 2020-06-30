@@ -71,9 +71,11 @@ def compute_image_from_velodyne_matrices(calibration_dir):
     camera_image_from_velodyne_dict = {}
 
     for camera_name in KITTICameraNames:
+        # Get camera number by slicing last 2 characters off of camera_name string.
+        cam_num = camera_name[-2:]
         R_cam2rect = np.eye(4)
-        R_cam2rect[:3, :3] = cam2cam[f"R_rect_{camera_name[-2:]}"].reshape(3, 3)
-        P_rect = cam2cam[f"P_rect_{camera_name[-2:]}"].reshape(3, 4)
+        R_cam2rect[:3, :3] = cam2cam[f"R_rect_{cam_num}"].reshape(3, 3)
+        P_rect = cam2cam[f"P_rect_{cam_num}"].reshape(3, 4)
         camera_image_from_velodyne = np.dot(np.dot(P_rect, R_cam2rect), velo2cam)
         camera_image_from_velodyne = np.vstack((camera_image_from_velodyne, np.array([[0, 0, 0, 1.0]])))
         camera_image_from_velodyne_dict.update({KITTICameraNames(camera_name).name: camera_image_from_velodyne})
@@ -193,9 +195,10 @@ def get_camera_intrinsic_dict(calibration_dir):
 
     camera_intrinsic_dict = {}
     for camera_name in KITTICameraNames:
-        intrinsic_matrix = cam2cam[f"K_{camera_name[-2:]}"].reshape(3, 3)
-        camera_intrinsic_dict.update({KITTICameraNames(camera_name).name: intrinsic_matrix})
-
+        # Get camera number by slicing last 2 characters off of camera_name string.
+        cam_num = camera_name[-2:]
+        intrinsic_matrix = cam2cam[f"K_{cam_num}"].reshape(3,3)
+        camera_intrinsic_dict.update({KITTICameraNames(camera_name).name : intrinsic_matrix})
     return camera_intrinsic_dict
 
 
