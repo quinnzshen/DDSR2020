@@ -12,4 +12,7 @@ dependencies:
   - pytest
   - pandas
   - pyyaml
+  - pip
+  - pip:
+    - tensorflow
 prefix: /Users/quinn/anaconda3/envs/ddsr
