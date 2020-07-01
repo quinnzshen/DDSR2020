@@ -41,3 +41,4 @@ def plot_naive_depth_completion_image(dense_depth_map, max_lidar_height):
     # Set y-axis limits to exclude area where there are no lidar points.
     plt.gca().set_ylim([plt.gca().get_ylim()[0], max_lidar_height])
     plt.show()
+    
