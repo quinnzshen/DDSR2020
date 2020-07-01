@@ -61,7 +61,7 @@ def compute_image_from_velodyne_matrices(calibration_dir):
     This function computes the transformation matrix to project 3D lidar points into the 2D image plane.
     :param [String] calibration_dir: Directory to folder containing camera/lidar calibration files
     :return:  dictionary of numpy.arrays of shape [4, 4] that converts 3D lidar points to 2D image plane for each camera
-    (keys: cam00, cam01, cam02, cam03)
+    (keys: stereo_left, stereo_right)
     """
     # Based on code from monodepth2 repo.
 
@@ -74,17 +74,17 @@ def compute_image_from_velodyne_matrices(calibration_dir):
     velo2cam = np.vstack((velo2cam, np.array([0, 0, 0, 1.0])))
     camera_image_from_velodyne_dict = {}
 
-    KITTI_CAMERA_NAMES = ['00', '01', '02', '03']
-    for camera_name in KITTI_CAMERA_NAMES:
+    for camera_name in KITTICameraNames:
+        # Get camera number by slicing last 2 characters off of camera_name string.
+        cam_num = camera_name[-2:]
         R_cam2rect = np.eye(4)
-        R_cam2rect[:3, :3] = cam2cam[f"R_rect_{camera_name}"].reshape(3, 3)
-        P_rect = cam2cam[f"P_rect_{camera_name}"].reshape(3, 4)
+        R_cam2rect[:3, :3] = cam2cam[f"R_rect_{cam_num}"].reshape(3, 3)
+        P_rect = cam2cam[f"P_rect_{cam_num}"].reshape(3, 4)
         camera_image_from_velodyne = np.dot(np.dot(P_rect, R_cam2rect), velo2cam)
         camera_image_from_velodyne = np.vstack((camera_image_from_velodyne, np.array([[0, 0, 0, 1.0]])))
-        camera_image_from_velodyne_dict.update({f"cam{camera_name}" : camera_image_from_velodyne})
+        camera_image_from_velodyne_dict.update({KITTICameraNames(camera_name).name : camera_image_from_velodyne})
 
     return camera_image_from_velodyne_dict
-
 
 def iso_string_to_nanoseconds(time_string):
     """
@@ -210,3 +210,51 @@ def get_imu_dataframe(scene_path):
         imu_values.append(list(imu_data.values()))
 
     return pd.DataFrame(imu_values, columns=list(imu_data.keys()))
+
+def get_camera_intrinsic_dict(calibration_dir): 
+    """
+    This function gets the intrinsic matrix for each camera from the KITTI calibration file
+    :param: [string] calibration_dir: directory where the KITTI calbration files are located
+    :return: dictionary of length 2 containing the 3x3 intrinsic matrix for each camera (keys: stereo_left, stereo_right)
+    """
+    # Load cam_to_cam calib file.
+    cam2cam = read_calibration_file(os.path.join(calibration_dir, 'calib_cam_to_cam.txt'))
+
+    camera_intrinsic_dict = {}
+    for camera_name in KITTICameraNames:
+        # Get camera number by slicing last 2 characters off of camera_name string.
+        cam_num = camera_name[-2:]
+        intrinsic_matrix = cam2cam[f"K_{cam_num}"].reshape(3,3)
+        camera_intrinsic_dict.update({KITTICameraNames(camera_name).name : intrinsic_matrix})
+    
+    return camera_intrinsic_dict
+
+def get_relative_rotation_stereo(calibration_dir):
+    """
+    This function computes the relative rotation matrix between stereo cameras for KITTI.
+    :param: [string] calibration dir: directory where KITTI calibration files are located.
+    :return: numpy.array of shape [3, 3], matrix representing the relative rotation between the camera that captured the source 
+    image and the camera that captured the target image.
+    """
+    # Read calibration file.
+    cam2cam = read_calibration_file(os.path.join(calibration_dir, 'calib_cam_to_cam.txt'))
+    # Compute relative rotation matrix.
+    rotation_target = cam2cam['R_02'].reshape(3, 3)
+    rotation_source = cam2cam['R_03'].reshape(3,3)
+    rotation_source_to_target = np.linalg.inv(rotation_source) @ rotation_target
+    return rotation_source_to_target
+
+def get_relative_translation_stereo(calibration_dir):
+    """
+    This function computes the relative translation vector between stereo cameras for KITTI.
+    :param: [string] calibration dir: directory where KITTI calibration files are located.
+    :return: numpy.array of shape [3, 1], vector representing the relative translation between the camera that captured the source 
+    image and the camera that captured the target image.
+    """
+     # Read calibration file.
+    cam2cam = read_calibration_file(os.path.join(calibration_dir, 'calib_cam_to_cam.txt'))
+    # Compute relative translation vector.
+    translation_target = cam2cam['T_02'].reshape(3, 1)
+    translation_source = cam2cam['T_03'].reshape(3, 1)
+    translation_source_to_target = translation_source - translation_target
+    return translation_source_to_target
