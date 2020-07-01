@@ -115,7 +115,8 @@ def get_nearby_frames_data(path_name, idx, previous_frames, next_frames):
         Given a specific index, return a dictionary containing information about the frame n frames before and after the target index
         in the dataset.
         :param dataset_index [pd.DataFrame]: The dataframe containing the paths and indices of the data
-        :param [int] delta: Number of frames before and after target frame to retrieve.
+        :param [int] previous_frames: Number of frames before the target frame that will be retrieved.
+        :param [int] next_frames: Number of frames after the target frame that will be retrieved.
         :return [dict]: Dictionary containing camera data of nearby frames, the key is the relative index and the value is the data.
                         (e.g. -1 would be the previous image, 2 would be the next-next image).
         """

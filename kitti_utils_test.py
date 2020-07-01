@@ -143,18 +143,33 @@ def test_get_nearby_frames(kitti_root_directory, kitti_dataset_index):
                            next_frames=2)
 
     # On index 0, we expect there to be data for the relative index +1 and an empty dictionary for the relative index -1
-    expected_fields = ['stereo_left_image', 'stereo_left_shape', 'stereo_left_capture_time_nsec', 'stereo_right_image', 'stereo_right_shape', 'stereo_right_capture_time_nsec']
+    expected_fields = ['stereo_left_image', 
+                       'stereo_left_shape', 
+                       'stereo_left_capture_time_nsec', 
+                       'stereo_right_image', 'stereo_right_shape', 
+                       'stereo_right_capture_time_nsec']
     data = dataset[0]
     data1 = dataset[1]
+    """
+    When index is 0 the frames -1 and -2 relative to the index do not exist and should return empty dictionaries
+    The keys returned for nearby_frames should be integers in the range(-previous_frames, next_frames + 1) excluding 0
+    The value of valid keys within nearby_frames should should be keys for each of the expected_fields
+    The value of invalid keys within nearby_frames should should return an empty list
+    """
     assert data['nearby_frames'][-1] == {}
     assert data['nearby_frames'][-2] == {}
+    assert list(data['nearby_frames'].keys()) == [-2, -1, 1, 2]
+    assert list(data['nearby_frames'][1].keys()) == expected_fields
+    assert list(data['nearby_frames'][-1].keys()) == []
+     """
+    When index is 1 the frames -1 relative to the index exists and should not longer return an empty dictionary,
+    the frame -2 relative to the index do not exist and should return an empty dictionary
+    The keys returned for nearby_frames should be integers in the range(-previous_frames, next_frames + 1) excluding 0
+    The value of valid keys within nearby_frames should should be keys for each of the expected_fields
+    """
     assert data1['nearby_frames'][-1] != {}
     assert data1['nearby_frames'][-2] == {}
-    assert list(data['nearby_frames'].keys()) == [-2, -1, 1, 2]
     assert list(data1['nearby_frames'].keys()) == [-2, -1, 1, 2]
-    assert list(data['nearby_frames'][1].keys()) == expected_fields
     assert list(data1['nearby_frames'][-1].keys()) == expected_fields
-    assert list(data['nearby_frames'][-1].keys()) == []
-
     
 
