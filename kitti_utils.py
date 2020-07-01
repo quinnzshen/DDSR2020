@@ -16,6 +16,7 @@ class KITTICameraNames(str, Enum):
 
 KITTI_TIMESTAMPS = ["/timestamps.txt", "velodyne_points/timestamps_start.txt", "velodyne_points/timestamps_end.txt"]
 EPOCH = np.datetime64("1970-01-01")
+VELO_INDICES = np.array([7, 6, 10])
 
 
 def load_lidar_points(filename):
@@ -261,13 +262,15 @@ def get_relative_pose(scene_path, target, source):
         return np.eye(4, dtype=np.float32)
 
     with open(os.path.join(scene_path, f"oxts/data/{target:010}.txt")) as ft:
-        datat = ft.readline().split()
+        datat = np.array(ft.readline().split(), dtype=np.float)
         with open(os.path.join(scene_path, f"oxts/data/{source:010}.txt")) as fs:
-            datas = fs.readline().split()
+            datas = np.array(fs.readline().split(), dtype=np.float)
 
             # Calculates relative rotation and velocity
             rot = np.array(datat[3:6], dtype=np.float) - np.array(datas[3:6], dtype=np.float)
-            velo = (np.array(datat[8:11], dtype=np.float) + np.array(datas[8:11], dtype=np.float)) / 2
+            velo = (datat[VELO_INDICES] + datas[VELO_INDICES]) / 2
+            yaw_rot_mat = np.array([[np.cos(-datat[5]), -np.sin(-datat[5])], [np.sin(-datat[5]), np.cos(-datat[5])]])
+            velo[:2] = velo[:2] @ yaw_rot_mat.T
 
     # Determines the relative time passed between the 2 frames, as target - source
     with open(os.path.join(scene_path, "oxts/timestamps.txt")) as time:
