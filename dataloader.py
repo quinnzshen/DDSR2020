@@ -57,7 +57,7 @@ class KittiDataset(Dataset):
         if idx >= len(self.dataset_index) or idx < 0:
             raise IndexError(f"Dataset index out of range. Given: {idx} (Less than 0 or greater than or equal to length)")
 
-        path_name = self.dataset_index.iloc[idx, 0]
+        path_name = os.path.normpath(self.dataset_index.iloc[idx, 0])
         date_name = os.path.dirname(path_name)
         idx = int(self.dataset_index.iloc[idx, 1])
 
