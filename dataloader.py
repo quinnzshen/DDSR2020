@@ -5,7 +5,7 @@ import pandas as pd
 
 import os
 
-from kitti_utils import get_camera_data, get_lidar_data, get_nearby_frames_data
+from kitti_utils import get_camera_data, get_lidar_data, get_nearby_frames_data, get_camera_intrinsic_dict, get_relative_rotation_stereo, get_relative_translation_stereo, compute_image_from_velodyne_matrices
 
 
 class KittiDataset(Dataset):
@@ -62,11 +62,15 @@ class KittiDataset(Dataset):
         idx = int(self.dataset_index.iloc[idx, 1])
 
         nearby_frames_data = get_nearby_frames_data(path_name, idx, self.previous_frames, self.next_frames)
+        calibration_dir = 'data/kitti_example/2011_09_26'
         # Taking information from the directory and putting it into the sample dictionary
         sample = {
             **get_camera_data(path_name, idx),
             **get_lidar_data(path_name, idx),
             **{'nearby_frames': nearby_frames_data},
+            **{'image_from_velodyne_matrices' : compute_image_from_velodyne_matrices(calibration_dir)},
+            **{'intrinsics' : get_camera_intrinsic_dict(calibration_dir)},
+            **{'rel_extrinsics_stereo' : {'rotation' : get_relative_rotation_stereo(calibration_dir), 'translation' : get_relative_translation_stereo(calibration_dir)}}
         }
 
         return sample
