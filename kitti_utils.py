@@ -77,6 +77,7 @@ def compute_image_from_velodyne_matrices(calibration_dir):
     for camera_name in KITTICameraNames:
         # Get camera number by slicing last 2 characters off of camera_name string.
         camera_path = CAMERA_NAME_TO_PATH_MAPPING[camera_name]
+
         cam_num = camera_path[-2:]
         R_cam2rect = np.eye(4)
         R_cam2rect[:3, :3] = cam2cam[f"R_rect_{cam_num}"].reshape(3, 3)
@@ -145,11 +146,11 @@ def get_camera_data(path_name, idx):
         camera_path = CAMERA_NAME_TO_PATH_MAPPING[camera_name]
         
         # Check if required paths exist.
+        # The f-string is following the format of KITTI, padding the frame number with 10 zeros.
         camera_image_path = os.path.join(path_name, f"{camera_path}/data/{idx:010}.png")
         timestamp_path = os.path.join(path_name, f"{camera_path}/timestamps.txt")
 
         if os.path.exists(camera_image_path) and os.path.exists(timestamp_path):
-            # The f-string is following the format of KITTI, padding the frame number with 10 zeros.
             camera_image = np.asarray(Image.open(camera_image_path))
             timestamp = get_timestamp_nsec(timestamp_path, idx)
             camera_data[f"{camera_name}_image"] = camera_image
@@ -224,6 +225,7 @@ def get_camera_intrinsic_dict(calibration_dir):
     camera_intrinsic_dict = {}
     for camera_name in KITTICameraNames:
         camera_path = CAMERA_NAME_TO_PATH_MAPPING[camera_name]
+        
         # Get camera number by slicing last 2 characters off of camera_name string.
         cam_num = camera_path[-2:]
         intrinsic_matrix = cam2cam[f"K_{cam_num}"].reshape(3,3)

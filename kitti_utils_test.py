@@ -44,12 +44,12 @@ def test_iso_string_to_nanoseconds():
 
 
 def test_get_timestamp_nsec():
-    assert ku.get_timestamp_nsec(r"data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/image_03/timestamps.txt", 3) == 1317046451221580544
-    assert ku.get_timestamp_nsec(r"data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/image_02/timestamps.txt", 5).dtype == np.int64
+    assert ku.get_timestamp_nsec("data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/image_03/timestamps.txt", 3) == 1317046451221580544
+    assert ku.get_timestamp_nsec("data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/image_02/timestamps.txt", 5).dtype == np.int64
 
 
 def test_get_camera_data():
-    cam_data = ku.get_camera_data(r"data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync", 3)
+    cam_data = ku.get_camera_data("data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync", 3)
     assert type(cam_data) == dict
     assert cam_data["stereo_left_image"].dtype == np.uint8
     assert cam_data["stereo_left_image"].shape == (375, 1242, 3)
@@ -57,7 +57,7 @@ def test_get_camera_data():
 
 
 def test_get_lidar_data():
-    lidar_data = ku.get_lidar_data(r"data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync", 6)
+    lidar_data = ku.get_lidar_data("data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync", 6)
     assert type(lidar_data) == dict
     assert lidar_data["lidar_point_coord_velodyne"].shape == (114395, 3)
     assert lidar_data["lidar_point_reflectivity"].dtype == np.float32
@@ -152,7 +152,7 @@ def test_get_nearby_frames(kitti_root_directory, kitti_dataset_index):
     # When idx = 0, [nearby_frames] keys: -1 should return camera data, while -2 should return an empty dictionary
     assert data['nearby_frames'][-1] != {}
     assert data['nearby_frames'][-2] == {}
-    # Keys for [nearby_frames] should be int values within range(-previous_frames, next_frames + 1)  with exception of 0
+    # Keys for [nearby_frames] should be int values within range(-previous_frames, next_frames + 1) with exception of 0
     assert list(data['nearby_frames'].keys()) == [-2, -1, 1, 2]
     # Values of valid [nearby_frames] keys should be elements of [expected_fields]
     assert list(data['nearby_frames'][-1].keys()) == expected_fields
