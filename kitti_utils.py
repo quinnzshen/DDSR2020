@@ -6,8 +6,7 @@ import pandas as pd
 
 import os
 from enum import Enum
-import random
-from glob import glob
+
 
 class KITTICameraNames(str, Enum):
     stereo_left = "image_02"
