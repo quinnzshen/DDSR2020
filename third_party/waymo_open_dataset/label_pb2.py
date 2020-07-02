@@ -3,7 +3,7 @@
 # source: waymo_open_dataset/label.proto
 
 import sys
-sys.path.append('third_party/waymo_open_dataset')
+sys.path.append('third_party/')
 
 _b=sys.version_info[0]<3 and (lambda x:x) or (lambda x:x.encode('latin1'))
 from google.protobuf import descriptor as _descriptor
