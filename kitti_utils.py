@@ -76,7 +76,8 @@ def compute_image_from_velodyne_matrices(calibration_dir):
 
     for camera_name in KITTICameraNames:
         # Get camera number by slicing last 2 characters off of camera_name string.
-        cam_num = camera_name[-2:]
+        camera_path = CAMERA_NAME_TO_PATH_MAPPING[camera_name]
+        cam_num = camera_path[-2:]
         R_cam2rect = np.eye(4)
         R_cam2rect[:3, :3] = cam2cam[f"R_rect_{cam_num}"].reshape(3, 3)
         P_rect = cam2cam[f"P_rect_{cam_num}"].reshape(3, 4)
@@ -132,7 +133,7 @@ def get_nearby_frames_data(path_name, idx, previous_frames, next_frames):
 
 def get_camera_data(path_name, idx):
     """
-    Gets the basic camera information given the path name to the scene, the camera name, and the frame number within
+    Gets the basic camera information given the path name to the scene and the frame number within
     that scene.
     :param [str] path_name: A file path to a scene within the dataset
     :param [int] idx: The frame number in the scene
@@ -222,8 +223,9 @@ def get_camera_intrinsic_dict(calibration_dir):
 
     camera_intrinsic_dict = {}
     for camera_name in KITTICameraNames:
+        camera_path = CAMERA_NAME_TO_PATH_MAPPING[camera_name]
         # Get camera number by slicing last 2 characters off of camera_name string.
-        cam_num = camera_name[-2:]
+        cam_num = camera_path[-2:]
         intrinsic_matrix = cam2cam[f"K_{cam_num}"].reshape(3,3)
         camera_intrinsic_dict.update({KITTICameraNames(camera_name).name : intrinsic_matrix})
     
