@@ -148,12 +148,6 @@ def test_get_nearby_frames(kitti_root_directory, kitti_dataset_index):
     # Values of invalid [nearby_frames] keys should be empty dictionaries
     assert list(data['nearby_frames'][-1].keys()) == []
     
-    """
-    When index is 1 the frames -1 relative to the index exists and should not longer return an empty dictionary,
-    the frame -2 relative to the index do not exist and should return an empty dictionary
-    The keys returned for nearby_frames should be integers in the range(-previous_frames, next_frames + 1) excluding 0
-    The value of valid keys within nearby_frames should should be keys for each of the expected_fields
-    """
     data = dataset[1]
     # When idx = 0, [nearby_frames] keys: -1 should return camera data, while -2 should return an empty dictionary
     assert data['nearby_frames'][-1] != {}
