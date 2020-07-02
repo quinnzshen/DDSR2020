@@ -6,7 +6,7 @@ def test_generate_lidar_point_coord_camera_image():
     """
     Tests the return of the generate_lidar_point_coord_camera_image_test function in overlay_lidar_utils.py
     """
-    lidar_point_coord_velodyne = np.array([[10, 10, 10, 10], [10, 10, 10, 10]])
+    lidar_point_coord_velodyne = np.array([[10, 10, 10], [10, 10, 10]])
     camera_image_from_velodyne = np.eye(4)
     lidar_point_coord_camera_image, filtered_index = olu.generate_lidar_point_coord_camera_image(lidar_point_coord_velodyne, camera_image_from_velodyne, 100, 100)
     lidar_point_coord_camera_image = lidar_point_coord_camera_image[filtered_index]
