@@ -3,6 +3,9 @@ import torch.nn as nn
 import numpy as np
 
 
+ALPHA = 0.85
+
+
 class SSIM(nn.Module):
     def __init__(self):
         super(SSIM, self).__init__()
@@ -25,9 +28,34 @@ class SSIM(nn.Module):
         mu_t = self.mu_targ(targ)
         sigma_p = self.sigma_pred(pred ** 2) - mu_p ** 2
         sigma_t = self.sigma_targ(targ ** 2) - mu_t ** 2
-        sigma_pt = self.sigma_pred_targ(pred * targ) - pred * targ
+        sigma_pt = self.sigma_pred_targ(pred * targ) - mu_p * mu_t
 
         SSIM_n = (2 * mu_p * mu_t + self.C1) * (2 * sigma_pt + self.C2)
         SSIM_d = (mu_p ** 2 + mu_t ** 2 + self.C1) * (sigma_p + sigma_t + self.C2)
 
         return torch.clamp((1 - SSIM_n / SSIM_d) / 2, 0, 1)
+
+
+def calc_pe(predict, target):
+    ssim = SSIM()
+    ssim_val = torch.mean(torch.abs(predict - target), 1, True)
+    l1 = torch.mean(ssim(predict, target), 1, True)
+    return ALPHA / 2 * (1-ssim_val) + (1-ALPHA) * l1
+
+
+
+
+
+
+if __name__ == "__main__":
+    ssim = SSIM()
+    test_t = torch.arange(18, dtype=torch.float).reshape(1, 3, 2, 3)
+    test_r = torch.rand((1, 3, 2, 3), dtype=torch.float)
+    # test_s = torch.arange(6).reshape(3, 2)
+    print(test_r)
+    print(ssim(test_t, test_r))
+    out = ssim(test_t, test_r).mean(1, True)
+    print(out)
+    print(out.shape)
+
+    print("hi")
