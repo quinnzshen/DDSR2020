@@ -233,7 +233,6 @@ def get_relative_translation_stereo(calibration_dir):
     translation_source_to_target = translation_source - translation_target
     return translation_source_to_target
 
-
 def string_to_nano(time_string):
     """
     Converts a line in the format provided by timestamps.txt to the number of nanoseconds since the midnight of that day
