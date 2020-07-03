@@ -38,13 +38,23 @@ choices = [
     "mono+stereo_1024x320"
     ]
 """
-def test_simple(image_path, model_name, **kwargs):
+def test_model(image_path, model_name, **kwargs):
     """Function to predict for a single image or folder of images
     """
+    #Specify an image file extension to search for (e.g png, jpeg, jpg)
     ext = kwargs.get('ext', None)
+    
+    #Setting no_cuda to False sets the device to cuda instead of cpu
     no_cuda = kwargs.get('no_cuda', None)
+    
+    #Specify an output path for the depth map (default is same path as input image)
     output_path = kwargs.get('output_path', None)
-    display_result = kwargs.get('display_result', None)
+    
+    #Set no_filsave to false if you do not want the output to be saved in a file 
+    no_filesave = kwargs.get('no_filesave', False)
+    
+    #Set display_result to True to plot the resulting depth map
+    display_result = kwargs.get('display_result', False)
 
     assert model_name is not None, \
         "You must specify the --model_name parameter; see README.md for an example"
@@ -134,7 +144,7 @@ def test_simple(image_path, model_name, **kwargs):
             output_name = os.path.splitext(os.path.basename(image_path))[0]
             name_dest_npy = os.path.join(output_directory, "{}_disp.npy".format(output_name))
             scaled_disp, _ = disp_to_depth(disp, 0.1, 100)
-            np.save(name_dest_npy, scaled_disp.cpu().numpy())
+
 
             # Saving colormapped depth image
             disp_resized_np = disp_resized.squeeze().cpu().numpy()
@@ -143,12 +153,13 @@ def test_simple(image_path, model_name, **kwargs):
             mapper = cm.ScalarMappable(norm=normalizer, cmap='magma')
             colormapped_im = (mapper.to_rgba(disp_resized_np)[:, :, :3] * 255).astype(np.uint8)
             im = pil.fromarray(colormapped_im)
-
+            
             name_dest_im = os.path.join(output_directory, "{}_disp.jpeg".format(output_name))
-            im.save(name_dest_im)
 
-            print("   Processed {:d} of {:d} images - saved prediction to {}".format(
-                idx + 1, len(paths), name_dest_im))
+            if no_filesave == False:
+                np.save(name_dest_npy, scaled_disp.cpu().numpy())
+                im.save(name_dest_im)
+                print("Processed {:d} of {:d} images - saved prediction to {}".format(idx + 1, len(paths), name_dest_im))
 
             if display_result == True:
                 f, axarr = plt.subplots(2,1)
@@ -157,9 +168,3 @@ def test_simple(image_path, model_name, **kwargs):
     
     print('-> Done!')
     
-test_simple('data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/image_00/data/0000000000.png', 'mono_640x192', output_path='data', display_result = True)
-"""
-if __name__ == '__main__':
-    args = parse_args()
-    test_simple(args)
-"""
