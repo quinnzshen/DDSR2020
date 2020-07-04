@@ -4,6 +4,8 @@ import numpy as np
 
 
 ALPHA = 0.85
+MU = 1
+LAMBDA = 1
 
 
 class SSIM(nn.Module):
@@ -43,8 +45,35 @@ def calc_pe(predict, target):
     return ALPHA / 2 * (1-ssim_val) + (1-ALPHA) * l1
 
 
+def calc_smooth_loss(disp, image):
+    d_disp_x = torch.abs(disp[:, :, :, 1:] - disp[:, :, :, :-1])
+    d_disp_y = torch.abs(disp[:, :, 1:, :] - disp[:, :, :-1, :])
+
+    d_color_x = torch.mean(torch.abs(image[:, :, :, 1:] - image[:, :, :, :-1]), 1, True)
+    d_color_y = torch.mean(torch.abs(image[:, :, 1:, :] - image[:, :, :-1, :]), 1, True)
+
+    d_disp_x *= torch.exp(d_color_x)
+    d_disp_y *= torch.exp(d_color_y)
+
+    return d_disp_x.mean() + d_disp_x.mean()
 
 
+def calc_loss(outputs):
+    batch_size = outputs["batch_size"]
+    loss = 0
+    for i in range(batch_size):
+        target = outputs["targets"][i]
+        reprojections = outputs["reproj"][i]
+        reproj_errors = []
+        for reproj in range(len(reprojections)):
+            reproj_errors.append(calc_pe(target, reproj))
+
+        reproj_errors = torch.cat(reproj_errors, dim=1)
+        min_errors, _ = torch.min(reproj_errors, dim=1)
+
+        loss += MU * min_errors.mean() + LAMBDA * calc_smooth_loss(outputs["disp"], target)
+
+    return loss / batch_size
 
 
 if __name__ == "__main__":
