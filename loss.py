@@ -4,7 +4,6 @@ import numpy as np
 
 
 ALPHA = 0.85
-MU = 1
 LAMBDA = 1
 
 
@@ -58,6 +57,10 @@ def calc_smooth_loss(disp, image):
     return d_disp_x.mean() + d_disp_x.mean()
 
 
+def get_mask():
+    pass
+
+
 def calc_loss(outputs):
     batch_size = outputs["batch_size"]
     loss = 0
@@ -69,9 +72,13 @@ def calc_loss(outputs):
             reproj_errors.append(calc_pe(target, reproj))
 
         reproj_errors = torch.cat(reproj_errors, dim=1)
+
+        # Masking
+        # reproj_errors *= get_mask()
+
         min_errors, _ = torch.min(reproj_errors, dim=1)
 
-        loss += MU * min_errors.mean() + LAMBDA * calc_smooth_loss(outputs["disp"], target)
+        loss += min_errors.mean() + LAMBDA * calc_smooth_loss(outputs["disp"], target)
 
     return loss / batch_size
 
