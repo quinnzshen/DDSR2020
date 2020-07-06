@@ -78,7 +78,9 @@ def calc_loss(outputs):
 
         min_errors, _ = torch.min(reproj_errors, dim=1)
 
-        loss += min_errors.mean() + LAMBDA * calc_smooth_loss(outputs["disp"], target)
+        disp = outputs["disp"]
+        normalized_disp = disp / disp.mean(2, True).mean(3, True)
+        loss += min_errors.mean() + LAMBDA * calc_smooth_loss(normalized_disp, target)
 
     return loss / batch_size
 
