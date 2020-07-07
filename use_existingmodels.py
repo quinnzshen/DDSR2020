@@ -9,6 +9,8 @@ import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 
+import sys
+sys.path.append('third_party/monodepth2')
 from ResnetEncoder import ResnetEncoder
 from DepthDecoder import DepthDecoder
 
@@ -36,14 +38,14 @@ choices = [
     "mono+stereo_1024x320"
     ]
 """
-def test_model(image_path, model_name, **kwargs):
+def test_depth_model(image_path, model_name, **kwargs):
     """Function to predict for a single image or folder of images
     """
     #Specify an image file extension to search for (e.g png, jpeg, jpg)
     ext = kwargs.get('ext', None)
     
     #Setting no_cuda to False sets the device to cuda instead of cpu
-    no_cuda = kwargs.get('no_cuda', None)
+    no_cuda = kwargs.get('no_cuda', True)
     
     #Specify an output path for the depth map (default is same path as input image)
     output_path = kwargs.get('output_path', None)
@@ -55,7 +57,7 @@ def test_model(image_path, model_name, **kwargs):
     display_result = kwargs.get('display_result', False)
 
     assert model_name is not None, \
-        "You must specify the --model_name parameter; see README.md for an example"
+        "You must specify the --model_name parameter"
 
     if torch.cuda.is_available() and not no_cuda:
         device = torch.device("cuda")
@@ -166,3 +168,4 @@ def test_model(image_path, model_name, **kwargs):
     
     print('-> Done!')
     
+def test_pose_model()
