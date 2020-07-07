@@ -1,9 +1,7 @@
 from __future__ import absolute_import, division, print_function
 
 import os
-import sys
 import glob
-import argparse
 import numpy as np
 import PIL.Image as pil
 import matplotlib as mpl
@@ -15,10 +13,10 @@ from ResnetEncoder import ResnetEncoder
 from DepthDecoder import DepthDecoder
 
 import torch
-from torchvision import transforms, datasets
+from torchvision import transforms
 
 from layers import disp_to_depth
-from monodepth_utils import download_model_if_doesnt_exist
+from monodepth2_utils import download_model_if_doesnt_exist
 
 """
 Adapted from Monodepth 2
