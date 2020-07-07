@@ -61,6 +61,19 @@ def get_mask():
     pass
 
 
+def process_depth(tgt_images, src_images, depths, poses, tgt_intr, src_intr):
+    reprojected = torch.zeros((len(tgt_images), len(src_images[0]), 3, src_images[0]["image"][0], src_images[0]["image"][1]), dtype=torch.uint8)
+    for i in range(len(tgt_images)):
+        for j in range(len(src_images[i])):
+            if src_images[i]["stereo"]:
+                # Run stereo reprojection code
+                reprojected[i, j] = None
+            else:
+                # Run temporal reprojection code
+                reprojected[i, j] = None
+    return reprojected
+
+
 def calc_loss(outputs):
     batch_size = outputs["batch_size"]
     loss = 0
