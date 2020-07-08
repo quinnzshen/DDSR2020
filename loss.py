@@ -87,18 +87,30 @@ def process_depth(tgt_images, src_images, depths, poses, tgt_intr, src_intr):
 
             src_coords = src_coords[src_coords[:, 2] > 0]
             src_coords[:, :2] = src_coords[:, :2] / src_coords[:, 2].view(-1, 1)
-            # Should be rounding here: \/
 
             # Potential bug here; 0th column is the height, while 1st column is width, might have to be switched
             src_coords = src_coords[
-                (src_coords[:, 1] >= 0) & (src_coords[:, 1] < img_shape[0]) & (src_coords[:, 0] >= 0) & (
-                            src_coords[:, 0] < img_shape[1])]
+                (src_coords[:, 1] >= 0) & (src_coords[:, 1] <= img_shape[0] - 1) & (src_coords[:, 0] >= 0) & (
+                            src_coords[:, 0] <= img_shape[1] - 1)]
 
             # Put nan here in case a pixel isn't filled
             reproj_image = torch.from_numpy(np.empty((3, img_shape[0], img_shape[1])).fill(np.nan))
 
-            # May want to do some bilinear sampling here
-            reproj_image[:, src_coords[:, 3], src_coords[:, 4]] = src_images[i, j, :, src_coords[:, 0], src_coords[:, 1]]
+            # Bilinear sampling
+            x = src_coords[:, 1]
+            y = src_coords[:, 0]
+            x12 = (torch.floor(x), torch.ceil(x))
+            y12 = (torch.floor(y), torch.ceil(y))
+            src_img = src_images[i, j]
+            reproj_image[:, src_coords[:, 3], src_coords[:, 4]] = \
+                1 / (x12[1]-x12[0]) / (y12[1]-y12[0]) * \
+                torch.tensor([x12[1] - x, x - x12[0]]) @ \
+                torch.tensor([
+                    [src_img[:, y12[0], x12[0]], src_img[:, y12[1], x12[0]]],
+                    [src_img[:, y12[0], x12[1]], src_img[:, y12[1], x12[1]]]
+                ]) @ \
+                torch.tensor([[y12[1] - y], [y - y12[0]]])
+
             reprojected[i, j] = reproj_image
 
     return reprojected
