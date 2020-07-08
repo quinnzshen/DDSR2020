@@ -20,7 +20,7 @@ from PoseDecoder import PoseDecoder
 import torch
 from torchvision import transforms
 
-from layers import disp_to_depth
+from layers import disp_to_depth, transformation_from_parameters
 from monodepth2_utils import download_model_if_doesnt_exist
 
 """
@@ -174,8 +174,6 @@ def test_depth_model(image_path, model_name, **kwargs):
 def test_pose_model(image_1_path, image_2_path, model_name, **kwargs):
     """Function to predict for a single image or folder of images
     """
-    #Specify an image file extension to search for (e.g png, jpeg, jpg)
-    ext = kwargs.get('ext', None)
     
     #Setting no_cuda to False sets the device to cuda instead of cpu
     no_cuda = kwargs.get('no_cuda', True)
@@ -193,26 +191,19 @@ def test_pose_model(image_1_path, image_2_path, model_name, **kwargs):
     print("-> Loading model from ", model_path)
     encoder_path = os.path.join(model_path, "pose_encoder.pth")
     pose_decoder_path = os.path.join(model_path, "pose.pth")
-
+    
     # LOADING PRETRAINED MODEL
     print("   Loading pretrained encoder")
-    encoder = PoseCNN(2)
+    encoder = ResnetEncoder(18, False, num_input_images=2)
     loaded_dict_enc = torch.load(encoder_path, map_location=device)
-    filtered_dict_enc = {k: v for k, v in loaded_dict_enc.items() if k in encoder.state_dict()}
-
-   # print(loaded_dict_enc)
-
-    # extract the height and width of image that this model was trained with
-    encoder.load_state_dict(filtered_dict_enc)
+    encoder.load_state_dict(loaded_dict_enc)
     encoder.to(device)
     encoder.eval()
 
     print("   Loading pretrained decoder")
-    pose_decoder = PoseDecoder(num_ch_enc=encoder.num_ch_enc, num_input_features=2)
-
+    pose_decoder = PoseDecoder(num_ch_enc=encoder.num_ch_enc, num_input_features=1, num_frames_to_predict_for=2)
     loaded_dict = torch.load(pose_decoder_path, map_location=device)
     pose_decoder.load_state_dict(loaded_dict)
-
     pose_decoder.to(device)
     pose_decoder.eval()
 
@@ -227,54 +218,26 @@ def test_pose_model(image_1_path, image_2_path, model_name, **kwargs):
 
     # PREDICTING ON EACH IMAGE IN TURN
     with torch.no_grad():
-        # Load image and preprocess
+        # Load images and preprocess
         input_image1 = pil.open(image_1_path).convert('RGB')
-        original_width, original_height = input_image1.size
         input_image1 = transforms.ToTensor()(input_image1).unsqueeze(0)
 
         input_image2 = pil.open(image_2_path).convert('RGB')
-        original_width, original_height = input_image2.size
         input_image2 = transforms.ToTensor()(input_image2).unsqueeze(0)
-        
-        input_images = torch.cat((input_image1, input_image2), 2)
+
+        input_images = torch.cat((input_image1, input_image2), 1)
         
         # PREDICTION
         input_images = input_images.to(device)
-        features = encoder(input_images)
-        outputs = pose_decoder(features)
-
-        disp = outputs[("disp", 0)]
-        print(disp)
-        """
-        disp_resized = torch.nn.functional.interpolate(
-            disp, (original_height, original_width), mode="bilinear", align_corners=False)
-
-        # Saving numpy file
-        output_name = os.path.splitext(os.path.basename(image_path))[0]
-        name_dest_npy = os.path.join(output_directory, "{}_disp.npy".format(output_name))
-        scaled_disp, _ = disp_to_depth(disp, 0.1, 100)
-
-
-        # Saving colormapped depth image
-        disp_resized_np = disp_resized.squeeze().cpu().numpy()
-        vmax = np.percentile(disp_resized_np, 95)
-        normalizer = mpl.colors.Normalize(vmin=disp_resized_np.min(), vmax=vmax)
-        mapper = cm.ScalarMappable(norm=normalizer, cmap='magma')
-        colormapped_im = (mapper.to_rgba(disp_resized_np)[:, :, :3] * 255).astype(np.uint8)
-        im = pil.fromarray(colormapped_im)
         
-        name_dest_im = os.path.join(output_directory, "{}_disp.jpeg".format(output_name))
-
-        if no_filesave == False:
-            np.save(name_dest_npy, scaled_disp.cpu().numpy())
-            im.save(name_dest_im)
-            print("Processed {:d} of {:d} images - saved prediction to {}".format(idx + 1, len(paths), name_dest_im))
-
-        if display_result == True:
-            f, axarr = plt.subplots(2,1)
-            axarr[0].imshow(mpimg.imread(image_path))
-            axarr[1].imshow(colormapped_im)
-        """
-    
+        features = [encoder(input_images)]
+        axisangle, translation = pose_decoder(features)
+        
+        #Converts prediction into pose
+        pose = transformation_from_parameters(axisangle[:,0],translation[:,0]).cpu().numpy()
+        
+        print("Pose prediction: \n {}".format(pose))
+        return pose
+        
     print('-> Done!')    
-test_pose_model('data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/image_00/data/000000000.png','data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/image_00/data/000000001.png', 'mono_640x192')
+test_pose_model('data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/image_00/data/0000000000.png','data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/image_00/data/0000000001.png', 'mono_640x192')
