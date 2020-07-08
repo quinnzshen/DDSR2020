@@ -1,0 +1,4 @@
+root_directory:
+- data\waymo_example
+dataset_paths:
+- waymo_split_files\sample_train.txt

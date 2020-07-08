@@ -12,4 +12,5 @@ dependencies:
   - pytest
   - pandas
   - pyyaml
+  - tensorflow=2.1.0
 prefix: /Users/quinn/anaconda3/envs/ddsr

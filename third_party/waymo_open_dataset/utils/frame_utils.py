@@ -20,6 +20,8 @@ from __future__ import print_function
 
 import numpy as np
 import tensorflow as tf
+import sys
+sys.path.append('third_party/')
 
 from waymo_open_dataset import dataset_pb2
 from waymo_open_dataset.utils import range_image_utils
