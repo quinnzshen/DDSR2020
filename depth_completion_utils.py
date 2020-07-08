@@ -2,10 +2,10 @@ import numpy as np
 import overlay_lidar_utils as olu
 from matplotlib import pyplot as plt
 
-def get_dense_depth_map_from_lidar_nearest_point(lidar_point_coord_camera_image, img_height, img_width):
+def create_depth_map_from_nearest_lidar_point(lidar_point_coord_camera_image, img_height, img_width):
     """
     This function creates an array the size of the image where each location contains the normalized depth value of the closest lidar point.
-    :param [numpy.array] lidar_point_coord_camera_image: [[N, 4], contains lidar points on image plane, each row is format [X, Y, depth, 1]].
+    :param [numpy.array] lidar_point_coord_camera_image: [[N, 3], contains lidar points on image plane, each row is format [X, Y, depth]].
     :param [int] img_height: Height of the image that corresponds to the lidar sweep in pixels.
     :param [int] img_width: Height of the image that corresponds to the lidar sweep in pixels.
     :return: numpy.array of shape [img_height, img_width] where each location contains the normalized depth value of the closest lidar point.
@@ -14,10 +14,10 @@ def get_dense_depth_map_from_lidar_nearest_point(lidar_point_coord_camera_image,
     lidar_point_coord_camera_image_norm = olu.normalize_depth(lidar_point_coord_camera_image)
     # Find height of the lidar point furthest from the bottom of the image.
     max_lidar_height = int(min(lidar_point_coord_camera_image_norm[:, 1]))
-    # Create dense_depth_map and fill locations with corresponding lidar points with the lidar points' normalized depth value
+    # Create dense_depth_map and fill locations with corresponding lidar points with the lidar points' normalized depth value.
     dense_depth_map = np.zeros((img_height, img_width))
-    for row in lidar_point_coord_camera_image_norm:
-        dense_depth_map[int(row[1])][int(row[0])] = row[2]
+    for x, y, depth in lidar_point_coord_camera_image_norm[:, :3]:
+        dense_depth_map[int(y)][int(x)] = depth
     # Fill locations without corresponding lidar points with the normalized depth value of the closest lidar point.
     for r in range(max_lidar_height, img_height):
         for c in range(img_width):
@@ -27,14 +27,14 @@ def get_dense_depth_map_from_lidar_nearest_point(lidar_point_coord_camera_image,
                 dense_depth_map[r][c] = lidar_point_coord_camera_image_norm[idx][2]
     return dense_depth_map
 
-def get_dense_depth_map_from_lidar_smoothing(lidar_point_coord_camera_image, img_height, img_width, tile_size):
+def create_depth_map_from_lidar_smoothing(lidar_point_coord_camera_image, img_height, img_width, kernel_size):
     """
-    This function creates an array the size of the image where each tile_size x tile_size tile is filled with the average depth value of all of the lidar points contained in that tile.
+    This function creates an array the size of the image where each kernel_size x kernel_size kernel is filled with the average depth value of all of the lidar points contained in that kernel.
     :param [numpy.array] lidar_point_coord_camera_image: [[N, 4], contains lidar points on image plane, each row is format [X, Y, depth, 1]].
     :param [int] img_height: Height of the image that corresponds to the lidar sweep in pixels.
     :param [int] img_width: Height of the image that corresponds to the lidar sweep in pixels.
-    :param [int] tile_size: Size in pixels of the tiles that the depth values are being averaged within.
-    :return: numpy.array of shape [img_height, img_width] where each tile_size x tile_size tile is filled with the average depth value of all of the lidar points contained in that tile.
+    :param [int] kernel_size: Size in pixels of the kernels that the depth values are being averaged within.
+    :return: numpy.array of shape [img_height, img_width] where each kernel_size x kernel_size kernel is filled with the average depth value of all of the lidar points contained in that kernel.
     """
      # Normalize depth values.
     lidar_point_coord_camera_image_norm = olu.normalize_depth(lidar_point_coord_camera_image)
@@ -42,21 +42,21 @@ def get_dense_depth_map_from_lidar_smoothing(lidar_point_coord_camera_image, img
     max_lidar_height = int(min(lidar_point_coord_camera_image_norm[:, 1]))
     # Create dense_depth_map and fill locations with corresponding lidar points with the lidar points' normalized depth value
     dense_depth_map = np.zeros((img_height, img_width))
-    for row in lidar_point_coord_camera_image_norm:
-        dense_depth_map[int(row[1])][int(row[0])] = row[2]
-    # Fill each tile_size x tile_size tile of the image with the average depth value of all of the lidar points contained in that tile.
-    for r in range(max_lidar_height, img_height, tile_size):
-        for c in range(0, img_width, tile_size):
-            tile = dense_depth_map[r:r+tile_size, c:c+tile_size]
-            depth_vals = tile[tile>0]
+    for x, y, depth in lidar_point_coord_camera_image_norm[:, :3]:
+        dense_depth_map[int(y)][int(x)] = depth
+    # Fill each kernel_size x kernel_size kernel of the image with the average depth value of all of the lidar points contained in that kernel.
+    for r in range(max_lidar_height, img_height, kernel_size):
+        for c in range(0, img_width, kernel_size):
+            kernel = dense_depth_map[r:r+kernel_size, c:c+kernel_size]
+            depth_vals = kernel[kernel>0]
             if(depth_vals.size != 0):
                 avg_depth = np.average(depth_vals)
             else:
                 avg_depth = None
-            dense_depth_map[r:r+tile_size, c:c+tile_size].fill(avg_depth)
+            dense_depth_map[r:r+kernel_size, c:c+kernel_size].fill(avg_depth)
     return dense_depth_map
 
-def plot_naive_depth_completion_image(dense_depth_map, max_lidar_height):
+def plot_depth_completion_image(dense_depth_map, max_lidar_height):
     """
     This function plots a given dense depth map as an image.
     :param [numpy.array] dense_depth_map: [H, W], each location contains the normalized depth value of the closest lidar point.
