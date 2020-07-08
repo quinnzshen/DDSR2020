@@ -62,15 +62,45 @@ def get_mask():
 
 
 def process_depth(tgt_images, src_images, depths, poses, tgt_intr, src_intr):
-    reprojected = torch.zeros((len(tgt_images), len(src_images[0]), 3, src_images[0]["image"][0], src_images[0]["image"][1]), dtype=torch.uint8)
+    img_shape = tgt_images[0, 0].shape
+    reprojected = torch.zeros((len(tgt_images), len(src_images[0]), 3, img_shape[0], img_shape[1]), dtype=torch.uint8)
+    img_indices = torch.ones((img_shape[0] * img_shape[1], 3))
+    img_indices[:, :2] = torch.from_numpy(np.indices(img_shape).ravel().reshape(-1, 2, order="F"))
+
+    tgt_intr_torch_T = torch.from_numpy(tgt_intr.T)
+    tgt_intr_inv_torch_T = torch.inverse(tgt_intr.T)
+    src_intr_torch_T = torch.from_numpy(src_intr.T)
+
     for i in range(len(tgt_images)):
         for j in range(len(src_images[i])):
             if src_images[i]["stereo"]:
-                # Run stereo reprojection code
-                reprojected[i, j] = None
+                src_intr_T = src_intr_torch_T
             else:
-                # Run temporal reprojection code
-                reprojected[i, j] = None
+                src_intr_T = tgt_intr_torch_T
+
+            world_coords = torch.ones(img_indices.shape[0], 4)
+            world_coords[:, :3] = img_indices @ tgt_intr_inv_torch_T * depths[i].view(-1, 1)
+
+            src_coords = torch.empty(img_indices.shape[0], 5)
+            src_coords[:, 3:] = img_indices[:, :2]
+            src_coords[:, :3] = (world_coords @ torch.t(poses[i, j]))[:, :3] @ src_intr_T
+
+            src_coords = src_coords[src_coords[:, 2] > 0]
+            src_coords[:, :2] = src_coords[:, :2] / src_coords[:, 2].view(-1, 1)
+            # Should be rounding here: \/
+
+            # Potential bug here; 0th column is the height, while 1st column is width, might have to be switched
+            src_coords = src_coords[
+                (src_coords[:, 1] >= 0) & (src_coords[:, 1] < img_shape[0]) & (src_coords[:, 0] >= 0) & (
+                            src_coords[:, 0] < img_shape[1])]
+
+            # Put nan here in case a pixel isn't filled
+            reproj_image = torch.from_numpy(np.empty((3, img_shape[0], img_shape[1])).fill(np.nan))
+
+            # May want to do some bilinear sampling here
+            reproj_image[:, src_coords[:, 3], src_coords[:, 4]] = src_images[i, j, :, src_coords[:, 0], src_coords[:, 1]]
+            reprojected[i, j] = reproj_image
+
     return reprojected
 
 
