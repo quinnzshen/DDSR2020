@@ -170,11 +170,11 @@ def test_depth_model(image_path, model_name, **kwargs):
                 axarr[1].imshow(colormapped_im)
     
     print('-> Done!')
-    
 def test_pose_model(image_1_path, image_2_path, model_name, **kwargs):
     """Function to predict relative pose between two images"""
     #Setting no_cuda to False sets the device to cuda instead of cpu
     no_cuda = kwargs.get('no_cuda', True)
+    
     assert model_name is not None, \
         "You must specify the --model_name parameter"
     if torch.cuda.is_available() and not no_cuda:
@@ -227,10 +227,10 @@ def test_pose_model(image_1_path, image_2_path, model_name, **kwargs):
         axisangle, translation = pose_decoder(features)
 
         #Converts prediction into pose
-        pose = transformation_from_parameters(axisangle[:,0],translation[:,0]).cpu().numpy()
-
+        pose = transformation_from_parameters(axisangle[:,0],translation[:,0], invert=False).cpu().numpy()
+        pose = np.concatenate(pose)
         print('-> Done!')    
-        return pose[0]
+        return pose
 
         
 
