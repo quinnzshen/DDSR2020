@@ -198,10 +198,12 @@ def test_pose_model(image_1_path, image_2_path, model_name, **kwargs):
     print("   Loading pretrained encoder")
     encoder = PoseCNN(2)
     loaded_dict_enc = torch.load(encoder_path, map_location=device)
-    print(loaded_dict_enc)
+    filtered_dict_enc = {k: v for k, v in loaded_dict_enc.items() if k in encoder.state_dict()}
+
+   # print(loaded_dict_enc)
 
     # extract the height and width of image that this model was trained with
-    encoder.load_state_dict(loaded_dict_enc)
+    encoder.load_state_dict(filtered_dict_enc)
     encoder.to(device)
     encoder.eval()
 
