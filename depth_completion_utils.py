@@ -39,7 +39,7 @@ def create_depth_map_from_lidar_smoothing(lidar_point_coord_camera_image, img_he
      # Normalize depth values.
     lidar_point_coord_camera_image_norm = olu.normalize_depth(lidar_point_coord_camera_image)
     # Find height of the lidar point furthest from the bottom of the image.
-    max_lidar_height = int(min(lidar_point_coord_camera_image_norm[:, 1]))
+    max_lidar_height = int(min(lidar_point_coord_camera_image_norm[:, 1]) - (kernel_size/2.))
     # Create dense_depth_map and fill locations with corresponding lidar points with the lidar points' normalized depth value
     dense_depth_map = np.zeros((img_height, img_width))
     for x, y, depth in lidar_point_coord_camera_image_norm[:, :3]:
