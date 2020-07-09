@@ -41,7 +41,8 @@ def calc_pe(predict, target):
     ssim = SSIM()
     ssim_val = torch.mean(torch.abs(predict - target), 1, True)
     l1 = torch.mean(ssim(predict, target), 1, True)
-    return ALPHA / 2 * (1-ssim_val) + (1-ALPHA) * l1
+    # print(ssim_val)
+    return ALPHA * ssim_val + (1-ALPHA) * l1
 
 
 def calc_smooth_loss(disp, image):
@@ -57,8 +58,13 @@ def calc_smooth_loss(disp, image):
     return d_disp_x.mean() + d_disp_x.mean()
 
 
-def get_mask():
-    pass
+def get_mask(targets, sources, min_reproject_errors):
+    source_error = []
+    for source in sources:
+        source_error.append(calc_pe(targets, source))
+    source_error = torch.cat(source_error, dim=1)
+    min_source_errors, _ = torch.min(source_error, dim=1)
+    return min_reproject_errors < min_source_errors
 
 
 def process_depth(tgt_images, src_images, depths, poses, tgt_intr, src_intr):
@@ -116,39 +122,79 @@ def process_depth(tgt_images, src_images, depths, poses, tgt_intr, src_intr):
     return reprojected
 
 
-def calc_loss(outputs):
-    batch_size = outputs["batch_size"]
+def calc_loss(inputs, outputs):
+    targets = inputs["targets"]
+    sources = inputs["sources"]
+    reprojections = outputs["reproj"]
+    batch_size = len(targets)
     loss = 0
-    for i in range(batch_size):
-        target = outputs["targets"][i]
-        reprojections = outputs["reproj"][i]
-        reproj_errors = []
-        for reproj in range(len(reprojections)):
-            reproj_errors.append(calc_pe(target, reproj))
 
-        reproj_errors = torch.cat(reproj_errors, dim=1)
+    reproj_errors = []
+    for reproj in reprojections:
+        # print(targets, "BLELBELBE\n")
+        # print(reproj, "EWOIFJWEOI\n")
+        reproj_errors.append(calc_pe(targets, reproj))
+    # Could do something like reproj_errors[:, 1] = calc_pe(...) or smth like that
+    reproj_errors = torch.cat(reproj_errors, dim=1)
+    print(reproj_errors.shape)
 
-        # Masking
-        # reproj_errors *= get_mask()
+    min_errors, _ = torch.min(reproj_errors, dim=1)
+    print(min_errors.shape)
 
-        min_errors, _ = torch.min(reproj_errors, dim=1)
+    # Masking
+    reproj_errors *= get_mask(targets, sources, min_errors)
 
-        depth = outputs["depth"]
-        normalized_depth = depth / depth.mean(2, True).mean(3, True)
-        loss += min_errors.mean() + LAMBDA * calc_smooth_loss(normalized_depth, target)
+    depth = outputs["depth"]
+    normalized_depth = depth / depth.mean(2, True).mean(3, True)
+    loss += min_errors.mean() + LAMBDA * calc_smooth_loss(normalized_depth, targets)
 
+    # Might not need to be dividing over batch size
     return loss / batch_size
 
 
 if __name__ == "__main__":
     ssim = SSIM()
-    test_t = torch.arange(18, dtype=torch.float).reshape(1, 3, 2, 3)
-    test_r = torch.rand((1, 3, 2, 3), dtype=torch.float)
+    test_t = torch.arange(36, dtype=torch.float).reshape(2, 3, 2, 3)
+    test_r = torch.rand((2, 3, 2, 3), dtype=torch.float)
     # test_s = torch.arange(6).reshape(3, 2)
+
+    target = torch.arange(108, dtype=torch.float).reshape(2, 3, 3, 6)
+    sources = (torch.zeros(target.shape), target)
+    reprojs = (target, target)
+    depth = torch.arange(36, dtype=torch.float).reshape(2, 1, 3, 6)
+    LAMBDA = 1
+    inputs = {"targets": target, "sources": sources}
+    outputs = {"reproj": reprojs, "depth": depth}
+    l = calc_loss(inputs, outputs)
+    print(l)
+
     print(test_r)
     print(ssim(test_t, test_r))
     out = ssim(test_t, test_r).mean(1, True)
     print(out)
     print(out.shape)
 
+    pe = calc_pe(test_t, test_r)
+    print(pe)
+    print(pe.shape)
+
     print("hi")
+
+
+    # for i in range(batch_size):
+    #     target = outputs["targets"][i]
+    #     reprojections = outputs["reproj"][i]
+    #     reproj_errors = []
+    #     for reproj in range(len(reprojections)):
+    #         reproj_errors.append(calc_pe(target, reproj))
+    #
+    #     reproj_errors = torch.cat(reproj_errors, dim=1)
+    #
+    #     # Masking
+    #     # reproj_errors *= get_mask()
+    #
+    #     min_errors, _ = torch.min(reproj_errors, dim=1)
+    #
+    #     depth = outputs["depth"]
+    #     normalized_depth = depth / depth.mean(2, True).mean(3, True)
+    #     loss += min_errors.mean() + LAMBDA * calc_smooth_loss(normalized_depth, target)
