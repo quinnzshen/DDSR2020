@@ -227,8 +227,7 @@ def test_pose_model(image_1_path, image_2_path, model_name, **kwargs):
         axisangle, translation = pose_decoder(features)
 
         #Converts prediction into pose
-        pose = transformation_from_parameters(axisangle[:,0],translation[:,0], invert=False).cpu().numpy()
-        pose = np.concatenate(pose)
+        pose = transformation_from_parameters(axisangle[:,0],translation[:,0], invert=False).cpu().numpy()[0]
         print('-> Done!')    
         return pose
 
