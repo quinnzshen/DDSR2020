@@ -38,6 +38,12 @@ class SSIM(nn.Module):
 
 
 def calc_pe(predict, target):
+    """
+    Calculates the photometric error between two images using SSIM and L1Loss
+    :param [torch.tensor] predict: The predicted images in format [batch_size, 3, H, W]
+    :param [torch.tensor] target: The target images in format [batch_size, 3, H, W]
+    :return [torch.tensor]: The numerical loss for each pixel in format [batch_size, 1, H, W]
+    """
     ssim = SSIM()
     ssim_val = torch.mean(torch.abs(predict - target), 1, True)
     l1 = torch.mean(ssim(predict, target), 1, True)
@@ -46,6 +52,12 @@ def calc_pe(predict, target):
 
 
 def calc_smooth_loss(disp, image):
+    """
+    TB continued
+    :param disp:
+    :param image:
+    :return:
+    """
     d_disp_x = torch.abs(disp[:, :, :, 1:] - disp[:, :, :, :-1])
     d_disp_y = torch.abs(disp[:, :, 1:, :] - disp[:, :, :-1, :])
 
@@ -61,7 +73,8 @@ def calc_smooth_loss(disp, image):
 def get_mask(targets, sources, min_reproject_errors):
     source_error = []
     for source in sources:
-        source_error.append(calc_pe(targets, source))
+        source_error.append(calc_pe(source, targets))
+        print(calc_pe(source, targets).shape)
     source_error = torch.cat(source_error, dim=1)
     min_source_errors, _ = torch.min(source_error, dim=1)
     return min_reproject_errors < min_source_errors
@@ -123,6 +136,15 @@ def process_depth(tgt_images, src_images, depths, poses, tgt_intr, src_intr):
 
 
 def calc_loss(inputs, outputs):
+    """
+    Takes in the inputs and outputs from the neural network to calulate a numeric loss value based on the Monodepth2
+    paper.
+    :param [dict] inputs: Contains the keys "targets" and "sources" which are tensors [batch_size, 3, H, W] and
+    [num_src_imgs, batch_size, 3, H, W] respectively
+    :param [dict] outputs: Contains the keys "reproj" and "depth" which are tensors
+    [num_reprojected_imgs, batch_size, 3, H, W] and [batch_size, H, W] respectively
+    :return [torch.float]: A 0 dimensional tensor representing the loss calculated
+    """
     targets = inputs["targets"]
     sources = inputs["sources"]
     reprojections = outputs["reproj"]
@@ -133,7 +155,7 @@ def calc_loss(inputs, outputs):
     for reproj in reprojections:
         # print(targets, "BLELBELBE\n")
         # print(reproj, "EWOIFJWEOI\n")
-        reproj_errors.append(calc_pe(targets, reproj))
+        reproj_errors.append(calc_pe(reproj, targets))
     # Could do something like reproj_errors[:, 1] = calc_pe(...) or smth like that
     reproj_errors = torch.cat(reproj_errors, dim=1)
     print(reproj_errors.shape)
