@@ -11,5 +11,9 @@ dependencies:
   - ipykernel
   - pytest
   - pandas
+  - pillow
   - pyyaml
+  - pip
+  - pip:
+    - tensorflow
 prefix: /Users/quinn/anaconda3/envs/ddsr
