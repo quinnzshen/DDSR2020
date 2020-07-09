@@ -9,6 +9,9 @@ LAMBDA = 1
 
 class SSIM(nn.Module):
     def __init__(self):
+        """
+        Sets up the layers/pooling to run the forward method which actually does the computation
+        """
         super(SSIM, self).__init__()
         self.padding_reflect = nn.ReflectionPad2d(1)
 
@@ -22,6 +25,13 @@ class SSIM(nn.Module):
         self.C2 = 0.03 ** 2
 
     def forward(self, pred, targ):
+        """
+        Computes the SSIM between the two given images by running them through layers
+        :param [torch.tensor] pred: The predicted image, formatted as [batch_size, 3, H, W]
+        :param [torch.tensor] targ: The target image, formatted as [batch_size, 3, H, W]
+        :return [torch.tensor]: A tensor representing how similar the two images are, on a pixel basis in the format
+        [batch_size, 3, H, W]
+        """
         pred = self.padding_reflect(pred)
         targ = self.padding_reflect(targ)
 
@@ -47,16 +57,17 @@ def calc_pe(predict, target):
     ssim = SSIM()
     ssim_val = torch.mean(torch.abs(predict - target), 1, True)
     l1 = torch.mean(ssim(predict, target), 1, True)
-    # print(ssim_val)
+
     return ALPHA * ssim_val + (1-ALPHA) * l1
 
 
 def calc_smooth_loss(disp, image):
     """
-    TB continued
-    :param disp:
-    :param image:
-    :return:
+    Calculates the edge-aware smoothness of the given depth map with relation to the target image. Returns a higher
+    loss if the depth map fluctates a lot in depth where it should be smooth.
+    :param [torch.tensor] disp: The depth map, formatted as [batch_size, 1, H, W]
+    :param [torch.tensor] image: The target image, formatted as [batch_size, 3, H, W]
+    :return [torch.float]: A 0 dimensional tensor containing a numerical loss punishing for a rough depth map
     """
     d_disp_x = torch.abs(disp[:, :, :, 1:] - disp[:, :, :, :-1])
     d_disp_y = torch.abs(disp[:, :, 1:, :] - disp[:, :, :-1, :])
@@ -71,12 +82,24 @@ def calc_smooth_loss(disp, image):
 
 
 def get_mask(targets, sources, min_reproject_errors):
+    """
+    Calculates the auto-masking for each pixel in the images. If a given pixel's photometric error between the source
+    images and the target image is less than the photometric error between the reprojected images and the target image,
+    then the auto-masking feature will be 0 for that point, eliminating its contribution to the loss.
+    :param [torch.tensor] targets: The target images, in format [batch_size, 3, H, W]
+    :param [torch.tensor] sources: The source images, in format [num_source_imgs, batch_size, 3, H, W]
+    :param [torch.tensor] min_reproject_errors: The calculated photometric errors between the reprojected images and
+    the target image, formatted as [batch_size, 1, H, W]
+    :return [torch.tensor]: A binary mask containing either a 1 or 0 which allows a given pixel to be represented or
+    to be ignored, respectively. Formatted as [batch_size, 1, H, W]
+    """
     source_error = []
     for source in sources:
         source_error.append(calc_pe(source, targets))
-        print(calc_pe(source, targets).shape)
+
     source_error = torch.cat(source_error, dim=1)
     min_source_errors, _ = torch.min(source_error, dim=1)
+
     return min_reproject_errors < min_source_errors
 
 
@@ -158,10 +181,8 @@ def calc_loss(inputs, outputs):
         reproj_errors.append(calc_pe(reproj, targets))
     # Could do something like reproj_errors[:, 1] = calc_pe(...) or smth like that
     reproj_errors = torch.cat(reproj_errors, dim=1)
-    print(reproj_errors.shape)
 
     min_errors, _ = torch.min(reproj_errors, dim=1)
-    print(min_errors.shape)
 
     # Masking
     reproj_errors *= get_mask(targets, sources, min_errors)
