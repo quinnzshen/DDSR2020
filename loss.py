@@ -1,6 +1,10 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import numpy as np
+import matplotlib.pyplot as plt
+
+from temporal import t_transform_n
 
 
 ALPHA = 0.85
@@ -103,59 +107,6 @@ def get_mask(targets, sources, min_reproject_errors):
     return min_reproject_errors < min_source_errors
 
 
-def process_depth(tgt_images, src_images, depths, poses, tgt_intr, src_intr):
-    img_shape = tgt_images[0, 0].shape
-    reprojected = torch.zeros((len(tgt_images), len(src_images[0]), 3, img_shape[0], img_shape[1]), dtype=torch.uint8)
-    img_indices = torch.ones((img_shape[0] * img_shape[1], 3))
-    img_indices[:, :2] = torch.from_numpy(np.indices(img_shape).ravel().reshape(-1, 2, order="F"))
-
-    tgt_intr_torch_T = torch.from_numpy(tgt_intr.T)
-    tgt_intr_inv_torch_T = torch.inverse(tgt_intr.T)
-    src_intr_torch_T = torch.from_numpy(src_intr.T)
-
-    for i in range(len(tgt_images)):
-        for j in range(len(src_images[i])):
-            if src_images[i]["stereo"]:
-                src_intr_T = src_intr_torch_T
-            else:
-                src_intr_T = tgt_intr_torch_T
-
-            world_coords = torch.ones(img_indices.shape[0], 4)
-            world_coords[:, :3] = img_indices @ tgt_intr_inv_torch_T * depths[i].view(-1, 1)
-
-            src_coords = torch.empty(img_indices.shape[0], 5)
-            src_coords[:, 3:] = img_indices[:, :2]
-            src_coords[:, :3] = (world_coords @ torch.t(poses[i, j]))[:, :3] @ src_intr_T
-
-            src_coords = src_coords[src_coords[:, 2] > 0]
-            src_coords[:, :2] = src_coords[:, :2] / src_coords[:, 2].view(-1, 1)
-
-            # Potential bug here; 0th column is the height, while 1st column is width, might have to be switched
-            src_coords = src_coords[
-                (src_coords[:, 1] >= 0) & (src_coords[:, 1] <= img_shape[0] - 1) & (src_coords[:, 0] >= 0) & (
-                            src_coords[:, 0] <= img_shape[1] - 1)]
-
-            # Put nan here in case a pixel isn't filled
-            reproj_image = torch.from_numpy(np.empty((3, img_shape[0], img_shape[1])).fill(np.nan))
-
-            # Bilinear sampling
-            x = src_coords[:, 1]
-            y = src_coords[:, 0]
-            x12 = (torch.floor(x), torch.ceil(x))
-            y12 = (torch.floor(y), torch.ceil(y))
-            src_img = src_images[i, j]
-            reproj_image[:, src_coords[:, 3], src_coords[:, 4]] = \
-                1 / (x12[1]-x12[0]) / (y12[1]-y12[0]) * \
-                torch.tensor([x12[1] - x, x - x12[0]]) @ \
-                torch.tensor([
-                    [src_img[:, y12[0], x12[0]], src_img[:, y12[1], x12[0]]],
-                    [src_img[:, y12[0], x12[1]], src_img[:, y12[1], x12[1]]]
-                ]) @ \
-                torch.tensor([[y12[1] - y], [y - y12[0]]])
-
-            reprojected[i, j] = reproj_image
-
-    return reprojected
 
 
 def calc_loss(inputs, outputs):
@@ -195,7 +146,98 @@ def calc_loss(inputs, outputs):
     return loss / batch_size
 
 
+def process_depth(tgt_images, src_images, depths, poses, tgt_intr, src_intr):
+    img_shape = tgt_images[0, 0].shape
+    reprojected = torch.zeros((len(src_images), len(tgt_images), 3, img_shape[0], img_shape[1]), dtype=torch.uint8)
+    img_indices = torch.ones((img_shape[0] * img_shape[1], 3))
+    img_coords = torch.from_numpy(np.indices(img_shape).ravel().reshape(-1, 2, order="F"))
+    img_indices[:, 1] = img_coords[:, 0]
+    img_indices[:, 0] = img_coords[:, 1]
+    # img_indices[:, :2] = torch.from_numpy(np.indices(img_shape).ravel().reshape(-1, 2, order="F"))
+
+    tgt_intr_torch_T = torch.from_numpy(tgt_intr.T).float()
+    src_intr_torch_T = torch.from_numpy(src_intr.T).float()
+    tgt_intr_inv_torch_T = torch.inverse(tgt_intr_torch_T)
+
+    for i in range(len(src_images)):
+        if src_images[i]["stereo"]:
+            src_intr_T = src_intr_torch_T
+        else:
+            src_intr_T = tgt_intr_torch_T
+
+        for j in range(len(tgt_images)):
+            world_coords = torch.ones(img_indices.shape[0], 4)
+
+            # dddd
+            world_coords[:, :3] = img_indices @ tgt_intr_inv_torch_T * depths[j, 0].view(-1, 1)
+
+            t_transform_n(torch.t(world_coords), depths[j, 0].view(-1))
+
+
+            src_coords = torch.empty(img_indices.shape[0], 5)
+            src_coords[:, 3:] = img_indices[:, :2]
+            t_transform_n(torch.t(world_coords @ torch.t(poses[i, j])), depths[j, 0].view(-1))
+
+            src_coords[:, :3] = (world_coords @ torch.t(poses[i, j]))[:, :3] @ src_intr_T
+            # src_coords[:, :3] = (world_coords @ poses[i, j])[:, :3] @ src_intr_T
+
+            src_coords = src_coords[src_coords[:, 2] > 0]
+            src_coords[:, :2] = src_coords[:, :2] / src_coords[:, 2].reshape(-1, 1)
+
+            # Potential bug here; 0th column is the height, while 1st column is width, might have to be switched
+            src_coords = src_coords[
+                (src_coords[:, 1] >= 0) & (src_coords[:, 1] <= img_shape[0] - 1) & (src_coords[:, 0] >= 0) & (
+                            src_coords[:, 0] <= img_shape[1] - 1)]
+
+            # Put nan here in case a pixel isn't filled
+            reproj_image = torch.from_numpy(np.full((3, img_shape[0], img_shape[1]), np.nan, dtype=np.float32))
+
+            # Bilinear sampling
+            x = src_coords[:, 0]
+            y = src_coords[:, 1]
+            x12 = (torch.floor(x).long(), torch.ceil(x).long())
+            y12 = (torch.floor(y).long(), torch.ceil(y).long())
+            xdiff = (x - x12[0], x12[1] - x)
+            ydiff = (y - y12[0], y12[1] - y)
+            src_img = src_images[i]["images"][j]
+            reproj_image[:, src_coords[:, 4].long(), src_coords[:, 3].long()] = src_img[:, y12[0], x12[0]] * xdiff[1] * ydiff[1] + src_img[:, y12[0], x12[1]] * xdiff[0] * ydiff[1] + src_img[:, y12[1], x12[0]] * xdiff[1] * ydiff[0] + src_img[:, y12[1], x12[1]] * xdiff[0] * ydiff[0]
+
+            # rounded_coords = torch.round(src_coords).long()
+            # reproj_image[:, rounded_coords[:, 4], rounded_coords[:, 3]] = src_img[:, rounded_coords[:, 1], rounded_coords[:, 0]].float()
+
+
+            # f_term = torch.empty_like(src_coords[:, :2])
+            # f_term[:, 0] = x12[1] - x
+            # f_term[:, 1] = x - x12[0]
+            # s_term = torch.empty_like(torch.t(src_coords[:, :2]))
+            # s_term[0] = y12[1] - y
+            # s_term[1] = y - y12[0]
+            # m_term = torch.empty((2, 2, 3, len(x)))
+            # m_term[0, 0] = src_img[:, y12[0], x12[0]]
+            # m_term[0, 1] = src_img[:, y12[1], x12[0]]
+            # m_term[1, 0] = src_img[:, y12[0], x12[1]]
+            # m_term[1, 1] = src_img[:, y12[1], x12[1]]
+
+            # reproj_image[:, src_coords[:, 3], src_coords[:, 4]] = f_term @ m_term @ s_term
+
+            # reproj_image[:, src_coords[:, 3], src_coords[:, 4]] = \
+            #     1 / (x12[1]-x12[0]) / (y12[1]-y12[0]) * \
+            #     torch.tensor([x12[1] - x, x - x12[0]]) @ \
+            #     torch.tensor([
+            #         [src_img[:, y12[0], x12[0]], src_img[:, y12[1], x12[0]]],
+            #         [src_img[:, y12[0], x12[1]], src_img[:, y12[1], x12[1]]]
+            #     ]) @ \
+            #     torch.tensor([[y12[1] - y], [y - y12[0]]])
+
+            reprojected[i, j] = reproj_image
+
+    return reprojected
+
+
 if __name__ == "__main__":
+
+    from addon import get_relative_pose, calc_transformation_matrix
+
     ssim = SSIM()
     test_t = torch.arange(36, dtype=torch.float).reshape(2, 3, 2, 3)
     test_r = torch.rand((2, 3, 2, 3), dtype=torch.float)
@@ -222,6 +264,76 @@ if __name__ == "__main__":
     print(pe.shape)
 
     print("hi")
+    # open("data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/image_02/data/0")
+
+    from dataloader import KittiDataset
+    from kitti_utils import get_camera_intrinsic_dict
+
+    calibration_dir = 'data/kitti_example/2011_09_26'
+    SCENE_PATH = r"data\kitti_example\2011_09_26\2011_09_26_drive_0048_sync"
+
+    TEST_CONFIG_PATH = "configs/kitti_dataset.yml"
+    d = KittiDataset.init_from_config(TEST_CONFIG_PATH)
+
+
+    bruh = np.load(r"C:\Users\Evan's Laptop\Documents\Dev\Projects\DDSR2020\data\0000000000_disp.npy")
+    bruh = torch.from_numpy(bruh)
+    print(bruh)
+    print(bruh.shape)
+    # bruhF = F.interpolate(bruh, [375, 1242], mode="bilinear", align_corners=False).reshape(1, 375, 1242)
+    # bruhF = F.interpolate(bruh, [375, 1242], mode="bilinear", align_corners=False)
+    # print(bruhF.shape)
+
+    # bruh.fill_(1)
+    img_shape = bruh.shape[2:]
+
+    target = np.copy(d[0]["stereo_left_image"])
+    source = np.copy(d[1]["stereo_left_image"])
+    rel_pose = get_relative_pose(SCENE_PATH, 0, 1)
+    # v_forward = rel_pose[0][3]
+    # v_leftward = rel_pose[1][3]
+    # v_upward = rel_pose[2][3]
+    # new_translation = np.array([-1 * v_leftward, -1 * v_upward, v_forward, 1.])
+    # rel_pose[:, 3] = new_translation
+
+    rot = np.deg2rad([0, 0, 0])
+    tran = np.array([0, 0, -1])
+    # print(rot)
+
+    # rel_pose = calc_transformation_matrix(rot, tran)
+
+
+
+    tgt_intrinsic = get_camera_intrinsic_dict(calibration_dir).get('stereo_left')
+
+    print(tgt_intrinsic.dtype, "hihihihih")
+
+    target = F.interpolate(torch.from_numpy(target).permute(2, 0, 1).reshape(1, 3, 375, 1242).float(), (img_shape[0], img_shape[1]), mode="bilinear", align_corners=False)
+    source = F.interpolate(torch.from_numpy(source).permute(2, 0, 1).reshape(1, 3, 375, 1242).float(), (img_shape[0], img_shape[1]), mode="bilinear", align_corners=False)
+
+    plt.imshow(target[0].permute(1, 2, 0)/255)
+    plt.show()
+
+    rel_pose = torch.from_numpy(rel_pose).reshape(1, 1, 4, 4)
+
+    source_dict = [{"stereo": False, "images": source}]
+
+
+    print(depth.dtype)
+    out_img = process_depth(target, source_dict, bruh, rel_pose, tgt_intrinsic, tgt_intrinsic)
+    print(out_img.shape)
+    plt.imshow(out_img[0, 0].permute(1, 2, 0))
+    plt.show()
+    out_img = np.array(out_img[0, 0].permute(1, 2, 0))
+
+
+
+
+
+
+
+
+
 
 
     # for i in range(batch_size):
