@@ -228,10 +228,5 @@ def test_pose_model(image_1_path, image_2_path, model_name, **kwargs):
 
         #Converts prediction into pose
         pose = transformation_from_parameters(axisangle[:,0],translation[:,0], invert=False).cpu().numpy()[0]
-        print(axisangle)
-        print(translation)
         print('-> Done!')    
         return pose
-
-        
-
