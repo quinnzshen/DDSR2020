@@ -13,11 +13,12 @@ import sys
 sys.path.append('third_party/monodepth2')
 from ResnetEncoder import ResnetEncoder
 from DepthDecoder import DepthDecoder
+from PoseDecoder import PoseDecoder
 
 import torch
 from torchvision import transforms
 
-from layers import disp_to_depth
+from layers import disp_to_depth, transformation_from_parameters
 from monodepth2_utils import download_model_if_doesnt_exist
 
 """
@@ -168,3 +169,64 @@ def test_depth_model(image_path, model_name, **kwargs):
                 axarr[1].imshow(colormapped_im)
 
     print('-> Done!')
+    
+def test_pose_model(image_1_path, image_2_path, model_name, **kwargs):
+    """Function to predict relative pose between two images"""
+    #Setting no_cuda to False sets the device to cuda instead of cpu
+    no_cuda = kwargs.get('no_cuda', True)
+    
+    assert model_name is not None, \
+        "You must specify the --model_name parameter"
+    if torch.cuda.is_available() and not no_cuda:
+        device = torch.device("cuda")
+    else:
+        device = torch.device("cpu")
+
+    download_model_if_doesnt_exist(model_name)
+    model_path = os.path.join("models", model_name)
+    print("-> Loading model from ", model_path)
+    encoder_path = os.path.join(model_path, "pose_encoder.pth")
+    pose_decoder_path = os.path.join(model_path, "pose.pth")
+
+    # LOADING PRETRAINED MODEL
+    print("   Loading pretrained encoder")
+    encoder = ResnetEncoder(18, False, num_input_images=2)
+    loaded_dict_enc = torch.load(encoder_path, map_location=device)
+    encoder.load_state_dict(loaded_dict_enc)
+    encoder.to(device)
+    encoder.eval()
+
+    print("   Loading pretrained decoder")
+    pose_decoder = PoseDecoder(num_ch_enc=encoder.num_ch_enc, num_input_features=1, num_frames_to_predict_for=2)
+    loaded_dict = torch.load(pose_decoder_path, map_location=device)
+    pose_decoder.load_state_dict(loaded_dict)
+    pose_decoder.to(device)
+    pose_decoder.eval()
+
+    # FINDING INPUT IMAGES
+    if not os.path.isfile(image_1_path):
+        raise Exception("Can not find image_path: {}".format(image_1_path))
+
+    if not os.path.isfile(image_2_path):
+        raise Exception("Can not find image_path: {}".format(image_2_path))
+
+    print("-> Predicting on relative pose for test images")
+    # PREDICTING ON EACH IMAGE IN TURN
+
+    with torch.no_grad():
+        # Load images and preprocess
+        input_image1 = pil.open(image_1_path).convert('RGB')
+        input_image1 = transforms.ToTensor()(input_image1).unsqueeze(0)
+        input_image2 = pil.open(image_2_path).convert('RGB')
+        input_image2 = transforms.ToTensor()(input_image2).unsqueeze(0)
+        input_images = torch.cat((input_image1, input_image2), 1)
+
+        # PREDICTION
+        input_images = input_images.to(device)
+        features = [encoder(input_images)]
+        axisangle, translation = pose_decoder(features)
+
+        #Converts prediction into pose
+        pose = transformation_from_parameters(axisangle[:,0],translation[:,0], invert=False).cpu().numpy()[0]
+        print('-> Done!')    
+        return pose
