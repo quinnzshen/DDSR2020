@@ -14,13 +14,10 @@ sys.path.append('third_party/monodepth2')
 from ResnetEncoder import ResnetEncoder
 from DepthDecoder import DepthDecoder
 
-from PoseCNN import PoseCNN
-from PoseDecoder import PoseDecoder
-
 import torch
 from torchvision import transforms
 
-from layers import disp_to_depth, transformation_from_parameters
+from layers import disp_to_depth
 from monodepth2_utils import download_model_if_doesnt_exist
 
 """
