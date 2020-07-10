@@ -121,6 +121,7 @@ def test_depth_model(image_path, model_name, **kwargs):
     print("-> Predicting on {:d} test images".format(len(paths)))
 
     # PREDICTING ON EACH IMAGE IN TURN
+    
     with torch.no_grad():
         for idx, image_path in enumerate(paths):
 
@@ -168,5 +169,10 @@ def test_depth_model(image_path, model_name, **kwargs):
                 f, axarr = plt.subplots(2,1)
                 axarr[0].imshow(mpimg.imread(image_path))
                 axarr[1].imshow(colormapped_im)
-    
+                
+            if idx == 0:
+                output = np.array(scaled_disp)
+            else:
+                output = np.hstack((output, np.array(scaled_disp)))
     print('-> Done!')
+    return output
