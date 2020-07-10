@@ -5,8 +5,8 @@ import pandas as pd
 
 import os
 
-from kitti_utils import get_camera_data, get_lidar_data, get_nearby_frames_data, get_camera_intrinsic_dict, get_relative_rotation_stereo, get_relative_translation_stereo, compute_image_from_velodyne_matrices
-
+from kitti_utils import get_camera_data, get_lidar_data, get_nearby_frames_data, get_camera_intrinsic_dict, get_relative_rotation_stereo, get_relative_translation_stereo, compute_image_from_velodyne_matrices, get_relative_pose
+from compute_photometric_error_utils import compute_relative_pose_matrix
 
 class KittiDataset(Dataset):
     def __init__(self, root_dir, dataset_index, previous_frames, next_frames):
@@ -70,7 +70,7 @@ class KittiDataset(Dataset):
             **{'nearby_frames': nearby_frames_data},
             **{'image_from_velodyne_matrices' : compute_image_from_velodyne_matrices(calibration_dir)},
             **{'intrinsics' : get_camera_intrinsic_dict(calibration_dir)},
-            **{'rel_extrinsics_stereo' : {'rotation' : get_relative_rotation_stereo(calibration_dir), 'translation' : get_relative_translation_stereo(calibration_dir)}}
+            **{'rel_pose_stereo' : compute_relative_pose_matrix(get_relative_translation_stereo(calibration_dir), get_relative_rotation_stereo(calibration_dir))}
         }
 
         return sample

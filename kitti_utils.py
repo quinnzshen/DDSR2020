@@ -122,7 +122,7 @@ def get_nearby_frames_data(path_name, idx, previous_frames, next_frames):
         :param dataset_index [pd.DataFrame]: The dataframe containing the paths and indices of the data
         :param [int] previous_frames: Number of frames before the target frame that will be retrieved.
         :param [int] next_frames: Number of frames after the target frame that will be retrieved.
-        :return [dict]: Dictionary containing camera data of nearby frames, the key is the relative index and the value is the data.
+        :return [dict]: Dictionary containing camera data and pose of nearby frames, the key is the relative index and the value is the data.
                         (e.g. -1 would be the previous image, 2 would be the next-next image).
         """
         nearby_frames = {}
@@ -131,7 +131,7 @@ def get_nearby_frames_data(path_name, idx, previous_frames, next_frames):
             if relative_idx == 0:
                 continue
 
-            nearby_frames[relative_idx] = get_camera_data(path_name, idx + relative_idx)
+            nearby_frames[relative_idx] = {'camera_data' : get_camera_data(path_name, idx + relative_idx), 'pose' : get_relative_pose(path_name, 0, idx)}
         return nearby_frames
 
 
@@ -325,4 +325,8 @@ def get_relative_pose(scene_path, target, source):
 
     # Determines displacement by multiplying velocity by time
     pos = velo * delta_time_nsec / 1E9
-    return calc_transformation_matrix(rot, pos)
+    pose = calc_transformation_matrix(rot, pos) 
+    # Convert trnasformation from IMU frame to camera frame.
+    translation_camera_frame = np.array([-1*pose[1][3], -1*pose[2][3], pose[0][3], 1.])
+    pose[:, 3] = translation_camera_frame
+    return pose
