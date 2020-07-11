@@ -70,7 +70,8 @@ class KittiDataset(Dataset):
             **{'nearby_frames': nearby_frames_data},
             **{'image_from_velodyne_matrices' : compute_image_from_velodyne_matrices(calibration_dir)},
             **{'intrinsics' : get_camera_intrinsic_dict(calibration_dir)},
-            **{'rel_pose_stereo' : compute_relative_pose_matrix(get_relative_translation_stereo(calibration_dir), get_relative_rotation_stereo(calibration_dir))}
+            **{'rel_pose_stereo' : compute_relative_pose_matrix(get_relative_translation_stereo(calibration_dir), get_relative_rotation_stereo(calibration_dir))},
+            **{'pose' : get_relative_pose(path_name, 0, idx)}
         }
 
         return sample

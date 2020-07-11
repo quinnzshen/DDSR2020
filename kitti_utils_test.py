@@ -133,7 +133,8 @@ def test_get_nearby_frames(kitti_root_directory, kitti_dataset_index):
                            next_frames=2)
 
     # On index 0, we expect there to be data for the relative index +1 and an empty dictionary for the relative index -1
-    expected_fields = ['stereo_left_image', 
+    expected_fields = ['camera_data', 'pose']
+    expected_camera_data_fields = ['stereo_left_image', 
                        'stereo_left_shape', 
                        'stereo_left_capture_time_nsec', 
                        'stereo_right_image', 'stereo_right_shape', 
@@ -141,24 +142,27 @@ def test_get_nearby_frames(kitti_root_directory, kitti_dataset_index):
 
     data = dataset[0]
     # When idx = 0, [nearby_frames] keys: -1 and -2 should return empty dictionaries
-    assert data['nearby_frames'][-1] == {}
-    assert data['nearby_frames'][-2] == {}
+    assert data['nearby_frames'][-1]['camera_data'] == {}
+    assert data['nearby_frames'][-1]['pose'] == {}
+    assert data['nearby_frames'][-2]['camera_data'] == {}
+    assert data['nearby_frames'][-2]['pose']  == {}
     # Keys for [nearby_frames] should be int values within range(-previous_frames, next_frames + 1) with exception of 0
     assert list(data['nearby_frames'].keys()) == [-2, -1, 1, 2]
     # Values of valid [nearby_frames] keys should be elements of [expected_fields]
     assert list(data['nearby_frames'][1].keys()) == expected_fields
+    assert list(data['nearby_frames'][1]['camera_data'].keys()) == expected_camera_data_fields
     # Values of invalid [nearby_frames] keys should be empty dictionaries
-    assert list(data['nearby_frames'][-1].keys()) == []
+    assert list(data['nearby_frames'][-1]['camera_data'].keys()) == []
     
     data = dataset[1]
     # When idx = 0, [nearby_frames] keys: -1 should return camera data, while -2 should return an empty dictionary
-    assert data['nearby_frames'][-1] != {}
-    assert data['nearby_frames'][-2] == {}
+    assert data['nearby_frames'][-1]['camera_data'] != {}
+    assert data['nearby_frames'][-2]['camera_data']  == {}
     # Keys for [nearby_frames] should be int values within range(-previous_frames, next_frames + 1) with exception of 0
     assert list(data['nearby_frames'].keys()) == [-2, -1, 1, 2]
     # Values of valid [nearby_frames] keys should be elements of [expected_fields]
     assert list(data['nearby_frames'][-1].keys()) == expected_fields
-    
+    assert list(data['nearby_frames'][1]['camera_data'].keys()) == expected_camera_data_fields
 
 def test_get_camera_intrinsic_dict():
     sample_cam_intrinsic_dict = ku.get_camera_intrinsic_dict(EXAMPLE_CALIBRATION_DIR)
@@ -185,8 +189,8 @@ def test_get_relative_pose():
     np.testing.assert_allclose(pose1, np.eye(4))
     pose2 = ku.get_relative_pose(EXAMPLE_SCENE_PATH, 3, 4)
     np.testing.assert_allclose(pose2, np.array([
-        [0.999993, -0.002484, 0.002805, -0.82535],
-        [0.002504, 0.999971, -0.007216, -0.004526],
-        [-0.002787, 0.007216, 0.99997, 0.003038],
+        [0.999993, -0.002484, 0.002805, 0.004526],
+        [0.002504, 0.999971, -0.007216, -0.003038],
+        [-0.002787, 0.007216, 0.99997, -0.82535],
         [0., 0., 0., 1.]
     ], dtype=np.float32), rtol=1e-4)

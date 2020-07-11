@@ -131,7 +131,7 @@ def get_nearby_frames_data(path_name, idx, previous_frames, next_frames):
             if relative_idx == 0:
                 continue
 
-            nearby_frames[relative_idx] = {'camera_data' : get_camera_data(path_name, idx + relative_idx), 'pose' : get_relative_pose(path_name, 0, idx)}
+            nearby_frames[relative_idx] = {'camera_data' : get_camera_data(path_name, idx + relative_idx), 'pose' : get_relative_pose(path_name, 0, idx + relative_idx)}
         return nearby_frames
 
 
@@ -294,6 +294,8 @@ def get_relative_pose(scene_path, target, source):
     """
     if target == source:
         return np.eye(4, dtype=np.float32)
+    if source < 0:
+        return {}
 
     with open(os.path.join(scene_path, f"oxts/data/{target:010}.txt")) as ft:
         datat = np.array(ft.readline().split(), dtype=np.float)
