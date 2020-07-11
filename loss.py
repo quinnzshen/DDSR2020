@@ -147,7 +147,9 @@ def calc_loss(inputs, outputs):
 
 
 def process_depth(tgt_images, src_images, depths, poses, tgt_intr, src_intr):
+    print(depths.max(), "MAXMAXMAXMAXMAX")
     img_shape = tgt_images[0, 0].shape
+
     reprojected = torch.zeros((len(src_images), len(tgt_images), 3, img_shape[0], img_shape[1]), dtype=torch.uint8)
     img_indices = torch.ones((img_shape[0] * img_shape[1], 3))
     img_coords = torch.from_numpy(np.indices(img_shape).ravel().reshape(-1, 2, order="F"))
@@ -159,6 +161,8 @@ def process_depth(tgt_images, src_images, depths, poses, tgt_intr, src_intr):
     src_intr_torch_T = torch.from_numpy(src_intr.T).float()
     tgt_intr_inv_torch_T = torch.inverse(tgt_intr_torch_T)
 
+    t_poses = poses.transpose(2, 3)
+
     for i in range(len(src_images)):
         if src_images[i]["stereo"]:
             src_intr_T = src_intr_torch_T
@@ -169,16 +173,16 @@ def process_depth(tgt_images, src_images, depths, poses, tgt_intr, src_intr):
             world_coords = torch.ones(img_indices.shape[0], 4)
 
             # dddd
-            world_coords[:, :3] = img_indices @ tgt_intr_inv_torch_T * depths[j, 0].view(-1, 1)
+            world_coords[:, :3] = img_indices @ tgt_intr_inv_torch_T# * depths[j, 0].view(-1, 1)
 
             t_transform_n(torch.t(world_coords), depths[j, 0].view(-1))
 
 
             src_coords = torch.empty(img_indices.shape[0], 5)
             src_coords[:, 3:] = img_indices[:, :2]
-            t_transform_n(torch.t(world_coords @ torch.t(poses[i, j])), depths[j, 0].view(-1))
+            # t_transform_n(torch.t(world_coords @ torch.t(poses[i, j])), depths[j, 0].view(-1))
 
-            src_coords[:, :3] = (world_coords @ torch.t(poses[i, j]))[:, :3] @ src_intr_T
+            src_coords[:, :3] = (world_coords @ t_poses[i, j])[:, :3] @ src_intr_T
             # src_coords[:, :3] = (world_coords @ poses[i, j])[:, :3] @ src_intr_T
 
             src_coords = src_coords[src_coords[:, 2] > 0]
@@ -188,6 +192,7 @@ def process_depth(tgt_images, src_images, depths, poses, tgt_intr, src_intr):
             src_coords = src_coords[
                 (src_coords[:, 1] >= 0) & (src_coords[:, 1] <= img_shape[0] - 1) & (src_coords[:, 0] >= 0) & (
                             src_coords[:, 0] <= img_shape[1] - 1)]
+            # t_transform_n(src_coords[:, :3], 1)
 
             # Put nan here in case a pixel isn't filled
             reproj_image = torch.from_numpy(np.full((3, img_shape[0], img_shape[1]), np.nan, dtype=np.float32))
@@ -200,10 +205,10 @@ def process_depth(tgt_images, src_images, depths, poses, tgt_intr, src_intr):
             xdiff = (x - x12[0], x12[1] - x)
             ydiff = (y - y12[0], y12[1] - y)
             src_img = src_images[i]["images"][j]
-            reproj_image[:, src_coords[:, 4].long(), src_coords[:, 3].long()] = src_img[:, y12[0], x12[0]] * xdiff[1] * ydiff[1] + src_img[:, y12[0], x12[1]] * xdiff[0] * ydiff[1] + src_img[:, y12[1], x12[0]] * xdiff[1] * ydiff[0] + src_img[:, y12[1], x12[1]] * xdiff[0] * ydiff[0]
+            # reproj_image[:, src_coords[:, 4].long(), src_coords[:, 3].long()] = src_img[:, y12[0], x12[0]] * xdiff[1] * ydiff[1] + src_img[:, y12[0], x12[1]] * xdiff[0] * ydiff[1] + src_img[:, y12[1], x12[0]] * xdiff[1] * ydiff[0] + src_img[:, y12[1], x12[1]] * xdiff[0] * ydiff[0]
 
-            # rounded_coords = torch.round(src_coords).long()
-            # reproj_image[:, rounded_coords[:, 4], rounded_coords[:, 3]] = src_img[:, rounded_coords[:, 1], rounded_coords[:, 0]].float()
+            rounded_coords = torch.round(src_coords).long()
+            reproj_image[:, rounded_coords[:, 4], rounded_coords[:, 3]] = src_img[:, rounded_coords[:, 1], rounded_coords[:, 0]].float()
 
 
             # f_term = torch.empty_like(src_coords[:, :2])
@@ -306,24 +311,25 @@ if __name__ == "__main__":
 
     tgt_intrinsic = get_camera_intrinsic_dict(calibration_dir).get('stereo_left')
 
-    print(tgt_intrinsic.dtype, "hihihihih")
-
     target = F.interpolate(torch.from_numpy(target).permute(2, 0, 1).reshape(1, 3, 375, 1242).float(), (img_shape[0], img_shape[1]), mode="bilinear", align_corners=False)
     source = F.interpolate(torch.from_numpy(source).permute(2, 0, 1).reshape(1, 3, 375, 1242).float(), (img_shape[0], img_shape[1]), mode="bilinear", align_corners=False)
 
-    plt.imshow(target[0].permute(1, 2, 0)/255)
+    plt.imshow(bruh[0, 0])
     plt.show()
+
+    # plt.imshow(target[0].permute(1, 2, 0)/255)
+    # plt.show()
 
     rel_pose = torch.from_numpy(rel_pose).reshape(1, 1, 4, 4)
 
     source_dict = [{"stereo": False, "images": source}]
 
 
-    print(depth.dtype)
     out_img = process_depth(target, source_dict, bruh, rel_pose, tgt_intrinsic, tgt_intrinsic)
-    print(out_img.shape)
+
     plt.imshow(out_img[0, 0].permute(1, 2, 0))
     plt.show()
+
     out_img = np.array(out_img[0, 0].permute(1, 2, 0))
 
 
