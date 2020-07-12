@@ -7,10 +7,6 @@ import matplotlib.pyplot as plt
 from temporal import t_transform_n
 
 
-ALPHA = 0.85
-LAMBDA = 1
-
-
 class SSIM(nn.Module):
     def __init__(self):
         """
@@ -51,18 +47,19 @@ class SSIM(nn.Module):
         return SSIM_n / SSIM_d
 
 
-def calc_pe(predict, target):
+def calc_pe(predict, target, alpha=0.85):
     """
     Calculates the photometric error between two images using SSIM and L1Loss
     :param [torch.tensor] predict: The predicted images in format [batch_size, 3, H, W]
     :param [torch.tensor] target: The target images in format [batch_size, 3, H, W]
+    :param [float] alpha: Constant that determines how much the SSIM value and L1loss are weighted in the error
     :return [torch.tensor]: The numerical loss for each pixel in format [batch_size, 1, H, W]
     """
     ssim = SSIM()
     ssim_val = torch.mean(torch.clamp((1 - ssim(predict, target)) / 2, 0, 1), 1, True)
     l1 = torch.mean(torch.abs(predict - target), 1, True)
 
-    return ALPHA * ssim_val + (1-ALPHA) * l1
+    return alpha * ssim_val + (1-alpha) * l1
 
 
 def calc_smooth_loss(disp, image):
@@ -107,9 +104,7 @@ def get_mask(targets, sources, min_reproject_errors):
     return min_reproject_errors < min_source_errors
 
 
-
-
-def calc_loss(inputs, outputs):
+def calc_loss(inputs, outputs, smooth_term=0.001):
     """
     Takes in the inputs and outputs from the neural network to calulate a numeric loss value based on the Monodepth2
     paper.
@@ -117,6 +112,7 @@ def calc_loss(inputs, outputs):
     [num_src_imgs, batch_size, 3, H, W] respectively
     :param [dict] outputs: Contains the keys "reproj" and "depth" which are tensors
     [num_reprojected_imgs, batch_size, 3, H, W] and [batch_size, H, W] respectively
+    :param [float] smooth_term: Constant that controls how much the smoothing term is considered in the loss
     :return [torch.float]: A 0 dimensional tensor representing the loss calculated
     """
     targets = inputs["targets"]
@@ -140,10 +136,9 @@ def calc_loss(inputs, outputs):
 
     depth = outputs["depth"]
     normalized_depth = depth / depth.mean(2, True).mean(3, True)
-    loss += min_errors.mean() + LAMBDA * calc_smooth_loss(normalized_depth, targets)
+    loss += min_errors.mean() + smooth_term * calc_smooth_loss(normalized_depth, targets)
 
-    # Might not need to be dividing over batch size
-    return loss / batch_size
+    return loss
 
 
 def process_depth(tgt_images, src_images, depths, poses, tgt_intr, src_intr):
@@ -252,10 +247,10 @@ if __name__ == "__main__":
     sources = (torch.zeros(target.shape), target)
     reprojs = (target, target)
     depth = torch.arange(36, dtype=torch.float).reshape(2, 1, 3, 6)
-    LAMBDA = 1
+
     inputs = {"targets": target, "sources": sources}
     outputs = {"reproj": reprojs, "depth": depth}
-    l = calc_loss(inputs, outputs)
+    l = calc_loss(inputs, outputs, 1)
     print(l)
 
     print(test_r)
