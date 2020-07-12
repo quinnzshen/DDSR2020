@@ -107,6 +107,8 @@ def get_mask(targets, sources, min_reproject_errors):
     return min_reproject_errors < min_source_errors
 
 
+
+
 def calc_loss(inputs, outputs):
     """
     Takes in the inputs and outputs from the neural network to calulate a numeric loss value based on the Monodepth2

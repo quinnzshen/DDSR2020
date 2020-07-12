@@ -2,7 +2,7 @@ import torch
 import numpy as np
 import pytest
 
-from loss import SSIM, calc_pe, calc_smooth_loss, get_mask
+from loss import SSIM, calc_pe, calc_smooth_loss
 
 
 def test_SSIM():
@@ -55,19 +55,3 @@ def test_calc_smooth_loss():
 
     img2[:, :, :, 1] = 255
     torch.testing.assert_allclose(calc_smooth_loss(disp2, img2), torch.tensor(0).float())
-
-
-def test_get_mask():
-    target1 = torch.ones(3, 3, 4, 5)
-    source1 = torch.zeros(3, 3, 3, 4, 5)
-    reproj_err1 = torch.zeros(3, 1, 4, 5)
-    torch.testing.assert_allclose(get_mask(target1, source1, reproj_err1).float(), torch.ones(3, 1, 4, 5))
-
-    reproj_err2 = torch.full((3, 1, 4, 5), 1)
-    torch.testing.assert_allclose(get_mask(target1, source1, reproj_err2).float(), torch.zeros(3, 1, 4, 5))
-
-    target1[:, :, :2] = 0
-    ans = torch.ones(3, 1, 4, 5)
-    ans[:, :, :2] = 0
-    reproj_err3 = torch.full((3, 1, 4, 5), 0.5)
-    torch.testing.assert_allclose(get_mask(target1, source1, reproj_err3).float(), ans)
