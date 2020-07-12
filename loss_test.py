@@ -1,5 +1,4 @@
 import torch
-import numpy as np
 import pytest
 
 from loss import SSIM, calc_pe, calc_smooth_loss
