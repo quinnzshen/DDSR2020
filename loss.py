@@ -64,7 +64,7 @@ def calc_smooth_loss(disp, image):
     """
     Calculates the edge-aware smoothness of the given depth map with relation to the target image. Returns a higher
     loss if the depth map fluctates a lot in depth where it should be smooth.
-    :param [torch.tensor] disp: The depth map, formatted as [batch_size, 1, H, W]
+    :param [torch.tensor] disp: The disparity map, formatted as [batch_size, 1, H, W]
     :param [torch.tensor] image: The target image, formatted as [batch_size, 3, H, W]
     :return [torch.float]: A 0 dimensional tensor containing a numerical loss punishing for a rough depth map
     """
