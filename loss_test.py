@@ -2,7 +2,7 @@ import torch
 import numpy as np
 import pytest
 
-from loss import SSIM, calc_pe
+from loss import SSIM, calc_pe, calc_smooth_loss
 
 
 def test_SSIM():
@@ -41,3 +41,17 @@ def test_calc_pe():
                           [1.7750, 1.9250, 2.0750]]]])
     torch.testing.assert_allclose(calc_pe(img3, img4), ans, atol=0.01, rtol=0.0001)
     torch.testing.assert_allclose(calc_pe(img3, img4), calc_pe(img4, img3))
+
+
+def test_calc_smooth_loss():
+    img1 = torch.ones(1, 3, 4, 5)
+    disp1 = torch.zeros(1, 1, 4, 5)
+    torch.testing.assert_allclose(calc_smooth_loss(disp1, img1), torch.tensor(0).float())
+
+    img2 = torch.zeros(1, 3, 2, 3)
+    disp2 = torch.ones(1, 3, 2, 3)
+    disp2[:, :, :, 1] = 16
+    torch.testing.assert_allclose(calc_smooth_loss(disp2, img2), torch.tensor(30).float())
+
+    img2[:, :, :, 1] = 255
+    torch.testing.assert_allclose(calc_smooth_loss(disp2, img2), torch.tensor(0).float())

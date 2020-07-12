@@ -79,8 +79,8 @@ def calc_smooth_loss(disp, image):
     d_color_x = torch.mean(torch.abs(image[:, :, :, 1:] - image[:, :, :, :-1]), 1, True)
     d_color_y = torch.mean(torch.abs(image[:, :, 1:, :] - image[:, :, :-1, :]), 1, True)
 
-    d_disp_x *= torch.exp(d_color_x)
-    d_disp_y *= torch.exp(d_color_y)
+    d_disp_x *= torch.exp(-d_color_x)
+    d_disp_y *= torch.exp(-d_color_y)
 
     return d_disp_x.mean() + d_disp_x.mean()
 
