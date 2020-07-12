@@ -48,7 +48,7 @@ class SSIM(nn.Module):
         SSIM_n = (2 * mu_p * mu_t + self.C1) * (2 * sigma_pt + self.C2)
         SSIM_d = (mu_p ** 2 + mu_t ** 2 + self.C1) * (sigma_p + sigma_t + self.C2)
 
-        return torch.clamp((1 - SSIM_n / SSIM_d) / 2, 0, 1)
+        return SSIM_n / SSIM_d
 
 
 def calc_pe(predict, target):
@@ -59,8 +59,8 @@ def calc_pe(predict, target):
     :return [torch.tensor]: The numerical loss for each pixel in format [batch_size, 1, H, W]
     """
     ssim = SSIM()
-    ssim_val = torch.mean(torch.abs(predict - target), 1, True)
-    l1 = torch.mean(ssim(predict, target), 1, True)
+    ssim_val = torch.mean(torch.clamp((1 - ssim(predict, target)) / 2, 0, 1), 1, True)
+    l1 = torch.mean(torch.abs(predict - target), 1, True)
 
     return ALPHA * ssim_val + (1-ALPHA) * l1
 
