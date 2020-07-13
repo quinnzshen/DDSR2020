@@ -54,6 +54,8 @@ for epoch in range (epochs):
     features = depth_encoder(torch.tensor(inputs))
     output = depth_decoder(features)
     
+    optimizer.zero_grad()
+
     end_time = time.time()
     print("Time spent: {}".format(end_time-start_time))
     
