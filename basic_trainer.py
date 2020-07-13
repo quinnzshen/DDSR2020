@@ -41,7 +41,6 @@ lr_scheduler = optim.lr_scheduler.StepLR(optimizer, scheduler_step_size, learnin
 batch_size = 6 #Default is 12
 epochs = 10
 
-
 width = 640
 height = 192
 
@@ -59,7 +58,9 @@ for epoch in range (epochs):
         inputs = torch.cat([F.interpolate((torch.tensor(dataset[i]["stereo_left_image"].transpose(2,0,1), device=device, dtype=torch.float32).unsqueeze(0)), [width,height], mode = "bilinear", align_corners = False) for i in range(start_tracker, end_tracker)])
         features = depth_encoder(torch.tensor(inputs))
         outputs = depth_decoder(features)
+        disp = outputs[("disp", 0)]
         
+        print(outputs.keys())
         #generate losses
         
         if end_tracker == len(dataset):
