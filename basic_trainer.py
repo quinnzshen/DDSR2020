@@ -14,8 +14,8 @@ import warnings
 warnings.filterwarnings("ignore")
 
 
-#GPU/CPU setup
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+#GPU/CPU setup,"cuda:0" if torch.cuda.is_available() else
+device = torch.device("cpu")
 
 #Set up dataloader
 train_config_path = 'configs/kitti_dataset.yml'
@@ -44,18 +44,37 @@ epochs = 10
 
 width = 640
 height = 192
+
+start_tracker = 0
+end_tracker = batch_size
 for epoch in range (epochs):
     start_time = time.time()
     print("Starting epoch {}".format(epoch), end=", ")
     lr_scheduler.step()
+    
     depth_encoder.train()
     depth_decoder.train()
-    inputs = torch.cat([F.interpolate((torch.tensor(dataset[i]["stereo_left_image"].transpose(2,0,1), device=device, dtype=torch.float32).unsqueeze(0)), [width,height], mode = "bilinear", align_corners = False) for i in range(len(dataset))])
-    features = depth_encoder(torch.tensor(inputs))
-    output = depth_decoder(features)
+    
+    for batch_idx in range(start_tracker, end_tracker):
+        inputs = torch.cat([F.interpolate((torch.tensor(dataset[i]["stereo_left_image"].transpose(2,0,1), device=device, dtype=torch.float32).unsqueeze(0)), [width,height], mode = "bilinear", align_corners = False) for i in range(start_tracker, end_tracker)])
+        features = depth_encoder(torch.tensor(inputs))
+        outputs = depth_decoder(features)
+        
+        #generate losses
+        
+        if end_tracker == len(dataset):
+            start_tracker = 0
+            end_tracker = batch_size
+            break
+        else:
+            start_tracker+=batch_size
+            
+        if (end_tracker+batch_size) <= len(dataset):
+            end_tracker += batch_size
+        else:
+            end_tracker = len(dataset)
     
     optimizer.zero_grad()
 
     end_time = time.time()
-    print("Time spent: {}".format(end_time-start_time))
-    
+    print("Time spent: {}".format(end_time-start_time))  
