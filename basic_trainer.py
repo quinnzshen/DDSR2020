@@ -8,7 +8,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torchvision import transforms
 import time
-
+import math
 #Filter out warnings, may delete later
 import warnings
 warnings.filterwarnings("ignore")
@@ -41,8 +41,8 @@ lr_scheduler = optim.lr_scheduler.StepLR(optimizer, scheduler_step_size, learnin
 batch_size = 6 #Default is 12
 epochs = 10
 
-width = 640
-height = 192
+width = 1024
+height = 320
 
 start_tracker = 0
 end_tracker = batch_size
@@ -54,14 +54,17 @@ for epoch in range (epochs):
     depth_encoder.train()
     depth_decoder.train()
     
-    for batch_idx in range(start_tracker, end_tracker):
-        inputs = torch.cat([F.interpolate((torch.tensor(dataset[i]["stereo_left_image"].transpose(2,0,1), device=device, dtype=torch.float32).unsqueeze(0)), [width,height], mode = "bilinear", align_corners = False) for i in range(start_tracker, end_tracker)])
-        features = depth_encoder(torch.tensor(inputs))
+    num_batches = math.ceil(len(dataset)/batch_size)
+    for batch_idx in range(num_batches):
+        inputs = torch.cat([F.interpolate((torch.as_tensor(dataset[i]["stereo_left_image"].transpose(2,0,1), device=device, dtype=torch.float32).unsqueeze(0)), [width,height], mode = "bilinear", align_corners = False) for i in range(start_tracker, end_tracker)])
+        features = depth_encoder(torch.as_tensor(inputs))
         outputs = depth_decoder(features)
         disp = outputs[("disp", 0)]
         
-        print(outputs.keys())
-        #generate losses
+        #generate losses - waiting on Evan's reprojection code
+        
+        optimizer.zero_grad()
+        #backprop
         
         if end_tracker == len(dataset):
             start_tracker = 0
@@ -75,7 +78,6 @@ for epoch in range (epochs):
         else:
             end_tracker = len(dataset)
     
-    optimizer.zero_grad()
 
     end_time = time.time()
     print("Time spent: {}".format(end_time-start_time))  
