@@ -271,13 +271,13 @@ if __name__ == "__main__":
     from compute_photometric_error_utils import compute_relative_pose_matrix
 
     calibration_dir = 'data/kitti_example/2011_09_26'
-    SCENE_PATH = r"data\kitti_example\2011_09_26\2011_09_26_drive_0048_sync"
+    SCENE_PATH = r"data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync"
 
     TEST_CONFIG_PATH = "configs/kitti_dataset.yml"
     d = KittiDataset.init_from_config(TEST_CONFIG_PATH)
 
 
-    bruh = np.load(r"C:\Users\Evan's Laptop\Documents\Dev\Projects\DDSR2020\data\0000000000_disp.npy")
+    bruh = np.load("data/0000000000_disp.npy")
     bruh = torch.from_numpy(bruh)
     print(bruh)
     print(bruh.shape)
@@ -313,7 +313,7 @@ if __name__ == "__main__":
     # max_disp = 1 / 0.1
     # bruh = 1 / (min_disp + (max_disp - min_disp) * bruh)
 
-    bruh = 54 * 721 / (1242 * bruh)
+    bruh = 31.257*bruh
 
 
     # bruh = 5.4 / bruh
