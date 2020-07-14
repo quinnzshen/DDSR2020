@@ -75,6 +75,41 @@ class Trainer:
 
         end_time = time.time()
         print("Time spent: {}".format(end_time-start_time))
+
+
+width = 640
+height = 192
+
+start_tracker = 0
+end_tracker = batch_size
+for epoch in range (epochs):
+    start_time = time.time()
+    print("Starting epoch {}".format(epoch), end=", ")
+    lr_scheduler.step()
+    
+    depth_encoder.train()
+    depth_decoder.train()
+    
+    for batch_idx in range(start_tracker, end_tracker):
+        inputs = torch.cat([F.interpolate((torch.tensor(dataset[i]["stereo_left_image"].transpose(2,0,1), device=device, dtype=torch.float32).unsqueeze(0)), [width,height], mode = "bilinear", align_corners = False) for i in range(start_tracker, end_tracker)])
+        features = depth_encoder(torch.tensor(inputs))
+        outputs = depth_decoder(features)
+        disp = outputs[("disp", 0)]
+        
+        print(outputs.keys())
+        #generate losses
+        
+        if end_tracker == len(dataset):
+            start_tracker = 0
+            end_tracker = batch_size
+            break
+        else:
+            start_tracker+=batch_size
+            
+        if (end_tracker+batch_size) <= len(dataset):
+            end_tracker += batch_size
+        else:
+            end_tracker = len(dataset)
     
     def save_model(self): 
         """Save model weights to disk (from monodepth2 repo)
