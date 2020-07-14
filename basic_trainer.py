@@ -1,8 +1,5 @@
 from dataloader import KittiDataset
 from loss import calc_loss
-"""import sys
-sys.path.append('third_party\monodepth2')"""
-#import third_party.monodepth2.ResnetEncoder
 from third_party.monodepth2.ResnetEncoder import ResnetEncoder
 from third_party.monodepth2.DepthDecoder import DepthDecoder
 import third_party.monodepth2.layers
@@ -11,23 +8,20 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torchvision import transforms
 import time
+import math
 import os
-
-#Filter out warnings, may delete later
 import warnings
 warnings.filterwarnings("ignore")
 
 
 class Trainer:
-    
-
     def __init__(self):
         #GPU/CPU setup
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
         #Set up dataloader for one frame.
-        train_config_path = 'configs/kitti_dataset.yml'
-        self.dataset = KittiDataset.init_from_config(train_config_path)[2]
+        train_config_path = 'configs/oneframe_overfit.yml'
+        self.dataset = KittiDataset.init_from_config(train_config_path)
 
         #Models
         self.models = {}
@@ -47,70 +41,57 @@ class Trainer:
         #Scheduler
         scheduler_step_size = 15
         self.lr_scheduler = optim.lr_scheduler.StepLR(self.optimizer, scheduler_step_size, learning_rate)
-
-    
-        """batch_size = 6 #Default is 12
-        epochs = 10"""
-
+        
     def train(self):
-        self.width = 640
-        self.height = 192
+        self.width = 1024
+        self.height = 320
         epochs = 10
         for self.epoch in range (epochs):
             self.run_epoch()
-        return self.output
+        #return self.output
         """self.save_model()
         print('Model saved.')"""
         
     def run_epoch(self):
         start_time = time.time()
-        print("Starting epoch {}".format(self.epoch), end=", ")
+        print("Starting epoch {}".format(self.epoch+1), end=", ")
         self.lr_scheduler.step()
         self.models['resnet_encoder'].train()
         self.models['depth_decoder'].train()
-        inputs = torch.cat([F.interpolate((torch.tensor(self.dataset["stereo_left_image"].transpose(2,0,1), device=self.device, dtype=torch.float32).unsqueeze(0)), [self.width, self.height], mode = "bilinear", align_corners = False)])
-        features = self.models['resnet_encoder'](torch.tensor(inputs))
-        self.output = self.models['depth_decoder'](features)
-        self.optimizer.zero_grad()
+        
+        batch_size = 1
+        start_tracker = 0
+        end_tracker = batch_size
+        num_batches = math.ceil(len(self.dataset)/batch_size)
+        
+        #Iterate through batches
+        for batch_idx in range(num_batches):
+            inputs = torch.cat([F.interpolate((torch.tensor(self.dataset[i]["stereo_left_image"].transpose(2,0,1), device=self.device, dtype=torch.float32).unsqueeze(0)), [self.width, self.height], mode = "bilinear", align_corners = False) for i in range(start_tracker, end_tracker)])
+            features = self.models['resnet_encoder'](torch.tensor(inputs))
+            self.outputs = self.models['depth_decoder'](features)
+            self.disp = self.outputs[("disp", 0)]
+            
+            #Generate Losses - Waiting on Evan's reprojection code
+            
+            self.optimizer.zero_grad()
 
+            #Back Propogate - TBD
+            
+
+            if end_tracker == len(self.dataset):
+                start_tracker = 0
+                end_tracker = batch_size
+                break
+            else:
+                start_tracker+=batch_size
+                
+            if (end_tracker+batch_size) <= len(self.dataset):
+                end_tracker += batch_size
+            else:
+                end_tracker = len(self.dataset)
         end_time = time.time()
         print("Time spent: {}".format(end_time-start_time))
 
-
-width = 640
-height = 192
-
-start_tracker = 0
-end_tracker = batch_size
-for epoch in range (epochs):
-    start_time = time.time()
-    print("Starting epoch {}".format(epoch), end=", ")
-    lr_scheduler.step()
-    
-    depth_encoder.train()
-    depth_decoder.train()
-    
-    for batch_idx in range(start_tracker, end_tracker):
-        inputs = torch.cat([F.interpolate((torch.tensor(dataset[i]["stereo_left_image"].transpose(2,0,1), device=device, dtype=torch.float32).unsqueeze(0)), [width,height], mode = "bilinear", align_corners = False) for i in range(start_tracker, end_tracker)])
-        features = depth_encoder(torch.tensor(inputs))
-        outputs = depth_decoder(features)
-        disp = outputs[("disp", 0)]
-        
-        print(outputs.keys())
-        #generate losses
-        
-        if end_tracker == len(dataset):
-            start_tracker = 0
-            end_tracker = batch_size
-            break
-        else:
-            start_tracker+=batch_size
-            
-        if (end_tracker+batch_size) <= len(dataset):
-            end_tracker += batch_size
-        else:
-            end_tracker = len(dataset)
-    
     def save_model(self): 
         """Save model weights to disk (from monodepth2 repo)
         """
@@ -126,6 +107,8 @@ for epoch in range (epochs):
                 to_save['height'] = self.height
                 to_save['width'] = self.width
             torch.save(to_save, save_path)
-
         save_path = os.path.join(save_folder, "{}.pth".format("adam"))
         torch.save(self.optimizer.state_dict(), save_path)
+
+test = Trainer()
+test.train()
