@@ -7,13 +7,19 @@ LAMBDA = 1
 
 
 class SSIM(nn.Module):
+    """
+    Based off SSIM in Monodepth2 repo
+    """
     def __init__(self):
         """
-        Sets up the layers/pooling to run the forward method which actually does the computation
+        Sets up the layers/pooling to run the forward method which actually does the SSIM computation, measuring how
+        "structurally similar" the images are compared to each other.
         """
         super(SSIM, self).__init__()
+        # Pads image with reflection of its pixels
         self.padding_reflect = nn.ReflectionPad2d(1)
 
+        # Goes across the image and averages with a 3x3 kernel
         self.mu_pred = nn.AvgPool2d(3, 1)
         self.mu_targ = nn.AvgPool2d(3, 1)
         self.sigma_pred = nn.AvgPool2d(3, 1)
@@ -54,28 +60,31 @@ def calc_pe(predict, target):
     :return [torch.tensor]: The numerical loss for each pixel in format [batch_size, 1, H, W]
     """
     ssim = SSIM()
-    ssim_val = torch.mean(torch.clamp((1 - ssim(predict, target)) / 2, 0, 1), 1, True)
-    l1 = torch.mean(torch.abs(predict - target), 1, True)
+    ssim_val = torch.mean(torch.clamp((1 - ssim(predict, target)) / 2, 0, 1), dim=1, keepdim=True)
+    l1 = torch.mean(torch.abs(predict - target), dim=1, keepdim=True)
 
     return ALPHA * ssim_val + (1-ALPHA) * l1
 
 
 def calc_smooth_loss(disp, image):
     """
-    Calculates the edge-aware smoothness of the given depth map with relation to the target image. Returns a higher
-    loss if the depth map fluctates a lot in depth where it should be smooth.
+    Calculates the edge-aware smoothness of the given disparity map with relation to the target image. Returns a higher
+    loss if the disparity map fluctates a lot in disparity where it should be smooth.
     :param [torch.tensor] disp: The disparity map, formatted as [batch_size, 1, H, W]
     :param [torch.tensor] image: The target image, formatted as [batch_size, 3, H, W]
     :return [torch.float]: A 0 dimensional tensor containing a numerical loss punishing for a rough depth map
     """
-    d_disp_x = torch.abs(disp[:, :, :, 1:] - disp[:, :, :, :-1])
-    d_disp_y = torch.abs(disp[:, :, 1:, :] - disp[:, :, :-1, :])
+    # Based on Monodepth2 repo
+    # Takes the derivative of the disparity map by subtracting a pixel with the pixel value to the left and above
+    disp_dx = torch.abs(disp[:, :, :, 1:] - disp[:, :, :, :-1])
+    disp_dy = torch.abs(disp[:, :, 1:, :] - disp[:, :, :-1, :])
 
-    d_color_x = torch.mean(torch.abs(image[:, :, :, 1:] - image[:, :, :, :-1]), 1, True)
-    d_color_y = torch.mean(torch.abs(image[:, :, 1:, :] - image[:, :, :-1, :]), 1, True)
+    # Essentially same logic as above, but needs to be averaged because of the 3 separate color channels
+    image_dx = torch.mean(torch.abs(image[:, :, :, 1:] - image[:, :, :, :-1]), 1, True)
+    image_dy = torch.mean(torch.abs(image[:, :, 1:, :] - image[:, :, :-1, :]), 1, True)
 
-    d_disp_x *= torch.exp(-d_color_x)
-    d_disp_y *= torch.exp(-d_color_y)
+    disp_dx *= torch.exp(-image_dx)
+    disp_dy *= torch.exp(-image_dy)
 
     return d_disp_x.mean() + d_disp_x.mean()
 
