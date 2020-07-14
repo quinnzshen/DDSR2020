@@ -68,13 +68,16 @@ def calc_smooth_loss(disp, image):
     :param [torch.tensor] image: The target image, formatted as [batch_size, 3, H, W]
     :return [torch.float]: A 0 dimensional tensor containing a numerical loss punishing for a rough depth map
     """
-    d_disp_x = torch.abs(disp[:, :, :, 1:] - disp[:, :, :, :-1])
-    d_disp_y = torch.abs(disp[:, :, 1:, :] - disp[:, :, :-1, :])
+    # Based on Monodepth2 repo
+    # Takes the derivative of the disparity map by subtracting a pixel with the pixel value to the left and above
+    disp_dx = torch.abs(disp[:, :, :, 1:] - disp[:, :, :, :-1])
+    disp_dy = torch.abs(disp[:, :, 1:, :] - disp[:, :, :-1, :])
 
-    d_color_x = torch.mean(torch.abs(image[:, :, :, 1:] - image[:, :, :, :-1]), 1, True)
-    d_color_y = torch.mean(torch.abs(image[:, :, 1:, :] - image[:, :, :-1, :]), 1, True)
+    # Essentially same logic as above, but needs to be averaged because of the 3 separate color channels
+    image_dx = torch.mean(torch.abs(image[:, :, :, 1:] - image[:, :, :, :-1]), 1, True)
+    image_dy = torch.mean(torch.abs(image[:, :, 1:, :] - image[:, :, :-1, :]), 1, True)
 
-    d_disp_x *= torch.exp(-d_color_x)
-    d_disp_y *= torch.exp(-d_color_y)
+    disp_dx *= torch.exp(-image_dx)
+    disp_dy *= torch.exp(-image_dy)
 
-    return d_disp_x.mean() + d_disp_x.mean()
+    return disp_dx.mean() + disp_dx.mean()
