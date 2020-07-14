@@ -108,7 +108,7 @@ def calc_loss(inputs, outputs, smooth_term=0.001):
     :param [dict] outputs: Contains the keys "reproj" and "depth" which are tensors
     [num_reprojected_imgs, batch_size, 3, H, W] and [batch_size, H, W] respectively
     :param [float] smooth_term: Constant that controls how much the smoothing term is considered in the loss
-    :return [torch.float]: A 0 dimensional tensor representing the loss calculated
+    :return [torch.float]: A float representing the calculated loss
     """
     targets = inputs["targets"]
     sources = inputs["sources"]
