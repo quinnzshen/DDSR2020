@@ -200,10 +200,10 @@ def process_depth(tgt_images, src_images, depths, poses, tgt_intr, src_intr):
             xdiff = (x - x12[0], x12[1] - x)
             ydiff = (y - y12[0], y12[1] - y)
             src_img = src_images[i]["images"][j]
-            # reproj_image[:, src_coords[:, 4].long(), src_coords[:, 3].long()] = src_img[:, y12[0], x12[0]] * xdiff[1] * ydiff[1] + src_img[:, y12[0], x12[1]] * xdiff[0] * ydiff[1] + src_img[:, y12[1], x12[0]] * xdiff[1] * ydiff[0] + src_img[:, y12[1], x12[1]] * xdiff[0] * ydiff[0]
+            reproj_image[:, src_coords[:, 4].long(), src_coords[:, 3].long()] = src_img[:, y12[0], x12[0]] * xdiff[1] * ydiff[1] + src_img[:, y12[0], x12[1]] * xdiff[0] * ydiff[1] + src_img[:, y12[1], x12[0]] * xdiff[1] * ydiff[0] + src_img[:, y12[1], x12[1]] * xdiff[0] * ydiff[0]
 
-            rounded_coords = torch.round(src_coords).long()
-            reproj_image[:, rounded_coords[:, 4], rounded_coords[:, 3]] = src_img[:, rounded_coords[:, 1], rounded_coords[:, 0]].float()
+            # rounded_coords = torch.round(src_coords).long()
+            # reproj_image[:, rounded_coords[:, 4], rounded_coords[:, 3]] = src_img[:, rounded_coords[:, 1], rounded_coords[:, 0]].float()
 
 
             # f_term = torch.empty_like(src_coords[:, :2])
@@ -267,7 +267,8 @@ if __name__ == "__main__":
     # open("data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/image_02/data/0")
 
     from dataloader import KittiDataset
-    from kitti_utils import get_camera_intrinsic_dict
+    from kitti_utils import get_camera_intrinsic_dict, get_relative_rotation_stereo, get_relative_translation_stereo
+    from compute_photometric_error_utils import compute_relative_pose_matrix
 
     calibration_dir = 'data/kitti_example/2011_09_26'
     SCENE_PATH = r"data\kitti_example\2011_09_26\2011_09_26_drive_0048_sync"
@@ -281,14 +282,15 @@ if __name__ == "__main__":
     print(bruh)
     print(bruh.shape)
     # bruhF = F.interpolate(bruh, [375, 1242], mode="bilinear", align_corners=False).reshape(1, 375, 1242)
-    bruh = F.interpolate(bruh, [375, 1242], mode="bilinear", align_corners=False)
+    # bruh = F.interpolate(bruh, [375, 1242], mode="bilinear", align_corners=False)
     # print(bruhF.shape)
 
     # bruh.fill_(1)
     img_shape = bruh.shape[2:]
 
     target = np.copy(d[0]["stereo_left_image"])
-    source = np.copy(d[1]["stereo_left_image"])
+    # source = np.copy(d[1]["stereo_left_image"])
+    source = np.copy(d[0]["stereo_right_image"])
     rel_pose = get_relative_pose(SCENE_PATH, 0, 1)
     # v_forward = rel_pose[0][3]
     # v_leftward = rel_pose[1][3]
@@ -301,7 +303,10 @@ if __name__ == "__main__":
     # print(rot)
 
     # rel_pose = calc_transformation_matrix(rot, tran)
-
+    # stereo pose
+    relative_rotation = get_relative_rotation_stereo(calibration_dir)
+    relative_translation = get_relative_translation_stereo(calibration_dir)
+    rel_pose = compute_relative_pose_matrix(relative_translation, relative_rotation)
 
 
     # min_disp = 1 / 100
@@ -315,6 +320,7 @@ if __name__ == "__main__":
 
 
     tgt_intrinsic = get_camera_intrinsic_dict(calibration_dir).get('stereo_left')
+    src_intrinsic = get_camera_intrinsic_dict(calibration_dir).get('stereo_right')
 
     target = F.interpolate(torch.from_numpy(target).permute(2, 0, 1).reshape(1, 3, 375, 1242).float(), (img_shape[0], img_shape[1]), mode="bilinear", align_corners=False)
     source = F.interpolate(torch.from_numpy(source).permute(2, 0, 1).reshape(1, 3, 375, 1242).float(), (img_shape[0], img_shape[1]), mode="bilinear", align_corners=False)
@@ -325,12 +331,12 @@ if __name__ == "__main__":
     # plt.imshow(target[0].permute(1, 2, 0)/255)
     # plt.show()
 
-    rel_pose = torch.from_numpy(rel_pose).reshape(1, 1, 4, 4)
+    rel_pose = torch.from_numpy(rel_pose).reshape(1, 1, 4, 4).float()
 
-    source_dict = [{"stereo": False, "images": source}]
+    source_dict = [{"stereo": True, "images": source}]
 
 
-    out_img = process_depth(target, source_dict, bruh, rel_pose, tgt_intrinsic, tgt_intrinsic)
+    out_img = process_depth(target, source_dict, bruh, rel_pose, tgt_intrinsic, src_intrinsic)
 
     plt.imshow(out_img[0, 0].permute(1, 2, 0))
     plt.show()
