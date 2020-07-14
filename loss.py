@@ -7,13 +7,19 @@ LAMBDA = 1
 
 
 class SSIM(nn.Module):
+    """
+    Based off SSIM in Monodepth2 repo
+    """
     def __init__(self):
         """
-        Sets up the layers/pooling to run the forward method which actually does the computation
+        Sets up the layers/pooling to run the forward method which actually does the SSIM computation, measuring how
+        "structurally similar" the images are compared to each other.
         """
         super(SSIM, self).__init__()
+        # Pads image with reflection of its pixels
         self.padding_reflect = nn.ReflectionPad2d(1)
 
+        # Goes across the image and averages with a 3x3 kernel
         self.mu_pred = nn.AvgPool2d(3, 1)
         self.mu_targ = nn.AvgPool2d(3, 1)
         self.sigma_pred = nn.AvgPool2d(3, 1)
@@ -54,8 +60,8 @@ def calc_pe(predict, target):
     :return [torch.tensor]: The numerical loss for each pixel in format [batch_size, 1, H, W]
     """
     ssim = SSIM()
-    ssim_val = torch.mean(torch.clamp((1 - ssim(predict, target)) / 2, 0, 1), 1, True)
-    l1 = torch.mean(torch.abs(predict - target), 1, True)
+    ssim_val = torch.mean(torch.clamp((1 - ssim(predict, target)) / 2, 0, 1), dim=1, keepdim=True)
+    l1 = torch.mean(torch.abs(predict - target), dim=1, keepdim=True)
 
     return ALPHA * ssim_val + (1-ALPHA) * l1
 
