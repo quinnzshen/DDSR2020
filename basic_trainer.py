@@ -1,48 +1,84 @@
 from dataloader import KittiDataset
 from loss import calc_loss
-import sys
-sys.path.append('third_party\monodepth2')
-import ResnetEncoder, DepthDecoder, layers
+"""import sys
+sys.path.append('third_party\monodepth2')"""
+#import third_party.monodepth2.ResnetEncoder
+from third_party.monodepth2.ResnetEncoder import ResnetEncoder
+from third_party.monodepth2.DepthDecoder import DepthDecoder
+import third_party.monodepth2.layers
 import torch
 import torch.nn.functional as F
 import torch.optim as optim
 from torchvision import transforms
 import time
-import math
+import os
+
 #Filter out warnings, may delete later
 import warnings
 warnings.filterwarnings("ignore")
 
 
-#GPU/CPU setup,"cuda:0" if torch.cuda.is_available() else
-device = torch.device("cpu")
+class Trainer:
+    
 
-#Set up dataloader
-train_config_path = 'configs/kitti_dataset.yml'
-dataset = KittiDataset.init_from_config(train_config_path)
+    def __init__(self):
+        #GPU/CPU setup
+        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-#Models
-depth_encoder = ResnetEncoder.ResnetEncoder(18, pretrained = False).to(device)
-depth_decoder = DepthDecoder.DepthDecoder(num_ch_enc = depth_encoder.num_ch_enc).to(device)
+        #Set up dataloader for one frame.
+        train_config_path = 'configs/kitti_dataset.yml'
+        self.dataset = KittiDataset.init_from_config(train_config_path)[2]
 
-#Parameters
-parameters_to_train = []
-parameters_to_train += list(depth_encoder.parameters())
-parameters_to_train += list(depth_decoder.parameters())
+        #Models
+        self.models = {}
+        self.models['resnet_encoder'] = ResnetEncoder(18, pretrained = False).to(self.device)
+        self.models['depth_decoder'] = DepthDecoder(num_ch_enc = self.models['resnet_encoder'].num_ch_enc).to(self.device)
+    
 
-#Optimizer
-learning_rate = 0.0001
-optimizer = optim.Adam(parameters_to_train, learning_rate)
+        #Parameters
+        parameters_to_train = []
+        parameters_to_train += list(self.models['resnet_encoder'].parameters())
+        parameters_to_train += list(self.models['depth_decoder'].parameters())
 
-#Scheduler
-scheduler_step_size = 15
-lr_scheduler = optim.lr_scheduler.StepLR(optimizer, scheduler_step_size, learning_rate)
+        #Optimizer
+        learning_rate = 0.0001
+        self.optimizer = optim.Adam(parameters_to_train, learning_rate)
 
-batch_size = 6 #Default is 12
-epochs = 10
+        #Scheduler
+        scheduler_step_size = 15
+        self.lr_scheduler = optim.lr_scheduler.StepLR(self.optimizer, scheduler_step_size, learning_rate)
 
-width = 1024
-height = 320
+    
+        """batch_size = 6 #Default is 12
+        epochs = 10"""
+
+    def train(self):
+        self.width = 640
+        self.height = 192
+        epochs = 10
+        for self.epoch in range (epochs):
+            self.run_epoch()
+        return self.output
+        """self.save_model()
+        print('Model saved.')"""
+        
+    def run_epoch(self):
+        start_time = time.time()
+        print("Starting epoch {}".format(self.epoch), end=", ")
+        self.lr_scheduler.step()
+        self.models['resnet_encoder'].train()
+        self.models['depth_decoder'].train()
+        inputs = torch.cat([F.interpolate((torch.tensor(self.dataset["stereo_left_image"].transpose(2,0,1), device=self.device, dtype=torch.float32).unsqueeze(0)), [self.width, self.height], mode = "bilinear", align_corners = False)])
+        features = self.models['resnet_encoder'](torch.tensor(inputs))
+        self.output = self.models['depth_decoder'](features)
+        self.optimizer.zero_grad()
+
+        end_time = time.time()
+        print("Time spent: {}".format(end_time-start_time))
+
+
+width = 640
+height = 192
 
 start_tracker = 0
 end_tracker = batch_size
@@ -54,17 +90,14 @@ for epoch in range (epochs):
     depth_encoder.train()
     depth_decoder.train()
     
-    num_batches = math.ceil(len(dataset)/batch_size)
-    for batch_idx in range(num_batches):
-        inputs = torch.cat([F.interpolate((torch.as_tensor(dataset[i]["stereo_left_image"].transpose(2,0,1), device=device, dtype=torch.float32).unsqueeze(0)), [width,height], mode = "bilinear", align_corners = False) for i in range(start_tracker, end_tracker)])
-        features = depth_encoder(torch.as_tensor(inputs))
+    for batch_idx in range(start_tracker, end_tracker):
+        inputs = torch.cat([F.interpolate((torch.tensor(dataset[i]["stereo_left_image"].transpose(2,0,1), device=device, dtype=torch.float32).unsqueeze(0)), [width,height], mode = "bilinear", align_corners = False) for i in range(start_tracker, end_tracker)])
+        features = depth_encoder(torch.tensor(inputs))
         outputs = depth_decoder(features)
         disp = outputs[("disp", 0)]
         
-        #generate losses - waiting on Evan's reprojection code
-        
-        optimizer.zero_grad()
-        #backprop
+        print(outputs.keys())
+        #generate losses
         
         if end_tracker == len(dataset):
             start_tracker = 0
@@ -78,6 +111,21 @@ for epoch in range (epochs):
         else:
             end_tracker = len(dataset)
     
+    def save_model(self): 
+        """Save model weights to disk (from monodepth2 repo)
+        """
+        save_folder = os.path.join("models", "weights_{}".format(self.epoch))
+        if not os.path.exists(save_folder):
+            os.makedirs(save_folder)
 
-    end_time = time.time()
-    print("Time spent: {}".format(end_time-start_time))  
+        for model_name, model in self.models.items():
+            save_path = os.path.join(save_folder, "{}.pth".format(model_name))
+            to_save = model.state_dict()
+            if model_name == 'resnet_encoder':
+                # save the sizes - these are needed at prediction time
+                to_save['height'] = self.height
+                to_save['width'] = self.width
+            torch.save(to_save, save_path)
+
+        save_path = os.path.join(save_folder, "{}.pth".format("adam"))
+        torch.save(self.optimizer.state_dict(), save_path)
