@@ -12,7 +12,8 @@ class SSIM(nn.Module):
     """
     def __init__(self):
         """
-        Sets up the layers/pooling to run the forward method which actually does the computation
+        Sets up the layers/pooling to run the forward method which actually does the SSIM computation, measuring how
+        "structurally similar" the images are compared to each other.
         """
         super(SSIM, self).__init__()
         # Pads image with reflection of its pixels
