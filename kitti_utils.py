@@ -6,7 +6,7 @@ from PIL import Image
 import os
 import pandas as pd
 from enum import Enum
-from compute_photometric_error_utils import calc_transformation_matrix
+from compute_photometric_error_utils import calc_transformation_matrix, compute_relative_pose_matrix
 
 
 class KITTICameraNames(str, Enum):
@@ -131,7 +131,7 @@ def get_nearby_frames_data(path_name, idx, previous_frames, next_frames):
             if relative_idx == 0:
                 continue
 
-            nearby_frames[relative_idx] = {'camera_data' : get_camera_data(path_name, idx + relative_idx), 'pose' : get_relative_pose(path_name, 0, idx + relative_idx)}
+            nearby_frames[relative_idx] = {'camera_data' : get_camera_data(path_name, idx + relative_idx), 'pose' : get_pose(path_name, idx + relative_idx)}
         return nearby_frames
 
 
@@ -327,8 +327,21 @@ def get_relative_pose(scene_path, target, source):
 
     # Determines displacement by multiplying velocity by time
     pos = velo * delta_time_nsec / 1E9
-    pose = calc_transformation_matrix(rot, pos) 
     # Convert trnasformation from IMU frame to camera frame.
-    translation_camera_frame = np.array([-1*pose[1][3], -1*pose[2][3], pose[0][3], 1.])
-    pose[:, 3] = translation_camera_frame
-    return pose
+    pos_cam = np.array([-1*pos[1], -1*pos[2], pos[0]])
+    rot_cam = np.array([-1*rot[1], -1*rot[2], rot[0]])
+    rel_pose = calc_transformation_matrix(rot_cam, pos_cam) 
+    return rel_pose
+
+def get_pose(scene_path, frame):
+    """
+    This function gets the pose matrix with respect to the frame at index 0 for a given frame.
+    :param [str] scene_path: Path name to the scene folder
+    :param [int] frame: the index of the frame that pose is being calculated for.
+    :return: numpy.array of shape [4, 4] containing the pose of the image at index frame with respect to the the image at index 0.
+    """
+    rel_rot = get_relative_pose(scene_path, frame, 0)[:3, :3]
+    rel_translation = np.array([0., 0., 0.])
+    for idx in range(0, frame-1):
+        rel_translation += get_relative_pose(scene_path, idx, idx+1)[:3, 3] 
+    return compute_relative_pose_matrix(rel_translation.reshape(3, -1), rel_rot)
