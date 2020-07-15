@@ -7,16 +7,16 @@ import pytest
 from dataloader import KittiDataset
 import kitti_utils as ku
 
-
 EXAMPLE_SCENE_PATH = 'data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/'
 EXAMPLE_CALIBRATION_DIR = 'data/kitti_example/2011_09_26'
+
 
 def test_load_lidar_points():
     SAMPLE_LIDAR_POINTS_PATH = 'data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/velodyne_points/data/0000000010.bin'
     lidar_point_coord_velodyne = ku.load_lidar_points(SAMPLE_LIDAR_POINTS_PATH)
     assert lidar_point_coord_velodyne.shape == (116006, 4)
-    assert math.isclose(lidar_point_coord_velodyne[0][0], 73.89, rel_tol = .00001)
-    assert math.isclose(lidar_point_coord_velodyne[0][1], 7.028, rel_tol = .00001)
+    assert math.isclose(lidar_point_coord_velodyne[0][0], 73.89, rel_tol=.00001)
+    assert math.isclose(lidar_point_coord_velodyne[0][1], 7.028, rel_tol=.00001)
 
 
 def test_read_calibration_file():
@@ -33,10 +33,11 @@ def test_compute_image_from_velodyne_matrices():
     assert len(camera_image_from_velodyne_dict) == 2
     camera_image_from_velodyne = camera_image_from_velodyne_dict.get('stereo_left')
     testarr = np.array([[613.040929, -718.575854, -2.95002805, -124.072003], \
-                        [182.759005,  12.2395125, -718.988552, -101.607812], \
-                        [.999893357,  .00469739411,  .0138291498, -.269119537], \
+                        [182.759005, 12.2395125, -718.988552, -101.607812], \
+                        [.999893357, .00469739411, .0138291498, -.269119537], \
                         [0., 0., 0., 1.]])
     assert np.allclose(camera_image_from_velodyne, testarr)
+
 
 def test_iso_string_to_nanoseconds():
     assert ku.iso_string_to_nanoseconds("2011-09-26 14:14:11.435280384") == 1317046451435280384
@@ -64,7 +65,7 @@ def test_get_lidar_data():
     assert lidar_data["lidar_start_capture_time_nsec"].dtype == np.int64
     assert lidar_data["lidar_end_capture_time_nsec"] == 1317046451573549201
 
-    
+
 def test_get_imu_data():
     imu_data = ku.get_imu_data(EXAMPLE_SCENE_PATH, 0)
     expected_imu_data = {
@@ -108,6 +109,7 @@ def test_get_imu_dataframe():
     imu_df = ku.get_imu_dataframe(EXAMPLE_SCENE_PATH)
     assert imu_df.shape == (22, 30)
 
+
 @pytest.fixture
 def kitti_root_directory():
     return 'data/kitti_example'
@@ -131,7 +133,8 @@ def test_get_nearby_frames(kitti_root_directory, kitti_dataset_index):
                            next_frames=2)
 
     # On index 0, we expect there to be data for the relative index +1 and an empty dictionary for the relative index -1
-    expected_fields = ['stereo_left_image', 
+    expected_fields = ['camera_data', 'pose']
+    expected_camera_data_fields = ['stereo_left_image', 
                        'stereo_left_shape', 
                        'stereo_left_capture_time_nsec', 
                        'stereo_right_image', 'stereo_right_shape', 
@@ -139,37 +142,55 @@ def test_get_nearby_frames(kitti_root_directory, kitti_dataset_index):
 
     data = dataset[0]
     # When idx = 0, [nearby_frames] keys: -1 and -2 should return empty dictionaries
-    assert data['nearby_frames'][-1] == {}
-    assert data['nearby_frames'][-2] == {}
+    assert data['nearby_frames'][-1]['camera_data'] == {}
+    assert data['nearby_frames'][-1]['pose'] == {}
+    assert data['nearby_frames'][-2]['camera_data'] == {}
+    assert data['nearby_frames'][-2]['pose']  == {}
     # Keys for [nearby_frames] should be int values within range(-previous_frames, next_frames + 1) with exception of 0
     assert list(data['nearby_frames'].keys()) == [-2, -1, 1, 2]
     # Values of valid [nearby_frames] keys should be elements of [expected_fields]
     assert list(data['nearby_frames'][1].keys()) == expected_fields
+    assert list(data['nearby_frames'][1]['camera_data'].keys()) == expected_camera_data_fields
     # Values of invalid [nearby_frames] keys should be empty dictionaries
-    assert list(data['nearby_frames'][-1].keys()) == []
+    assert list(data['nearby_frames'][-1]['camera_data'].keys()) == []
     
     data = dataset[1]
     # When idx = 0, [nearby_frames] keys: -1 should return camera data, while -2 should return an empty dictionary
-    assert data['nearby_frames'][-1] != {}
-    assert data['nearby_frames'][-2] == {}
+    assert data['nearby_frames'][-1]['camera_data'] != {}
+    assert data['nearby_frames'][-2]['camera_data']  == {}
     # Keys for [nearby_frames] should be int values within range(-previous_frames, next_frames + 1) with exception of 0
     assert list(data['nearby_frames'].keys()) == [-2, -1, 1, 2]
     # Values of valid [nearby_frames] keys should be elements of [expected_fields]
     assert list(data['nearby_frames'][-1].keys()) == expected_fields
-    
+    assert list(data['nearby_frames'][1]['camera_data'].keys()) == expected_camera_data_fields
+
 def test_get_camera_intrinsic_dict():
     sample_cam_intrinsic_dict = ku.get_camera_intrinsic_dict(EXAMPLE_CALIBRATION_DIR)
     assert len(sample_cam_intrinsic_dict) == 2
     test_arr = np.array([[959.791, 0., 696.0217], [0., 956.9251, 224.1806], [0., 0., 1.]])
     assert np.allclose(test_arr, sample_cam_intrinsic_dict.get('stereo_left'))
 
+
 def test_get_relative_rotation_stereo():
     rel_rotation_sample = ku.get_relative_rotation_stereo(EXAMPLE_CALIBRATION_DIR)
-    test_arr = np.array([[.9995572, -.02222673, .01978616], [.02225614, .99975152, -.00126738], [-.01975307, .00170718, .99980338]])
+    test_arr = np.array(
+        [[.9995572, -.02222673, .01978616], [.02225614, .99975152, -.00126738], [-.01975307, .00170718, .99980338]])
     assert np.allclose(test_arr, rel_rotation_sample)
+
 
 def test_get_relative_translation_stereo():
     rel_translation_sample = ku.get_relative_translation_stereo(EXAMPLE_CALIBRATION_DIR)
     test_arr = np.array([[-0.53267121], [0.00526146], [-0.00782809]])
     assert np.allclose(test_arr, rel_translation_sample)
 
+
+def test_get_relative_pose():
+    pose1 = ku.get_relative_pose(EXAMPLE_SCENE_PATH, 0, 0)
+    np.testing.assert_allclose(pose1, np.eye(4))
+    pose2 = ku.get_relative_pose(EXAMPLE_SCENE_PATH, 3, 4)
+    np.testing.assert_allclose(pose2, np.array([
+        [0.999993, -0.002484, 0.002805, 0.004526],
+        [0.002504, 0.999971, -0.007216, -0.003038],
+        [-0.002787, 0.007216, 0.99997, -0.82535],
+        [0., 0., 0., 1.]
+    ], dtype=np.float32), rtol=1e-4)
