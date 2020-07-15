@@ -289,8 +289,8 @@ if __name__ == "__main__":
     img_shape = bruh.shape[2:]
 
     target = np.copy(d[0]["stereo_left_image"])
-    # source = np.copy(d[1]["stereo_left_image"])
-    source = np.copy(d[0]["stereo_right_image"])
+    source = np.copy(d[1]["stereo_left_image"])
+    # source = np.copy(d[0]["stereo_right_image"])
     rel_pose = get_relative_pose(SCENE_PATH, 0, 1)
     # v_forward = rel_pose[0][3]
     # v_leftward = rel_pose[1][3]
@@ -306,18 +306,18 @@ if __name__ == "__main__":
     # stereo pose
     relative_rotation = get_relative_rotation_stereo(calibration_dir)
     relative_translation = get_relative_translation_stereo(calibration_dir)
-    rel_pose = compute_relative_pose_matrix(relative_translation, relative_rotation)
+    # rel_pose = compute_relative_pose_matrix(relative_translation, relative_rotation)
 
 
     # min_disp = 1 / 100
     # max_disp = 1 / 0.1
+    # bruh = 1 / (max_disp * bruh + min_disp)
+    # bruh = bruh * 5.4
     # bruh = 1 / (min_disp + (max_disp - min_disp) * bruh)
 
-    bruh = 54 * 721 / (1242 * bruh)
-
+    # bruh = 54 * 721 / (1242 * bruh)
 
     # bruh = 5.4 / bruh
-
 
     tgt_intrinsic = get_camera_intrinsic_dict(calibration_dir).get('stereo_left')
     src_intrinsic = get_camera_intrinsic_dict(calibration_dir).get('stereo_right')
@@ -325,7 +325,7 @@ if __name__ == "__main__":
     target = F.interpolate(torch.from_numpy(target).permute(2, 0, 1).reshape(1, 3, 375, 1242).float(), (img_shape[0], img_shape[1]), mode="bilinear", align_corners=False)
     source = F.interpolate(torch.from_numpy(source).permute(2, 0, 1).reshape(1, 3, 375, 1242).float(), (img_shape[0], img_shape[1]), mode="bilinear", align_corners=False)
 
-    plt.imshow(bruh[0, 0], vmax=80)
+    plt.imshow(bruh[0, 0])
     plt.show()
 
     # plt.imshow(target[0].permute(1, 2, 0)/255)
@@ -333,7 +333,7 @@ if __name__ == "__main__":
 
     rel_pose = torch.from_numpy(rel_pose).reshape(1, 1, 4, 4).float()
 
-    source_dict = [{"stereo": True, "images": source}]
+    source_dict = [{"stereo": False, "images": source}]
 
 
     out_img = process_depth(target, source_dict, bruh, rel_pose, tgt_intrinsic, src_intrinsic)
