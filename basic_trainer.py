@@ -22,11 +22,12 @@ class Trainer:
         #Set up dataloader for one frame.
         train_config_path = 'configs/oneframe_overfit.yml'
         self.dataset = KittiDataset.init_from_config(train_config_path)
-
+        
         #Models
         self.models = {}
         self.models['resnet_encoder'] = ResnetEncoder(18, pretrained = False).to(self.device)
-        self.models['depth_decoder'] = DepthDecoder(num_ch_enc = self.models['resnet_encoder'].num_ch_enc).to(self.device)
+        self.scales = range(1)
+        self.models['depth_decoder'] = DepthDecoder(num_ch_enc = self.models['resnet_encoder'].num_ch_enc, scales=self.scales).to(self.device)
     
 
         #Parameters
@@ -72,7 +73,7 @@ class Trainer:
             self.disp = self.outputs[("disp", 0)]
             
             #Generate Losses - Waiting on Evan's reprojection code
-            
+            self.generate_images_pred(inputs, self.outputs)
             self.optimizer.zero_grad()
 
             #Back Propogate - TBD
@@ -109,6 +110,25 @@ class Trainer:
             torch.save(to_save, save_path)
         save_path = os.path.join(save_folder, "{}.pth".format("adam"))
         torch.save(self.optimizer.state_dict(), save_path)
+    
+    def generate_images_pred(self, inputs, outputs):
+        for scale in self.scales:
+            disp = outputs[("disp"), scale]
+            disp = F.interpolate(disp, [self.height, self.width], mode = "bilinear", align_corners = False)
+            self.min_depth = 0.1
+            self.max_depth = 100
+            _ , depth = disp_to_depth(disp, self.min_depth, self.max_depth)
+            
+def disp_to_depth(disp, min_depth, max_depth):
+    """Convert network's sigmoid output into depth prediction
+    The formula for this conversion is given in the 'additional considerations'
+    section of the paper.
+    """
+    min_disp = 1 / max_depth
+    max_disp = 1 / min_depth
+    scaled_disp = min_disp + (max_disp - min_disp) * disp
+    depth = 1 / scaled_disp
+    return scaled_disp, depth            
 
 test = Trainer()
 test.train()
