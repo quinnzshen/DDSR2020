@@ -170,9 +170,6 @@ def process_depth(tgt_images, src_images, depths, poses, tgt_intr, src_intr):
             # dddd
             world_coords[:, :3] = img_indices @ tgt_intr_inv_torch_T * depths[j, 0].view(-1, 1)
 
-            t_transform_n(torch.t(world_coords), depths[j, 0].view(-1))
-
-
             src_coords = torch.empty(img_indices.shape[0], 5)
             src_coords[:, 3:] = img_indices[:, :2]
             # t_transform_n(torch.t(world_coords @ torch.t(poses[i, j])), depths[j, 0].view(-1))
@@ -282,7 +279,7 @@ if __name__ == "__main__":
     print(bruh)
     print(bruh.shape)
     # bruhF = F.interpolate(bruh, [375, 1242], mode="bilinear", align_corners=False).reshape(1, 375, 1242)
-    # bruh = F.interpolate(bruh, [375, 1242], mode="bilinear", align_corners=False)
+    bruh = F.interpolate(bruh, [375, 1242], mode="bilinear", align_corners=False)
     # print(bruhF.shape)
 
     # bruh.fill_(1)
@@ -317,13 +314,16 @@ if __name__ == "__main__":
 
     # bruh = 54 * 721 / (1242 * bruh)
 
-    bruh = 31.257*bruh
+    bruh = 31.257 / bruh
 
 
     # bruh = 5.4 / bruh
 
     tgt_intrinsic = get_camera_intrinsic_dict(calibration_dir).get('stereo_left')
     src_intrinsic = get_camera_intrinsic_dict(calibration_dir).get('stereo_right')
+
+    tgt_intrinsic[0] = tgt_intrinsic[0] * (img_shape[1] / 1242)
+    tgt_intrinsic[1] = tgt_intrinsic[1] * (img_shape[0] / 375)
 
     target = F.interpolate(torch.from_numpy(target).permute(2, 0, 1).reshape(1, 3, 375, 1242).float(), (img_shape[0], img_shape[1]), mode="bilinear", align_corners=False)
     source = F.interpolate(torch.from_numpy(source).permute(2, 0, 1).reshape(1, 3, 375, 1242).float(), (img_shape[0], img_shape[1]), mode="bilinear", align_corners=False)
