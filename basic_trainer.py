@@ -10,6 +10,7 @@ from torchvision import transforms
 import time
 import math
 import os
+from compute_photometric_error_utils import compute_relative_pose_matrix, reproject_source_to_target
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -28,7 +29,6 @@ class Trainer:
         self.models['resnet_encoder'] = ResnetEncoder(18, pretrained = False).to(self.device)
         self.scales = range(1)
         self.models['depth_decoder'] = DepthDecoder(num_ch_enc = self.models['resnet_encoder'].num_ch_enc, scales=self.scales).to(self.device)
-    
 
         #Parameters
         parameters_to_train = []
@@ -67,7 +67,12 @@ class Trainer:
         
         #Iterate through batches
         for batch_idx in range(num_batches):
+            
             inputs = torch.cat([F.interpolate((torch.tensor(self.dataset[i]["stereo_left_image"].transpose(2,0,1), device=self.device, dtype=torch.float32).unsqueeze(0)), [self.width, self.height], mode = "bilinear", align_corners = False) for i in range(start_tracker, end_tracker)])
+            inputs_stereo = torch.cat([F.interpolate((torch.tensor(self.dataset[i]["stereo_right_image"].transpose(2,0,1), device=self.device, dtype=torch.float32).unsqueeze(0)), [self.width, self.height], mode = "bilinear", align_corners = False) for i in range(start_tracker, end_tracker)])
+            inputs_temporal_forward = torch.cat([F.interpolate((torch.tensor(self.dataset[i]["nearby_frames"][1]["stereo_left_image"].transpose(2,0,1), device=self.device, dtype=torch.float32).unsqueeze(0)), [self.width, self.height], mode = "bilinear", align_corners = False) for i in range(start_tracker, end_tracker)])
+            inputs_temporal_backward = torch.cat([F.interpolate((torch.tensor(self.dataset[i]["nearby_frames"][-1]["stereo_left_image"].transpose(2,0,1), device=self.device, dtype=torch.float32).unsqueeze(0)), [self.width, self.height], mode = "bilinear", align_corners = False) for i in range(start_tracker, end_tracker)])
+            
             features = self.models['resnet_encoder'](torch.tensor(inputs))
             self.outputs = self.models['depth_decoder'](features)
             self.disp = self.outputs[("disp", 0)]
@@ -99,7 +104,6 @@ class Trainer:
         save_folder = os.path.join("models", "weights_{}".format(self.epoch))
         if not os.path.exists(save_folder):
             os.makedirs(save_folder)
-
         for model_name, model in self.models.items():
             save_path = os.path.join(save_folder, "{}.pth".format(model_name))
             to_save = model.state_dict()
@@ -117,7 +121,8 @@ class Trainer:
             disp = F.interpolate(disp, [self.height, self.width], mode = "bilinear", align_corners = False)
             self.min_depth = 0.1
             self.max_depth = 100
-            _ , depth = disp_to_depth(disp, self.min_depth, self.max_depth)
+            _ , depths = disp_to_depth(disp, self.min_depth, self.max_depth)
+            outputs[("depth", 0, scale)] = depths
             
 def disp_to_depth(disp, min_depth, max_depth):
     """Convert network's sigmoid output into depth prediction
