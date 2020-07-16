@@ -2,7 +2,7 @@ import torch
 import numpy as np
 import pytest
 
-from loss import SSIM, calc_pe, calc_smooth_loss, get_mask, calc_loss
+from loss import SSIM, calc_pe, calc_smooth_loss, get_mask, calc_loss, process_depth
 
 
 def test_SSIM():
@@ -94,3 +94,69 @@ def test_calc_loss():
     }
 
     torch.testing.assert_allclose(calc_loss(input2, output2, 0.001), torch.tensor(7.7431))
+
+
+def test_process_depth():
+    src_img1 = torch.ones(1, 3, 2, 3)
+    src_img1[0, :, 0, 0] = 5
+
+    source_imgs1 = [
+        {
+            "stereo": False,
+            "images": src_img1
+        },
+        {
+            "stereo": True,
+            "images": src_img1
+        }
+    ]
+    depths1 = torch.ones(1, 1, 2, 3)
+    poses1 = torch.eye(4).repeat(2, 1, 1, 1)
+    tgt_intr = np.eye(3)
+    src_intr = np.zeros((3, 3))
+
+    ans1 = process_depth(source_imgs1, depths1, poses1, tgt_intr, src_intr)
+    torch.testing.assert_allclose(ans1[0], src_img1)
+    torch.testing.assert_allclose(ans1[1], torch.from_numpy(np.full((1, 3, 2, 3), np.nan, dtype=np.float32)))
+
+    source_imgs2 = [{
+        "stereo": False,
+        "images": torch.arange(120, dtype=torch.float).reshape(2, 3, 4, 5)
+    }]
+
+    depths2 = torch.arange(40).reshape(2, 1, 4, 5)
+    poses2 = torch.eye(4).repeat(1, 2, 1, 1)
+    poses2[0, :, 0, 1] = 0.4
+    poses2[0, 0, 1, 3] = 5
+    ans2 = process_depth(source_imgs2, depths2, poses2, tgt_intr, src_intr)
+    exp_ans2 = torch.tensor([[[[[np.nan, np.nan, 12.0000, 13.0000, 9.0000],
+                                [10.0000, 10.5667, 10.9714, 11.5250, np.nan],
+                                [13.3000, 14.0727, 14.8833, 15.7231, np.nan],
+                                [np.nan, np.nan, np.nan, np.nan, np.nan]],
+
+                               [[np.nan, np.nan, 32.0000, 33.0000, 29.0000],
+                               [30.0000, 30.5667, 30.9714, 31.5250, np.nan],
+                               [33.3000, 34.0727, 34.8833, 35.7231, np.nan],
+                               [np.nan, np.nan, np.nan, np.nan, np.nan]],
+
+                               [[np.nan, np.nan, 52.0000, 53.0000, 49.0000],
+                               [50.0000, 50.5667, 50.9714, 51.5250, np.nan],
+                               [53.3000, 54.0727, 54.8833, 55.7231, np.nan],
+                               [np.nan, np.nan, np.nan, np.nan, np.nan]]],
+
+                              [[[60.0000, 61.0000, 62.0000, 63.0000, 64.0000],
+                               [65.0000, 66.0000, 67.0000, 68.0000, np.nan],
+                               [71.0000, 72.0000, 73.0000, 74.0000, np.nan],
+                               [76.0000, 77.0000, 78.0000, np.nan, np.nan]],
+
+                              [[80.0000, 81.0000, 82.0000, 83.0000, 84.0000],
+                               [85.0000, 86.0000, 87.0000, 88.0000, np.nan],
+                               [91.0000, 92.0000, 93.0000, 94.0000, np.nan],
+                               [96.0000, 97.0000, 98.0000, np.nan, np.nan]],
+
+                              [[100.0000, 101.0000, 102.0000, 103.0000, 104.0000],
+                               [105.0000, 106.0000, 107.0000, 108.0000, np.nan],
+                               [111.0000, 112.0000, 113.0000, 114.0000, np.nan],
+                               [116.0000, 117.0000, 118.0000, np.nan, np.nan]]]]], dtype=torch.float)
+
+    torch.testing.assert_allclose(ans2, exp_ans2)

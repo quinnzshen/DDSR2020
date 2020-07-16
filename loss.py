@@ -151,7 +151,7 @@ def process_depth(src_images, depths, poses, tgt_intr, src_intr):
     :param [torch.tensor] depths: Tensor containing the depth maps as determined from the target images, in the format
     [batch_size, 1, H, W]
     :param [torch.tensor] poses: Tensor containing the relative poses for each given source image to the target frame,
-    in format [num_source_imgs, batch_size, 1, 4, 4]
+    in format [num_source_imgs, batch_size, 4, 4]
     :param [np.ndarray] tgt_intr: The intrinsic matrix for the target camera, as a 3x3 NumPy array
     :param [np.ndarray] src_intr: The intrinsic matrix for the source (stereo) camera, as a 3x3 NumPy array
     :return [torch.tensor]: Returns a tensor containing the reprojected images, in format [num_source_imgs, batch_size,
@@ -159,7 +159,7 @@ def process_depth(src_images, depths, poses, tgt_intr, src_intr):
     """
     img_shape = src_images[0]["images"][0, 0].shape
 
-    reprojected = torch.zeros((len(src_images), len(depths), 3, img_shape[0], img_shape[1]), dtype=torch.uint8)
+    reprojected = torch.zeros((len(src_images), len(depths), 3, img_shape[0], img_shape[1]), dtype=torch.float)
 
     # Creates an array of all image coordinates: [0, 0], [1, 0], [2, 0], etc.
     img_indices = torch.ones((img_shape[0] * img_shape[1], 3))
@@ -213,6 +213,11 @@ def process_depth(src_images, depths, poses, tgt_intr, src_intr):
                 src_img[:, y12[0], x12[1]] * xdiff[0] * ydiff[1] + \
                 src_img[:, y12[1], x12[0]] * xdiff[1] * ydiff[0] + \
                 src_img[:, y12[1], x12[1]] * xdiff[0] * ydiff[0]
+
+            int_coords = (x12[0] == x12[1]) | (y12[0] == y12[1])
+            if int_coords.any():
+                rounded_coords = src_coords[int_coords].round().long()
+                reproj_image[:, rounded_coords[:, 4], rounded_coords[:, 3]] = src_img[:, rounded_coords[:, 1], rounded_coords[:, 0]].float()
 
             reprojected[i, j] = reproj_image
 
@@ -329,7 +334,7 @@ if __name__ == "__main__":
 
     out_img = process_depth(source_dict, bruh, rel_pose, tgt_intrinsic, src_intrinsic)
 
-    plt.imshow(out_img[0, 0].permute(1, 2, 0))
+    plt.imshow(out_img[0, 0].permute(1, 2, 0) / 255)
     plt.show()
 
     out_img = np.array(out_img[0, 0].permute(1, 2, 0))
