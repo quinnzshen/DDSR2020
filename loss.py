@@ -1,15 +1,21 @@
 import torch
 import torch.nn as nn
-
+import numpy as np
 
 class SSIM(nn.Module):
+    """
+    Based off SSIM in Monodepth2 repo
+    """
     def __init__(self):
         """
-        Sets up the layers/pooling to run the forward method which actually does the computation
+        Sets up the layers/pooling to run the forward method which actually does the SSIM computation, measuring how
+        "structurally similar" the images are compared to each other.
         """
         super(SSIM, self).__init__()
+        # Pads image with reflection of its pixels
         self.padding_reflect = nn.ReflectionPad2d(1)
 
+        # Goes across the image and averages with a 3x3 kernel
         self.mu_pred = nn.AvgPool2d(3, 1)
         self.mu_targ = nn.AvgPool2d(3, 1)
         self.sigma_pred = nn.AvgPool2d(3, 1)
@@ -51,28 +57,31 @@ def calc_pe(predict, target, alpha=0.85):
     :return [torch.tensor]: The numerical loss for each pixel in format [batch_size, 1, H, W]
     """
     ssim = SSIM()
-    ssim_val = torch.mean(torch.clamp((1 - ssim(predict, target)) / 2, 0, 1), 1, True)
-    l1 = torch.mean(torch.abs(predict - target), 1, True)
+    ssim_val = torch.mean(torch.clamp((1 - ssim(predict, target)) / 2, 0, 1), dim=1, keepdim=True)
+    l1 = torch.mean(torch.abs(predict - target), dim=1, keepdim=True)
 
     return alpha * ssim_val + (1-alpha) * l1
 
 
 def calc_smooth_loss(disp, image):
     """
-    Calculates the edge-aware smoothness of the given depth map with relation to the target image. Returns a higher
-    loss if the depth map fluctates a lot in depth where it should be smooth.
+    Calculates the edge-aware smoothness of the given disparity map with relation to the target image. Returns a higher
+    loss if the disparity map fluctates a lot in disparity where it should be smooth.
     :param [torch.tensor] disp: The disparity map, formatted as [batch_size, 1, H, W]
     :param [torch.tensor] image: The target image, formatted as [batch_size, 3, H, W]
     :return [torch.float]: A 0 dimensional tensor containing a numerical loss punishing for a rough depth map
     """
-    d_disp_x = torch.abs(disp[:, :, :, 1:] - disp[:, :, :, :-1])
-    d_disp_y = torch.abs(disp[:, :, 1:, :] - disp[:, :, :-1, :])
+    # Based on Monodepth2 repo
+    # Takes the derivative of the disparity map by subtracting a pixel with the pixel value to the left and above
+    disp_dx = torch.abs(disp[:, :, :, 1:] - disp[:, :, :, :-1])
+    disp_dy = torch.abs(disp[:, :, 1:, :] - disp[:, :, :-1, :])
 
-    d_color_x = torch.mean(torch.abs(image[:, :, :, 1:] - image[:, :, :, :-1]), 1, True)
-    d_color_y = torch.mean(torch.abs(image[:, :, 1:, :] - image[:, :, :-1, :]), 1, True)
+    # Essentially same logic as above, but needs to be averaged because of the 3 separate color channels
+    image_dx = torch.mean(torch.abs(image[:, :, :, 1:] - image[:, :, :, :-1]), 1, True)
+    image_dy = torch.mean(torch.abs(image[:, :, 1:, :] - image[:, :, :-1, :]), 1, True)
 
-    d_disp_x *= torch.exp(-d_color_x)
-    d_disp_y *= torch.exp(-d_color_y)
+    disp_dx *= torch.exp(-image_dx)
+    disp_dy *= torch.exp(-image_dy)
 
     return d_disp_x.mean() + d_disp_x.mean()
 
@@ -108,11 +117,12 @@ def calc_loss(inputs, outputs, smooth_term=0.001):
     :param [dict] outputs: Contains the keys "reproj" and "depth" which are tensors
     [num_reprojected_imgs, batch_size, 3, H, W] and [batch_size, H, W] respectively
     :param [float] smooth_term: Constant that controls how much the smoothing term is considered in the loss
-    :return [torch.float]: A 0 dimensional tensor representing the loss calculated
+    :return [torch.float]: A float representing the calculated loss
     """
     targets = inputs["targets"]
     sources = inputs["sources"]
     reprojections = outputs["reproj"]
+
     loss = 0
 
     shape = list(targets.shape)
@@ -131,3 +141,87 @@ def calc_loss(inputs, outputs, smooth_term=0.001):
     loss += min_errors.mean() + smooth_term * calc_smooth_loss(normalized_depth, targets)
 
     return loss
+
+def process_depth(src_images, depths, poses, tgt_intr, src_intr):
+    """
+    Reprojects a batch of source images into the target frame, using the target depth map, relative pose between the
+    two frames, and the target and source intrinsic matrices.
+    :param [list] src_images: List of dictionaries, with each dictionary representing one source frame (like t-1, t+1,
+    stereo), and keys "stereo" which indicates whether it is a stereo or temporal source image and "images" which is a
+    tensor containing the actual image data, in format [batch_size, 3, H, W]
+    :param [torch.tensor] depths: Tensor containing the depth maps as determined from the target images, in the format
+    [batch_size, 1, H, W]
+    :param [torch.tensor] poses: Tensor containing the relative poses for each given source image to the target frame,
+    in format [num_source_imgs, batch_size, 4, 4]
+    :param [np.ndarray] tgt_intr: The intrinsic matrix for the target camera, as a 3x3 NumPy array
+    :param [np.ndarray] src_intr: The intrinsic matrix for the source (stereo) camera, as a 3x3 NumPy array
+    :return [torch.tensor]: Returns a tensor containing the reprojected images, in format [num_source_imgs, batch_size,
+    3, H, W]
+    """
+    img_shape = src_images[0]["images"][0, 0].shape
+
+    reprojected = torch.zeros((len(src_images), len(depths), 3, img_shape[0], img_shape[1]), dtype=torch.float)
+
+    # Creates an array of all image coordinates: [0, 0], [1, 0], [2, 0], etc.
+    img_indices = torch.ones((img_shape[0] * img_shape[1], 3))
+    img_coords = torch.from_numpy(np.indices(img_shape).ravel().reshape(-1, 2, order="F"))
+    img_indices[:, 1] = img_coords[:, 0]
+    img_indices[:, 0] = img_coords[:, 1]
+
+    # Converts intrinsic matrices into torch tensors, also inverting those that need to be inverted
+    tgt_intr_torch_T = torch.from_numpy(tgt_intr.T).float()
+    src_intr_torch_T = torch.from_numpy(src_intr.T).float()
+    tgt_intr_inv_torch_T = torch.inverse(tgt_intr_torch_T)
+
+    t_poses = poses.transpose(2, 3)
+
+    # Iterates through all source image types (t+1, t-1, etc.)
+    for i in range(len(src_images)):
+        if src_images[i]["stereo"]:
+            src_intr_T = src_intr_torch_T
+        else:
+            src_intr_T = tgt_intr_torch_T
+
+        # Iterates through all images in batch
+        for j in range(len(depths)):
+            world_coords = torch.ones(img_indices.shape[0], 4)
+
+            world_coords[:, :3] = img_indices @ tgt_intr_inv_torch_T * depths[j, 0].view(-1, 1)
+
+            src_coords = torch.empty(img_indices.shape[0], 5)
+            src_coords[:, 3:] = img_indices[:, :2]
+
+            src_coords[:, :3] = (world_coords @ t_poses[i, j])[:, :3] @ src_intr_T
+
+            src_coords = src_coords[src_coords[:, 2] > 0]
+            src_coords[:, :2] = src_coords[:, :2] / src_coords[:, 2].reshape(-1, 1)
+
+            src_coords = src_coords[
+                (src_coords[:, 1] >= 0) & (src_coords[:, 1] <= img_shape[0] - 1) & (src_coords[:, 0] >= 0) & (
+                            src_coords[:, 0] <= img_shape[1] - 1)]
+
+            # Put nan here in case a pixel isn't filled
+            reproj_image = torch.from_numpy(np.full((3, img_shape[0], img_shape[1]), np.nan, dtype=np.float32))
+
+            # Bilinear sampling
+            x = src_coords[:, 0]
+            y = src_coords[:, 1]
+            x12 = (torch.floor(x).long(), torch.ceil(x).long())
+            y12 = (torch.floor(y).long(), torch.ceil(y).long())
+            xdiff = (x - x12[0], x12[1] - x)
+            ydiff = (y - y12[0], y12[1] - y)
+            src_img = src_images[i]["images"][j]
+            reproj_image[:, src_coords[:, 4].long(), src_coords[:, 3].long()] = \
+                src_img[:, y12[0], x12[0]] * xdiff[1] * ydiff[1] + \
+                src_img[:, y12[0], x12[1]] * xdiff[0] * ydiff[1] + \
+                src_img[:, y12[1], x12[0]] * xdiff[1] * ydiff[0] + \
+                src_img[:, y12[1], x12[1]] * xdiff[0] * ydiff[0]
+
+            int_coords = (x12[0] == x12[1]) | (y12[0] == y12[1])
+            if int_coords.any():
+                rounded_coords = src_coords[int_coords].round().long()
+                reproj_image[:, rounded_coords[:, 4], rounded_coords[:, 3]] = src_img[:, rounded_coords[:, 1], rounded_coords[:, 0]].float()
+
+            reprojected[i, j] = reproj_image
+
+    return reprojected
