@@ -174,12 +174,14 @@ def process_depth(src_images, depths, poses, tgt_intr, src_intr):
 
     t_poses = poses.transpose(2, 3)
 
+    # Iterates through all source image types (t+1, t-1, etc.)
     for i in range(len(src_images)):
         if src_images[i]["stereo"]:
             src_intr_T = src_intr_torch_T
         else:
             src_intr_T = tgt_intr_torch_T
 
+        # Iterates through all images in batch
         for j in range(len(depths)):
             world_coords = torch.ones(img_indices.shape[0], 4)
 
