@@ -2,10 +2,6 @@ import torch
 import torch.nn as nn
 
 
-ALPHA = 0.85
-LAMBDA = 1
-
-
 class SSIM(nn.Module):
     """
     Based off SSIM in Monodepth2 repo
@@ -52,15 +48,95 @@ class SSIM(nn.Module):
         return SSIM_n / SSIM_d
 
 
-def calc_pe(predict, target):
+def calc_pe(predict, target, alpha=0.85):
     """
     Calculates the photometric error between two images using SSIM and L1Loss
     :param [torch.tensor] predict: The predicted images in format [batch_size, 3, H, W]
     :param [torch.tensor] target: The target images in format [batch_size, 3, H, W]
+    :param [float] alpha: Constant that determines how much the SSIM value and L1loss are weighted in the error
     :return [torch.tensor]: The numerical loss for each pixel in format [batch_size, 1, H, W]
     """
     ssim = SSIM()
     ssim_val = torch.mean(torch.clamp((1 - ssim(predict, target)) / 2, 0, 1), dim=1, keepdim=True)
     l1 = torch.mean(torch.abs(predict - target), dim=1, keepdim=True)
 
-    return ALPHA * ssim_val + (1-ALPHA) * l1
+    return alpha * ssim_val + (1-alpha) * l1
+
+
+def calc_smooth_loss(disp, image):
+    """
+    Calculates the edge-aware smoothness of the given disparity map with relation to the target image. Returns a higher
+    loss if the disparity map fluctates a lot in disparity where it should be smooth.
+    :param [torch.tensor] disp: The disparity map, formatted as [batch_size, 1, H, W]
+    :param [torch.tensor] image: The target image, formatted as [batch_size, 3, H, W]
+    :return [torch.float]: A 0 dimensional tensor containing a numerical loss punishing for a rough depth map
+    """
+    # Based on Monodepth2 repo
+    # Takes the derivative of the disparity map by subtracting a pixel with the pixel value to the left and above
+    disp_dx = torch.abs(disp[:, :, :, 1:] - disp[:, :, :, :-1])
+    disp_dy = torch.abs(disp[:, :, 1:, :] - disp[:, :, :-1, :])
+
+    # Essentially same logic as above, but needs to be averaged because of the 3 separate color channels
+    image_dx = torch.mean(torch.abs(image[:, :, :, 1:] - image[:, :, :, :-1]), 1, True)
+    image_dy = torch.mean(torch.abs(image[:, :, 1:, :] - image[:, :, :-1, :]), 1, True)
+
+    disp_dx *= torch.exp(-image_dx)
+    disp_dy *= torch.exp(-image_dy)
+
+    return d_disp_x.mean() + d_disp_x.mean()
+
+
+def get_mask(targets, sources, min_reproject_errors):
+    """
+    Calculates the auto-masking for each pixel in the images. If a given pixel's photometric error between the source
+    images and the target image is less than the photometric error between the reprojected images and the target image,
+    then the auto-masking feature will be 0 for that point, eliminating its contribution to the loss.
+    :param [torch.tensor] targets: The target images, in format [batch_size, 3, H, W]
+    :param [torch.tensor] sources: The source images, in format [num_source_imgs, batch_size, 3, H, W]
+    :param [torch.tensor] min_reproject_errors: The calculated photometric errors between the reprojected images and
+    the target image, formatted as [batch_size, 1, H, W]
+    :return [torch.tensor]: A binary mask containing either True or False which allows a given pixel to be represented
+    or to be ignored, respectively. Formatted as [batch_size, 1, H, W]
+    """
+    source_error = []
+    for source in sources:
+        source_error.append(calc_pe(source, targets))
+
+    source_error = torch.cat(source_error, dim=1)
+    min_source_errors, _ = torch.min(source_error, dim=1)
+
+    return min_reproject_errors < min_source_errors
+
+
+def calc_loss(inputs, outputs, smooth_term=0.001):
+    """
+    Takes in the inputs and outputs from the neural network to calulate a numeric loss value based on the Monodepth2
+    paper.
+    :param [dict] inputs: Contains the keys "targets" and "sources" which are tensors [batch_size, 3, H, W] and
+    [num_src_imgs, batch_size, 3, H, W] respectively
+    :param [dict] outputs: Contains the keys "reproj" and "depth" which are tensors
+    [num_reprojected_imgs, batch_size, 3, H, W] and [batch_size, H, W] respectively
+    :param [float] smooth_term: Constant that controls how much the smoothing term is considered in the loss
+    :return [torch.float]: A float representing the calculated loss
+    """
+    targets = inputs["targets"]
+    sources = inputs["sources"]
+    reprojections = outputs["reproj"]
+    loss = 0
+
+    shape = list(targets.shape)
+    shape[1] = reprojections.shape[0]
+    reproj_errors = torch.empty(shape, dtype=torch.float)
+    for i in range(len(reprojections)):
+        reproj_errors[:, i] = calc_pe(reprojections[i], targets).squeeze(1)
+
+    min_errors, _ = torch.min(reproj_errors, dim=1)
+
+    # Masking
+    reproj_errors *= get_mask(targets, sources, min_errors)
+
+    depth = outputs["depth"]
+    normalized_depth = depth / depth.mean(2, True).mean(3, True)
+    loss += min_errors.mean() + smooth_term * calc_smooth_loss(normalized_depth, targets)
+
+    return loss
