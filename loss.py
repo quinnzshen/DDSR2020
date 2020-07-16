@@ -4,13 +4,19 @@ import numpy as np
 
 
 class SSIM(nn.Module):
+    """
+    Based off SSIM in Monodepth2 repo
+    """
     def __init__(self):
         """
-        Sets up the layers/pooling to run the forward method which actually does the computation
+        Sets up the layers/pooling to run the forward method which actually does the SSIM computation, measuring how
+        "structurally similar" the images are compared to each other.
         """
         super(SSIM, self).__init__()
+        # Pads image with reflection of its pixels
         self.padding_reflect = nn.ReflectionPad2d(1)
 
+        # Goes across the image and averages with a 3x3 kernel
         self.mu_pred = nn.AvgPool2d(3, 1)
         self.mu_targ = nn.AvgPool2d(3, 1)
         self.sigma_pred = nn.AvgPool2d(3, 1)
@@ -52,28 +58,31 @@ def calc_pe(predict, target, alpha=0.85):
     :return [torch.tensor]: The numerical loss for each pixel in format [batch_size, 1, H, W]
     """
     ssim = SSIM()
-    ssim_val = torch.mean(torch.clamp((1 - ssim(predict, target)) / 2, 0, 1), 1, True)
-    l1 = torch.mean(torch.abs(predict - target), 1, True)
+    ssim_val = torch.mean(torch.clamp((1 - ssim(predict, target)) / 2, 0, 1), dim=1, keepdim=True)
+    l1 = torch.mean(torch.abs(predict - target), dim=1, keepdim=True)
 
     return alpha * ssim_val + (1-alpha) * l1
 
 
 def calc_smooth_loss(disp, image):
     """
-    Calculates the edge-aware smoothness of the given depth map with relation to the target image. Returns a higher
-    loss if the depth map fluctates a lot in depth where it should be smooth.
-    :param [torch.tensor] disp: The depth map, formatted as [batch_size, 1, H, W]
+    Calculates the edge-aware smoothness of the given disparity map with relation to the target image. Returns a higher
+    loss if the disparity map fluctates a lot in disparity where it should be smooth.
+    :param [torch.tensor] disp: The disparity map, formatted as [batch_size, 1, H, W]
     :param [torch.tensor] image: The target image, formatted as [batch_size, 3, H, W]
     :return [torch.float]: A 0 dimensional tensor containing a numerical loss punishing for a rough depth map
     """
-    d_disp_x = torch.abs(disp[:, :, :, 1:] - disp[:, :, :, :-1])
-    d_disp_y = torch.abs(disp[:, :, 1:, :] - disp[:, :, :-1, :])
+    # Based on Monodepth2 repo
+    # Takes the derivative of the disparity map by subtracting a pixel with the pixel value to the left and above
+    disp_dx = torch.abs(disp[:, :, :, 1:] - disp[:, :, :, :-1])
+    disp_dy = torch.abs(disp[:, :, 1:, :] - disp[:, :, :-1, :])
 
-    d_color_x = torch.mean(torch.abs(image[:, :, :, 1:] - image[:, :, :, :-1]), 1, True)
-    d_color_y = torch.mean(torch.abs(image[:, :, 1:, :] - image[:, :, :-1, :]), 1, True)
+    # Essentially same logic as above, but needs to be averaged because of the 3 separate color channels
+    image_dx = torch.mean(torch.abs(image[:, :, :, 1:] - image[:, :, :, :-1]), 1, True)
+    image_dy = torch.mean(torch.abs(image[:, :, 1:, :] - image[:, :, :-1, :]), 1, True)
 
-    d_disp_x *= torch.exp(-d_color_x)
-    d_disp_y *= torch.exp(-d_color_y)
+    disp_dx *= torch.exp(-image_dx)
+    disp_dy *= torch.exp(-image_dy)
 
     return d_disp_x.mean() + d_disp_x.mean()
 
@@ -87,8 +96,8 @@ def get_mask(targets, sources, min_reproject_errors):
     :param [torch.tensor] sources: The source images, in format [num_source_imgs, batch_size, 3, H, W]
     :param [torch.tensor] min_reproject_errors: The calculated photometric errors between the reprojected images and
     the target image, formatted as [batch_size, 1, H, W]
-    :return [torch.tensor]: A binary mask containing either a 1 or 0 which allows a given pixel to be represented or
-    to be ignored, respectively. Formatted as [batch_size, 1, H, W]
+    :return [torch.tensor]: A binary mask containing either True or False which allows a given pixel to be represented
+    or to be ignored, respectively. Formatted as [batch_size, 1, H, W]
     """
     source_error = []
     for source in sources:
@@ -109,21 +118,19 @@ def calc_loss(inputs, outputs, smooth_term=0.001):
     :param [dict] outputs: Contains the keys "reproj" and "depth" which are tensors
     [num_reprojected_imgs, batch_size, 3, H, W] and [batch_size, H, W] respectively
     :param [float] smooth_term: Constant that controls how much the smoothing term is considered in the loss
-    :return [torch.float]: A 0 dimensional tensor representing the loss calculated
+    :return [torch.float]: A float representing the calculated loss
     """
     targets = inputs["targets"]
     sources = inputs["sources"]
     reprojections = outputs["reproj"]
-    batch_size = len(targets)
+
     loss = 0
 
-    reproj_errors = []
-    for reproj in reprojections:
-        # print(targets, "BLELBELBE\n")
-        # print(reproj, "EWOIFJWEOI\n")
-        reproj_errors.append(calc_pe(reproj, targets))
-    # Could do something like reproj_errors[:, 1] = calc_pe(...) or smth like that
-    reproj_errors = torch.cat(reproj_errors, dim=1)
+    shape = list(targets.shape)
+    shape[1] = reprojections.shape[0]
+    reproj_errors = torch.empty(shape, dtype=torch.float)
+    for i in range(len(reprojections)):
+        reproj_errors[:, i] = calc_pe(reprojections[i], targets).squeeze(1)
 
     min_errors, _ = torch.min(reproj_errors, dim=1)
 
