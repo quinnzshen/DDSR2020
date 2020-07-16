@@ -1,7 +1,7 @@
 import torch
 import pytest
 
-from loss import SSIM, calc_pe, calc_smooth_loss
+from loss import SSIM, calc_pe, calc_smooth_loss, get_mask, calc_loss
 
 
 def test_SSIM():
@@ -38,7 +38,7 @@ def test_calc_pe():
 
     ans = torch.tensor([[[[1.3250, 1.4750, 1.6250],
                           [1.7750, 1.9250, 2.0750]]]])
-    torch.testing.assert_allclose(calc_pe(img3, img4), ans, atol=0.01, rtol=0.0001)
+    torch.testing.assert_allclose(calc_pe(img3, img4, 0.85), ans, atol=0.01, rtol=0.0001)
     torch.testing.assert_allclose(calc_pe(img3, img4), calc_pe(img4, img3))
 
 
@@ -54,3 +54,42 @@ def test_calc_smooth_loss():
 
     img2[:, :, :, 1] = 255
     torch.testing.assert_allclose(calc_smooth_loss(disp2, img2), torch.tensor(0).float())
+
+
+def test_get_mask():
+    target1 = torch.ones(3, 3, 4, 5)
+    source1 = torch.zeros(3, 3, 3, 4, 5)
+    reproj_err1 = torch.zeros(3, 1, 4, 5)
+    torch.testing.assert_allclose(get_mask(target1, source1, reproj_err1).float(), torch.ones(3, 1, 4, 5))
+
+    reproj_err2 = torch.full((3, 1, 4, 5), 1, dtype=torch.float)
+    torch.testing.assert_allclose(get_mask(target1, source1, reproj_err2).float(), torch.zeros(3, 1, 4, 5))
+
+    target1[:, :, :2] = 0
+    ans = torch.ones(3, 1, 4, 5)
+    ans[:, :, :2] = 0
+    reproj_err3 = torch.full((3, 1, 4, 5), 0.5)
+    torch.testing.assert_allclose(get_mask(target1, source1, reproj_err3).float(), ans)
+
+
+def test_calc_loss():
+    input1 = {
+        "targets": torch.zeros(3, 3, 4, 5),
+        "sources": torch.ones(3, 3, 3, 4, 5)
+    }
+    output1 = {
+        "reproj": torch.zeros(3, 3, 3, 4, 5),
+        "depth": torch.ones(3, 1, 4, 5)
+    }
+    torch.testing.assert_allclose(calc_loss(input1, output1), torch.tensor(0).float())
+
+    input2 = {
+        "targets": torch.arange(108, dtype=torch.float).reshape(2, 3, 3, 6),
+        "sources": torch.zeros(2, 2, 3, 3, 6)
+    }
+    output2 = {
+        "reproj": torch.full((2, 2, 3, 3, 6), 5, dtype=torch.float),
+        "depth": torch.eye(6, dtype=torch.float).reshape(2, 1, 3, 6) * 5
+    }
+
+    torch.testing.assert_allclose(calc_loss(input2, output2, 0.001), torch.tensor(7.7431))
