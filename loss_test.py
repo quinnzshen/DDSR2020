@@ -97,41 +97,29 @@ def test_calc_loss():
 
 
 def test_process_depth():
-    src_img1 = torch.ones(1, 3, 2, 3)
-    src_img1[0, :, 0, 0] = 5
+    src_img1 = torch.ones(3, 2, 3)
+    src_img1[:, 0, 0] = 5
 
-    source_imgs1 = [
-        {
-            "stereo": False,
-            "images": src_img1
-        },
-        {
-            "stereo": True,
-            "images": src_img1
-        }
-    ]
+    source_imgs1 = src_img1.repeat(2, 1, 1, 1, 1)
     depths1 = torch.ones(1, 1, 2, 3)
     poses1 = torch.eye(4).repeat(2, 1, 1, 1)
     tgt_intrs1 = torch.eye(3, dtype=torch.float).reshape(1, 3, 3)
-    src_intrs1 = torch.zeros((3, 3)).repeat(2, 1, 1, 1)
+    src_intrs1 = torch.cat((tgt_intrs1[0], torch.zeros(3, 3)), dim=0).reshape(2, 1, 3, 3)
 
-    ans1 = process_depth(source_imgs1, depths1, poses1, tgt_intrs1, src_intrs1)
+    ans1 = process_depth(source_imgs1, depths1, poses1, tgt_intrs1, src_intrs1, (src_img1.shape[1], src_img1.shape[2]))
     torch.testing.assert_allclose(ans1[0], src_img1)
     torch.testing.assert_allclose(ans1[1], torch.from_numpy(np.full((1, 3, 2, 3), np.nan, dtype=np.float32)))
 
-    source_imgs2 = [{
-        "stereo": False,
-        "images": torch.arange(120, dtype=torch.float).reshape(2, 3, 4, 5)
-    }]
+    source_imgs2 = torch.arange(120, dtype=torch.float).reshape(1, 2, 3, 4, 5)
 
     tgt_intrs2 = torch.eye(3, dtype=torch.float).repeat(2, 1, 1)
     tgt_intrs2[1, :2, 2] = 5
-    src_intrs2 = torch.zeros((3, 3)).repeat(1, 2, 1, 1)
+    src_intrs2 = tgt_intrs2.reshape(1, 2, 3, 3)
     depths2 = torch.arange(40).reshape(2, 1, 4, 5)
     poses2 = torch.eye(4).repeat(1, 2, 1, 1)
     poses2[0, :, 0, 1] = 0.4
     poses2[0, 0, 1, 3] = 5
-    ans2 = process_depth(source_imgs2, depths2, poses2, tgt_intrs2, src_intrs2)
+    ans2 = process_depth(source_imgs2, depths2, poses2, tgt_intrs2, src_intrs2, (4, 5))
     exp_ans2 = torch.tensor([[[[[np.nan, np.nan, 12.0000, 13.0000, 9.0000],
                                 [10.0000, 10.5667, 10.9714, 11.5250, np.nan],
                                 [13.3000, 14.0727, 14.8833, 15.7231, np.nan],
