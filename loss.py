@@ -84,7 +84,7 @@ def calc_smooth_loss(disp, image):
     disp_dx *= torch.exp(-image_dx)
     disp_dy *= torch.exp(-image_dy)
 
-    return d_disp_x.mean() + d_disp_x.mean()
+    return disp_dx.mean() + disp_dy.mean()
 
 
 def get_mask(targets, sources, min_reproject_errors):
@@ -183,7 +183,7 @@ def process_depth(src_images, depths, poses, tgt_intr, src_intr, img_shape):
         for j in range(len(depths)):
             world_coords = torch.ones(img_indices.shape[0], 4)
 
-            world_coords[:, :3] = img_indices @ tgt_intr_inv_torch_T[j] * depths[j, 0].view(-1, 1)
+            world_coords[:, :3] = img_indices @ tgt_intr_inv_torch_T[j] * depths[j][0].view(-1, 1)
 
             src_coords = torch.empty(img_indices.shape[0], 5)
             src_coords[:, 3:] = img_indices[:, :2]
@@ -198,7 +198,7 @@ def process_depth(src_images, depths, poses, tgt_intr, src_intr, img_shape):
                             src_coords[:, 0] <= img_shape[1] - 1)]
 
             # Put nan here in case a pixel isn't filled
-            reproj_image = torch.from_numpy(np.full((3, img_shape[0], img_shape[1]), np.nan, dtype=np.float32))
+            reproj_image = torch.from_numpy(np.full((3, img_shape[0], img_shape[1]), 0, dtype=np.float32))
 
             # Bilinear sampling
             x = src_coords[:, 0]
