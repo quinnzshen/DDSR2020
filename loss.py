@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 
+
 class SSIM(nn.Module):
     """
     Based off SSIM in Monodepth2 repo
@@ -83,7 +84,7 @@ def calc_smooth_loss(disp, image):
     disp_dx *= torch.exp(-image_dx)
     disp_dy *= torch.exp(-image_dy)
 
-    return disp_dx.mean() + disp_dy.mean()
+    return d_disp_x.mean() + d_disp_x.mean()
 
 
 def get_mask(targets, sources, min_reproject_errors):
@@ -142,24 +143,25 @@ def calc_loss(inputs, outputs, smooth_term=0.001):
 
     return loss
 
-def process_depth(src_images, depths, poses, tgt_intr, src_intr):
+
+def process_depth(src_images, depths, poses, tgt_intr, src_intr, img_shape):
     """
     Reprojects a batch of source images into the target frame, using the target depth map, relative pose between the
     two frames, and the target and source intrinsic matrices.
-    :param [list] src_images: List of dictionaries, with each dictionary representing one source frame (like t-1, t+1,
-    stereo), and keys "stereo" which indicates whether it is a stereo or temporal source image and "images" which is a
-    tensor containing the actual image data, in format [batch_size, 3, H, W]
+    :param [torch.tensor] src_images: Tensor of source images, where dimension 0 separates the different type of source
+    images. In format [num_source_images, batch_size, 3, H, W]
     :param [torch.tensor] depths: Tensor containing the depth maps as determined from the target images, in the format
     [batch_size, 1, H, W]
     :param [torch.tensor] poses: Tensor containing the relative poses for each given source image to the target frame,
     in format [num_source_imgs, batch_size, 4, 4]
-    :param [np.ndarray] tgt_intr: The intrinsic matrix for the target camera, as a 3x3 NumPy array
-    :param [np.ndarray] src_intr: The intrinsic matrix for the source (stereo) camera, as a 3x3 NumPy array
+    :param [torch.tensor] tgt_intr: The intrinsic matrices for the target camera, in format [batch_size, 3, 3]
+    :param [torch.tensor] src_intr: The intrinsic matrix for the source camera, in format
+    [num_source_imgs, batch_size, 3, 3]
+    :param [tuple] img_shape: An integer, indexable data type where the 0th and 1st index represent the height and width
+    of the images respectively.
     :return [torch.tensor]: Returns a tensor containing the reprojected images, in format [num_source_imgs, batch_size,
     3, H, W]
     """
-    img_shape = src_images[0]["images"][0, 0].shape
-
     reprojected = torch.zeros((len(src_images), len(depths), 3, img_shape[0], img_shape[1]), dtype=torch.float)
 
     # Creates an array of all image coordinates: [0, 0], [1, 0], [2, 0], etc.
@@ -168,30 +170,25 @@ def process_depth(src_images, depths, poses, tgt_intr, src_intr):
     img_indices[:, 1] = img_coords[:, 0]
     img_indices[:, 0] = img_coords[:, 1]
 
-    # Converts intrinsic matrices into torch tensors, also inverting those that need to be inverted
-    tgt_intr_torch_T = torch.from_numpy(tgt_intr.T).float()
-    src_intr_torch_T = torch.from_numpy(src_intr.T).float()
-    tgt_intr_inv_torch_T = torch.inverse(tgt_intr_torch_T)
+    # Transposes intrinsic matrices, also inverting those that need to be inverted
+    tgt_intr_torch_T = tgt_intr.transpose(1, 2)
+    src_intr_torch_T = src_intr.transpose(2, 3)
+    tgt_intr_inv_torch_T = tgt_intr_torch_T.inverse()
 
     t_poses = poses.transpose(2, 3)
 
     # Iterates through all source image types (t+1, t-1, etc.)
     for i in range(len(src_images)):
-        if src_images[i]["stereo"]:
-            src_intr_T = src_intr_torch_T
-        else:
-            src_intr_T = tgt_intr_torch_T
-
         # Iterates through all images in batch
         for j in range(len(depths)):
             world_coords = torch.ones(img_indices.shape[0], 4)
 
-            world_coords[:, :3] = img_indices @ tgt_intr_inv_torch_T * depths[j, 0].view(-1, 1)
+            world_coords[:, :3] = img_indices @ tgt_intr_inv_torch_T[j] * depths[j, 0].view(-1, 1)
 
             src_coords = torch.empty(img_indices.shape[0], 5)
             src_coords[:, 3:] = img_indices[:, :2]
 
-            src_coords[:, :3] = (world_coords @ t_poses[i, j])[:, :3] @ src_intr_T
+            src_coords[:, :3] = (world_coords @ t_poses[i, j])[:, :3] @ src_intr_torch_T[i, j]
 
             src_coords = src_coords[src_coords[:, 2] > 0]
             src_coords[:, :2] = src_coords[:, :2] / src_coords[:, 2].reshape(-1, 1)
@@ -210,7 +207,7 @@ def process_depth(src_images, depths, poses, tgt_intr, src_intr):
             y12 = (torch.floor(y).long(), torch.ceil(y).long())
             xdiff = (x - x12[0], x12[1] - x)
             ydiff = (y - y12[0], y12[1] - y)
-            src_img = src_images[i]["images"][j]
+            src_img = src_images[i, j]
             reproj_image[:, src_coords[:, 4].long(), src_coords[:, 3].long()] = \
                 src_img[:, y12[0], x12[0]] * xdiff[1] * ydiff[1] + \
                 src_img[:, y12[0], x12[1]] * xdiff[0] * ydiff[1] + \
