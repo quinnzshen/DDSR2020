@@ -81,8 +81,8 @@ def calc_smooth_loss(disp, image):
     image_dx = torch.mean(torch.abs(image[:, :, :, 1:] - image[:, :, :, :-1]), 1, True)
     image_dy = torch.mean(torch.abs(image[:, :, 1:, :] - image[:, :, :-1, :]), 1, True)
 
-    disp_dx *= torch.exp(-image_dx)
-    disp_dy *= torch.exp(-image_dy)
+    disp_dx = disp_dx * torch.exp(-image_dx)
+    disp_dy = disp_dy * torch.exp(-image_dy)
 
     return disp_dx.mean() + disp_dy.mean()
 
@@ -130,16 +130,16 @@ def calc_loss(inputs, outputs, smooth_term=0.001):
     shape[1] = reprojections.shape[0]
     reproj_errors = torch.empty(shape, dtype=torch.float)
     for i in range(len(reprojections)):
-        reproj_errors[:, i] = calc_pe(reprojections[i], targets).squeeze(1)
+        reproj_errors.data[:, i] = calc_pe(reprojections[i], targets).squeeze(1)
 
     min_errors, _ = torch.min(reproj_errors, dim=1)
 
     # Masking
-    reproj_errors *= get_mask(targets, sources, min_errors)
+    reproj_errors = reproj_errors * get_mask(targets, sources, min_errors)
 
     depth = outputs["depth"]
     normalized_depth = depth / depth.mean(2, True).mean(3, True)
-    loss += min_errors.mean() + smooth_term * calc_smooth_loss(normalized_depth, targets)
+    loss = loss + min_errors.mean() + smooth_term * calc_smooth_loss(normalized_depth, targets)
 
     return loss
 
