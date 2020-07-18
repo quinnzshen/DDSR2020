@@ -42,7 +42,7 @@ class Trainer:
         parameters_to_train += list(self.models['depth_decoder'].parameters())
 
         #Optimizer
-        learning_rate = 0.06
+        learning_rate = 0.0001
         self.optimizer = optim.Adam(parameters_to_train, learning_rate)
 
         #Scheduler
@@ -75,18 +75,19 @@ class Trainer:
         #Iterate through batches
         for batch_idx in range(num_batches):
             curr_batch_size = end_tracker-start_tracker
-            inputs = torch.cat([F.interpolate((torch.tensor(self.dataset[i]["stereo_left_image"].transpose(2,0,1), device=self.device, dtype=torch.float32).unsqueeze(0)), [self.width, self.height], mode = "bilinear", align_corners = False) for i in range(start_tracker, end_tracker)])
-            
+            inputs = torch.cat([F.interpolate((torch.tensor(self.dataset[i]["stereo_left_image"].transpose(2,0,1), device=self.device, dtype=torch.float32).unsqueeze(0)), [self.height, self.width], mode = "bilinear", align_corners = False) for i in range(start_tracker, end_tracker)])
+
             features = self.models['resnet_encoder'](torch.tensor(inputs))
             outputs = self.models['depth_decoder'](features)
             disp = outputs[("disp", 0)]
-            display_depth_map(disp)
+            disp = F.interpolate(disp, [self.height, self.width], mode="bilinear", align_corners=False)
+            display_depth_map(disp, self.height, self.width)
             _, depths = disp_to_depth(disp, 0.1, 100)
             
             #Source images
-            stereo_images = torch.cat([F.interpolate((torch.tensor(self.dataset[i]["stereo_right_image"].transpose(2,0,1), device=self.device, dtype=torch.float32).unsqueeze(0)), [self.width, self.height], mode = "bilinear", align_corners = False) for i in range(start_tracker, end_tracker)])
-            temporal_forward_images = torch.cat([F.interpolate((torch.tensor(self.dataset[i]["nearby_frames"][1]["camera_data"]["stereo_left_image"].transpose(2,0,1), device=self.device, dtype=torch.float32).unsqueeze(0)), [self.width, self.height], mode = "bilinear", align_corners = False) for i in range(start_tracker, end_tracker)])
-            temporal_backward_images = torch.cat([F.interpolate((torch.tensor(self.dataset[i]["nearby_frames"][-1]["camera_data"]["stereo_left_image"].transpose(2,0,1), device=self.device, dtype=torch.float32).unsqueeze(0)), [self.width, self.height], mode = "bilinear", align_corners = False) for i in range(start_tracker, end_tracker)])
+            stereo_images = torch.cat([F.interpolate((torch.tensor(self.dataset[i]["stereo_right_image"].transpose(2,0,1), device=self.device, dtype=torch.float32).unsqueeze(0)), [self.height, self.width], mode = "bilinear", align_corners = False) for i in range(start_tracker, end_tracker)])
+            temporal_forward_images = torch.cat([F.interpolate((torch.tensor(self.dataset[i]["nearby_frames"][1]["camera_data"]["stereo_left_image"].transpose(2,0,1), device=self.device, dtype=torch.float32).unsqueeze(0)), [self.height, self.width], mode = "bilinear", align_corners = False) for i in range(start_tracker, end_tracker)])
+            temporal_backward_images = torch.cat([F.interpolate((torch.tensor(self.dataset[i]["nearby_frames"][-1]["camera_data"]["stereo_left_image"].transpose(2,0,1), device=self.device, dtype=torch.float32).unsqueeze(0)), [self.height, self.width], mode = "bilinear", align_corners = False) for i in range(start_tracker, end_tracker)])
             sources = torch.stack((stereo_images, temporal_forward_images, temporal_backward_images))
             
             #Poses
@@ -112,7 +113,7 @@ class Trainer:
                 src_intrinsics_stereo[i][0] = src_intrinsics_stereo[i][0] * (self.width / 1242)
                 src_intrinsics_stereo[i][1] = src_intrinsics_stereo[i][1] * (self.height / 375)
             
-            reprojected = process_depth(sources, depths, poses, tgt_intrinsics, src_intrinsics, (self.width, self.height))
+            reprojected = process_depth(sources, depths, poses, tgt_intrinsics, src_intrinsics, (self.height, self.width))
             
             loss_inputs = {"targets":inputs,
                            "sources":sources
@@ -172,9 +173,9 @@ def disp_to_depth(disp, min_depth, max_depth):
     depth = 1 / scaled_disp
     return scaled_disp, depth            
 
-def display_depth_map(disp):
+def display_depth_map(disp, height, width):
     disp_resized = torch.nn.functional.interpolate(
-        disp, (1280, 384), mode="bilinear", align_corners=False)
+        disp, (height, width), mode="bilinear", align_corners=False)
 
     # Saving colormapped depth image
     disp_resized_np = disp_resized.squeeze().cpu().detach().numpy()
@@ -184,7 +185,7 @@ def display_depth_map(disp):
     colormapped_im = (mapper.to_rgba(disp_resized_np)[:, :, :3] * 255).astype(np.uint8)
     im = pil.fromarray(colormapped_im)
     plt.figure()    
-    plt.imshow(np.swapaxes(im,0,1))
-
+    plt.imshow(im)
+    
 test = Trainer()
 test.train()
