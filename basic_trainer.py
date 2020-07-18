@@ -1,12 +1,9 @@
 from dataloader import KittiDataset
-from loss import calc_loss
 from third_party.monodepth2.ResnetEncoder import ResnetEncoder
 from third_party.monodepth2.DepthDecoder import DepthDecoder
-import third_party.monodepth2.layers
 import torch
 import torch.nn.functional as F
 import torch.optim as optim
-from torchvision import transforms
 import time
 import math
 import os
@@ -17,7 +14,6 @@ import PIL.Image as pil
 import matplotlib as mpl
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt
-import matplotlib.image as mpimg
 warnings.filterwarnings("ignore")
 
 
@@ -42,7 +38,7 @@ class Trainer:
         parameters_to_train += list(self.models['depth_decoder'].parameters())
 
         #Optimizer
-        learning_rate = 0.0001
+        learning_rate = 0.0005
         self.optimizer = optim.Adam(parameters_to_train, learning_rate)
 
         #Scheduler
