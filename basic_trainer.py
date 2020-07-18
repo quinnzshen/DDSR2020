@@ -73,8 +73,8 @@ class Trainer:
             inputs = torch.cat([F.interpolate((torch.tensor(self.dataset[i]["stereo_left_image"].transpose(2,0,1), device=self.device, dtype=torch.float32).unsqueeze(0)), [self.width, self.height], mode = "bilinear", align_corners = False) for i in range(start_tracker, end_tracker)])
             
             features = self.models['resnet_encoder'](torch.tensor(inputs))
-            self.outputs = self.models['depth_decoder'](features)
-            disp = self.outputs[("disp", 0)]
+            outputs = self.models['depth_decoder'](features)
+            disp = outputs[("disp", 0)]
             _, depths = disp_to_depth(disp, 0.1, 100)
             
             #Source images
