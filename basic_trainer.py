@@ -13,6 +13,11 @@ import os
 from loss import process_depth, calc_loss
 import warnings
 import numpy as np
+import PIL.Image as pil
+import matplotlib as mpl
+import matplotlib.cm as cm
+import matplotlib.pyplot as plt
+import matplotlib.image as mpimg
 warnings.filterwarnings("ignore")
 
 
@@ -37,7 +42,7 @@ class Trainer:
         parameters_to_train += list(self.models['depth_decoder'].parameters())
 
         #Optimizer
-        learning_rate = 0.0001
+        learning_rate = 0.06
         self.optimizer = optim.Adam(parameters_to_train, learning_rate)
 
         #Scheduler
@@ -75,6 +80,7 @@ class Trainer:
             features = self.models['resnet_encoder'](torch.tensor(inputs))
             outputs = self.models['depth_decoder'](features)
             disp = outputs[("disp", 0)]
+            display_depth_map(disp)
             _, depths = disp_to_depth(disp, 0.1, 100)
             
             #Source images
@@ -165,6 +171,20 @@ def disp_to_depth(disp, min_depth, max_depth):
     scaled_disp = min_disp + (max_disp - min_disp) * disp
     depth = 1 / scaled_disp
     return scaled_disp, depth            
+
+def display_depth_map(disp):
+    disp_resized = torch.nn.functional.interpolate(
+        disp, (1280, 384), mode="bilinear", align_corners=False)
+
+    # Saving colormapped depth image
+    disp_resized_np = disp_resized.squeeze().cpu().detach().numpy()
+    vmax = np.percentile(disp_resized_np, 95)
+    normalizer = mpl.colors.Normalize(vmin=disp_resized_np.min(), vmax=vmax)
+    mapper = cm.ScalarMappable(norm=normalizer, cmap='magma')
+    colormapped_im = (mapper.to_rgba(disp_resized_np)[:, :, :3] * 255).astype(np.uint8)
+    im = pil.fromarray(colormapped_im)
+    plt.figure()    
+    plt.imshow(im)
 
 test = Trainer()
 test.train()
