@@ -184,7 +184,7 @@ def display_depth_map(disp):
     colormapped_im = (mapper.to_rgba(disp_resized_np)[:, :, :3] * 255).astype(np.uint8)
     im = pil.fromarray(colormapped_im)
     plt.figure()    
-    plt.imshow(im)
+    plt.imshow(np.swapaxes(im,0,1))
 
 test = Trainer()
 test.train()
