@@ -38,12 +38,12 @@ class Trainer:
         parameters_to_train += list(self.models['depth_decoder'].parameters())
 
         #Optimizer
-        learning_rate = 0.0005
+        learning_rate = 0.001
         self.optimizer = optim.Adam(parameters_to_train, learning_rate)
 
         #Scheduler
         scheduler_step_size = 15
-        self.lr_scheduler = optim.lr_scheduler.StepLR(self.optimizer, scheduler_step_size, learning_rate)
+        self.lr_scheduler = optim.lr_scheduler.StepLR(self.optimizer, scheduler_step_size, 0.1)
         
     def train(self):
         self.width = 1280
