@@ -159,10 +159,12 @@ def process_depth(src_images, depths, poses, tgt_intr, src_intr, img_shape):
     [num_source_imgs, batch_size, 3, 3]
     :param [tuple] img_shape: An integer, indexable data type where the 0th and 1st index represent the height and width
     of the images respectively.
-    :return [torch.tensor]: Returns a tensor containing the reprojected images, in format [num_source_imgs, batch_size,
-    3, H, W]
+    :return [tuple]: Returns a tuple containing 2 tensors, the first containing the reprojected images, in format
+    [num_source_imgs, batch_size, 3, H, W], and the second containing binary masks recording which pixels were able to
+    be reprojected back onto target, in format [num_source_imgs, batch_size, H, W]
     """
     reprojected = torch.zeros((len(src_images), len(depths), 3, img_shape[0], img_shape[1]), dtype=torch.float)
+    masks = torch.zeros((len(src_images), len(depths), img_shape[0], img_shape[1]), dtype=torch.bool)
 
     # Creates an array of all image coordinates: [0, 0], [1, 0], [2, 0], etc.
     img_indices = torch.ones((img_shape[0] * img_shape[1], 3))
@@ -197,9 +199,6 @@ def process_depth(src_images, depths, poses, tgt_intr, src_intr, img_shape):
                 (src_coords[:, 1] >= 0) & (src_coords[:, 1] <= img_shape[0] - 1) & (src_coords[:, 0] >= 0) & (
                             src_coords[:, 0] <= img_shape[1] - 1)]
 
-            # Put nan here in case a pixel isn't filled
-            reproj_image = torch.from_numpy(np.full((3, img_shape[0], img_shape[1]), np.nan, dtype=np.float32))
-
             # Bilinear sampling
             x = src_coords[:, 0]
             y = src_coords[:, 1]
@@ -208,17 +207,17 @@ def process_depth(src_images, depths, poses, tgt_intr, src_intr, img_shape):
             xdiff = (x - x12[0], x12[1] - x)
             ydiff = (y - y12[0], y12[1] - y)
             src_img = src_images[i, j]
-            reproj_image[:, src_coords[:, 4].long(), src_coords[:, 3].long()] = \
+            reprojected[i, j, :, src_coords[:, 4].long(), src_coords[:, 3].long()] = \
                 src_img[:, y12[0], x12[0]] * xdiff[1] * ydiff[1] + \
                 src_img[:, y12[0], x12[1]] * xdiff[0] * ydiff[1] + \
                 src_img[:, y12[1], x12[0]] * xdiff[1] * ydiff[0] + \
                 src_img[:, y12[1], x12[1]] * xdiff[0] * ydiff[0]
 
+            masks[i, j, src_coords[:, 4].long(), src_coords[:, 3].long()] = 1
+
             int_coords = (x12[0] == x12[1]) | (y12[0] == y12[1])
             if int_coords.any():
                 rounded_coords = src_coords[int_coords].round().long()
-                reproj_image[:, rounded_coords[:, 4], rounded_coords[:, 3]] = src_img[:, rounded_coords[:, 1], rounded_coords[:, 0]].float()
+                reprojected[i, j, :, rounded_coords[:, 4], rounded_coords[:, 3]] = src_img[:, rounded_coords[:, 1], rounded_coords[:, 0]].float()
 
-            reprojected[i, j] = reproj_image
-
-    return reprojected
+    return reprojected, masks
