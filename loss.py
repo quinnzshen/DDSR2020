@@ -115,31 +115,34 @@ def calc_loss(inputs, outputs, smooth_term=0.001):
     paper.
     :param [dict] inputs: Contains the keys "targets" and "sources" which are tensors [batch_size, 3, H, W] and
     [num_src_imgs, batch_size, 3, H, W] respectively
-    :param [dict] outputs: Contains the keys "reproj" and "depth" which are tensors
-    [num_reprojected_imgs, batch_size, 3, H, W] and [batch_size, H, W] respectively
+    :param [dict] outputs: Contains the keys "reproj", "depth", and "initial_masks" which are tensors
+    [num_src_imgs, batch_size, 3, H, W], [batch_size, H, W], and [num_src_imgs, batch_size, H, W] respectively
     :param [float] smooth_term: Constant that controls how much the smoothing term is considered in the loss
     :return [torch.float]: A float representing the calculated loss
     """
     targets = inputs["targets"]
     sources = inputs["sources"]
     reprojections = outputs["reproj"]
+    reproj_masks = outputs["initial_masks"]
 
     loss = 0
 
     shape = list(targets.shape)
-    shape[1] = reprojections.shape[0]
-    reproj_errors = torch.empty(shape, dtype=torch.float)
+    # shape[1] = reprojections.shape[0]
+    reproj_errors = torch.empty((reprojections.shape[0], shape[0], shape[2], shape[3]), dtype=torch.float)
     for i in range(len(reprojections)):
-        reproj_errors[:, i] = calc_pe(reprojections[i], targets).squeeze(1)
+        reproj_errors[i] = calc_pe(reprojections[i], targets).squeeze(1)
 
-    min_errors, _ = torch.min(reproj_errors, dim=1)
+    reproj_errors[~reproj_masks] = torch.finfo(torch.float).max
+    min_errors, _ = torch.min(reproj_errors, dim=0)
 
-    # Masking
-    reproj_errors *= get_mask(targets, sources, min_errors)
+    # Auto-masking
+    min_errors[~get_mask(targets, sources, min_errors)] = torch.finfo(torch.float).max
+
 
     depth = outputs["depth"]
     normalized_depth = depth / depth.mean(2, True).mean(3, True)
-    loss += min_errors.mean() + smooth_term * calc_smooth_loss(normalized_depth, targets)
+    loss += torch.mean(min_errors[min_errors < torch.finfo(torch.float).max]) + smooth_term * calc_smooth_loss(normalized_depth, targets)
 
     return loss
 
@@ -161,10 +164,10 @@ def process_depth(src_images, depths, poses, tgt_intr, src_intr, img_shape):
     of the images respectively.
     :return [tuple]: Returns a tuple containing 2 tensors, the first containing the reprojected images, in format
     [num_source_imgs, batch_size, 3, H, W], and the second containing binary masks recording which pixels were able to
-    be reprojected back onto target, in format [num_source_imgs, batch_size, H, W]
+    be reprojected back onto target, in format [num_source_imgs, 1, batch_size, H, W]
     """
     reprojected = torch.zeros((len(src_images), len(depths), 3, img_shape[0], img_shape[1]), dtype=torch.float)
-    masks = torch.zeros((len(src_images), len(depths), img_shape[0], img_shape[1]), dtype=torch.bool)
+    masks = torch.zeros((len(src_images), len(depths), 1, img_shape[0], img_shape[1]), dtype=torch.bool)
 
     # Creates an array of all image coordinates: [0, 0], [1, 0], [2, 0], etc.
     img_indices = torch.ones((img_shape[0] * img_shape[1], 3))
@@ -213,7 +216,7 @@ def process_depth(src_images, depths, poses, tgt_intr, src_intr, img_shape):
                 src_img[:, y12[1], x12[0]] * xdiff[1] * ydiff[0] + \
                 src_img[:, y12[1], x12[1]] * xdiff[0] * ydiff[0]
 
-            masks[i, j, src_coords[:, 4].long(), src_coords[:, 3].long()] = 1
+            masks[i, j, 0, src_coords[:, 4].long(), src_coords[:, 3].long()] = 1
 
             int_coords = (x12[0] == x12[1]) | (y12[0] == y12[1])
             if int_coords.any():
