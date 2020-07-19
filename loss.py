@@ -84,7 +84,7 @@ def calc_smooth_loss(disp, image):
     disp_dx *= torch.exp(-image_dx)
     disp_dy *= torch.exp(-image_dy)
 
-    return d_disp_x.mean() + d_disp_x.mean()
+    return disp_dx.mean() + disp_dy.mean()
 
 
 def get_mask(targets, sources, min_reproject_errors):
