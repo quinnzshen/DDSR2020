@@ -1,5 +1,4 @@
 import torch
-import numpy as np
 import pytest
 
 from loss import SSIM, calc_pe, calc_smooth_loss, get_mask, calc_loss, process_depth
@@ -80,8 +79,8 @@ def test_calc_loss():
     }
     output1 = {
         "reproj": torch.zeros(3, 3, 3, 4, 5),
-        "depth": torch.ones(3, 1, 4, 5),
-        "initial_masks": torch.ones(3, 3, 3, 4, 5, dtype=torch.bool)
+        "disparities": torch.ones(3, 1, 4, 5),
+        "initial_masks": torch.ones(3, 3, 1, 4, 5, dtype=torch.bool)
     }
     torch.testing.assert_allclose(calc_loss(input1, output1), torch.tensor(0).float())
 
@@ -91,10 +90,10 @@ def test_calc_loss():
     }
     output2 = {
         "reproj": torch.full((2, 2, 3, 3, 6), 5, dtype=torch.float),
-        "depth": torch.eye(6, dtype=torch.float).reshape(2, 1, 3, 6) * 5
+        "disparities": torch.eye(6, dtype=torch.float).reshape(2, 1, 3, 6) * 5,
+        "initial_masks": torch.arange(72).reshape(2, 2, 1, 3, 6) % 2 == 0
     }
-
-    torch.testing.assert_allclose(calc_loss(input2, output2, 0.001), torch.tensor(7.7431))
+    torch.testing.assert_allclose(calc_loss(input2, output2, 0.001), torch.tensor(7.6757))
 
 
 def test_process_depth():

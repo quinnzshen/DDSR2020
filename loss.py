@@ -116,7 +116,7 @@ def calc_loss(inputs, outputs, smooth_term=0.001):
     :param [dict] inputs: Contains the keys "targets" and "sources" which are tensors [batch_size, 3, H, W] and
     [num_src_imgs, batch_size, 3, H, W] respectively
     :param [dict] outputs: Contains the keys "reproj", "disparities", and "initial_masks" which are tensors
-    [num_reprojected_imgs, batch_size, 3, H, W], [batch_size, 1, H, W], and [num_src_imgs, batch_size, H, W]
+    [num_reprojected_imgs, batch_size, 3, H, W], [batch_size, 1, H, W], and [num_src_imgs, batch_size, 1, H, W]
     (dtype=torch.bool) respectively
     :param [float] smooth_term: Constant that controls how much the smoothing term is considered in the loss
     :return [torch.float]: A float representing the calculated loss
@@ -134,7 +134,7 @@ def calc_loss(inputs, outputs, smooth_term=0.001):
     for i in range(len(reprojections)):
         reproj_errors[i] = calc_pe(reprojections[i], targets).squeeze(1)
 
-    reproj_errors[~reproj_masks] = torch.finfo(torch.float).max
+    reproj_errors[~reproj_masks.squeeze(2)] = torch.finfo(torch.float).max
     min_errors, _ = torch.min(reproj_errors, dim=0)
 
     # Auto-masking
