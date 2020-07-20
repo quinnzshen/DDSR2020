@@ -129,7 +129,7 @@ def calc_loss(inputs, outputs, smooth_term=0.001):
     loss = 0
 
     shape = list(targets.shape)
-    # shape[1] = reprojections.shape[0]
+
     reproj_errors = torch.empty((reprojections.shape[0], shape[0], shape[2], shape[3]), dtype=torch.float)
     for i in range(len(reprojections)):
         reproj_errors[i] = calc_pe(reprojections[i], targets).squeeze(1)
@@ -142,7 +142,11 @@ def calc_loss(inputs, outputs, smooth_term=0.001):
 
     disp = outputs["disparities"]
     normalized_disp = disp / disp.mean(2, True).mean(3, True)
-    loss += torch.mean(min_errors[min_errors < torch.finfo(torch.float).max]) + smooth_term * calc_smooth_loss(normalized_disp, targets)
+
+    loss = loss + torch.mean(min_errors[min_errors < torch.finfo(torch.float).max])
+    if torch.isnan(loss):
+        loss = 1
+    loss = loss + smooth_term * calc_smooth_loss(normalized_disp, targets)
 
     return loss
 
