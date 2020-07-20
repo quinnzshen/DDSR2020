@@ -50,7 +50,7 @@ def test_calc_smooth_loss():
     img2 = torch.zeros(1, 3, 2, 3)
     disp2 = torch.ones(1, 3, 2, 3)
     disp2[:, :, :, 1] = 16
-    torch.testing.assert_allclose(calc_smooth_loss(disp2, img2), torch.tensor(30).float())
+    torch.testing.assert_allclose(calc_smooth_loss(disp2, img2), torch.tensor(15).float())
 
     img2[:, :, :, 1] = 255
     torch.testing.assert_allclose(calc_smooth_loss(disp2, img2), torch.tensor(0).float())
