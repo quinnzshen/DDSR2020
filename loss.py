@@ -170,7 +170,7 @@ def process_depth(src_images, depths, poses, tgt_intr, src_intr, img_shape):
     [num_source_imgs, batch_size, 3, H, W], and the second containing binary masks recording which pixels were able to
     be reprojected back onto target, in format [num_source_imgs, 1, batch_size, H, W]
     """
-    reprojected = torch.zeros((len(src_images), len(depths), 3, img_shape[0], img_shape[1]), dtype=torch.float)
+    reprojected = torch.full((len(src_images), len(depths), 3, img_shape[0], img_shape[1]), 127, dtype=torch.float)
     masks = torch.zeros((len(src_images), len(depths), 1, img_shape[0], img_shape[1]), dtype=torch.bool)
 
     # Creates an array of all image coordinates: [0, 0], [1, 0], [2, 0], etc.
