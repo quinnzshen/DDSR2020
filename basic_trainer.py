@@ -38,7 +38,7 @@ class Trainer:
         parameters_to_train += list(self.models['depth_decoder'].parameters())
 
         #Optimizer
-        learning_rate = 0.001
+        learning_rate = 0.0001
         self.optimizer = optim.Adam(parameters_to_train, learning_rate)
 
         #Scheduler
@@ -48,7 +48,7 @@ class Trainer:
     def train(self):
         self.width = 1280
         self.height = 384
-        epochs = 50
+        epochs = 10
         for self.epoch in range (epochs):
             self.run_epoch()
         #return self.output
@@ -80,6 +80,7 @@ class Trainer:
             disp = F.interpolate(disp, [self.height, self.width], mode="bilinear", align_corners=False)
             display_depth_map(disp, self.height, self.width)
             _, depths = disp_to_depth(disp, 0.1, 100)
+            outputs[("depths", 0)] = depths
             
             #Source images
             stereo_images = torch.cat([F.interpolate((torch.tensor(self.dataset[i]["stereo_right_image"].transpose(2,0,1), device=self.device, dtype=torch.float32).unsqueeze(0)), [self.height, self.width], mode = "bilinear", align_corners = False) for i in range(start_tracker, end_tracker)])
@@ -97,12 +98,12 @@ class Trainer:
             rel_pose_forward = torch.matmul(torch.inverse(tgt_poses), temporal_forward_poses)
             rel_pose_backward = torch.matmul(torch.inverse(tgt_poses), temporal_backward_poses)
             poses = torch.stack((rel_pose_stereo, rel_pose_forward, rel_pose_backward))
-            
+
             #Intrinsics
             tgt_intrinsics = torch.cat([torch.tensor(self.dataset[i]["intrinsics"]["stereo_left"], device=self.device, dtype=torch.float32).unsqueeze(0) for i in range(start_tracker, end_tracker)])
             src_intrinsics_stereo = torch.cat([torch.tensor(self.dataset[i]["intrinsics"]["stereo_right"], device=self.device, dtype=torch.float32).unsqueeze(0) for i in range(start_tracker, end_tracker)])
             src_intrinsics = torch.stack((src_intrinsics_stereo, tgt_intrinsics, tgt_intrinsics))
-            
+
             #Adjust intrinsics based on input size
             for i in range(0, curr_batch_size):
                 tgt_intrinsics[i][0] = tgt_intrinsics[i][0] * (self.width / 1242)
@@ -110,7 +111,7 @@ class Trainer:
                 src_intrinsics_stereo[i][0] = src_intrinsics_stereo[i][0] * (self.width / 1242)
                 src_intrinsics_stereo[i][1] = src_intrinsics_stereo[i][1] * (self.height / 375)
             
-            reprojected, mask = process_depth(sources, depths, poses, tgt_intrinsics, src_intrinsics, (self.height, self.width))
+            reprojected, mask = process_depth(sources, outputs[("depths", 0)], poses, tgt_intrinsics, src_intrinsics, (self.height, self.width))
             
             loss_inputs = {"targets":inputs,
                            "sources":sources
@@ -175,10 +176,10 @@ def disp_to_depth(disp, min_depth, max_depth):
 
 def display_depth_map(disp, height, width, index=0):
     disp_resized = torch.nn.functional.interpolate(
-        disp, (height, width), mode="bilinear", align_corners=False)
+        disp[index].unsqueeze(0), (height, width), mode="bilinear", align_corners=False)
 
     # Saving colormapped depth image
-    disp_resized_np = disp_resized[index].squeeze().cpu().detach().numpy()
+    disp_resized_np = disp_resized.squeeze().cpu().detach().numpy()
     vmax = np.percentile(disp_resized_np, 95)
     normalizer = mpl.colors.Normalize(vmin=disp_resized_np.min(), vmax=vmax)
     mapper = cm.ScalarMappable(norm=normalizer, cmap='magma')
