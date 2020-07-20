@@ -129,11 +129,9 @@ def calc_loss(inputs, outputs, smooth_term=0.001):
     loss = 0
 
     shape = list(targets.shape)
-
-    reproj_errors = torch.empty((reprojections.shape[0], shape[0], shape[2], shape[3]), dtype=torch.float)
-    for i in range(len(reprojections)):
-        reproj_errors[i] = calc_pe(reprojections[i], targets).squeeze(1)
-
+    
+    reproj_errors = torch.stack([torch.tensor(calc_pe(reprojections[i], targets).squeeze(1)) for i in range (len(reprojections))])
+    
     reproj_errors[~reproj_masks.squeeze(2)] = torch.finfo(torch.float).max
     min_errors, _ = torch.min(reproj_errors, dim=0)
 
