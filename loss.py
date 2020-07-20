@@ -115,9 +115,9 @@ def calc_loss(inputs, outputs, smooth_term=0.001):
     paper.
     :param [dict] inputs: Contains the keys "targets" and "sources" which are tensors [batch_size, 3, H, W] and
     [num_src_imgs, batch_size, 3, H, W] respectively
-    :param [dict] outputs: Contains the keys "reproj", "depth", and "initial_masks" which are tensors
-    [num_src_imgs, batch_size, 3, H, W], [batch_size, H, W], and [num_src_imgs, batch_size, H, W] (dtype=torch.bool)
-    respectively
+    :param [dict] outputs: Contains the keys "reproj", "disparities", and "initial_masks" which are tensors
+    [num_reprojected_imgs, batch_size, 3, H, W], [batch_size, 1, H, W], and [num_src_imgs, batch_size, H, W]
+    (dtype=torch.bool) respectively
     :param [float] smooth_term: Constant that controls how much the smoothing term is considered in the loss
     :return [torch.float]: A float representing the calculated loss
     """
@@ -140,9 +140,9 @@ def calc_loss(inputs, outputs, smooth_term=0.001):
     # Auto-masking
     min_errors[~get_mask(targets, sources, min_errors)] = torch.finfo(torch.float).max
 
-    depth = outputs["depth"]
-    normalized_depth = depth / depth.mean(2, True).mean(3, True)
-    loss += torch.mean(min_errors[min_errors < torch.finfo(torch.float).max]) + smooth_term * calc_smooth_loss(normalized_depth, targets)
+    disp = outputs["disparities"]
+    normalized_disp = disp / disp.mean(2, True).mean(3, True)
+    loss += torch.mean(min_errors[min_errors < torch.finfo(torch.float).max]) + smooth_term * calc_smooth_loss(normalized_disp, targets)
 
     return loss
 
