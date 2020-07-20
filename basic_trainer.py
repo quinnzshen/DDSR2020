@@ -48,7 +48,7 @@ class Trainer:
     def train(self):
         self.width = 1280
         self.height = 384
-        epochs = 10
+        epochs = 50
         for self.epoch in range (epochs):
             self.run_epoch()
         #return self.output
@@ -70,6 +70,7 @@ class Trainer:
         
         #Iterate through batches
         for batch_idx in range(num_batches):
+
             curr_batch_size = end_tracker-start_tracker
             inputs = torch.cat([F.interpolate((torch.tensor(self.dataset[i]["stereo_left_image"].transpose(2,0,1), device=self.device, dtype=torch.float32).unsqueeze(0)), [self.height, self.width], mode = "bilinear", align_corners = False) for i in range(start_tracker, end_tracker)])
 
@@ -109,17 +110,19 @@ class Trainer:
                 src_intrinsics_stereo[i][0] = src_intrinsics_stereo[i][0] * (self.width / 1242)
                 src_intrinsics_stereo[i][1] = src_intrinsics_stereo[i][1] * (self.height / 375)
             
-            reprojected = process_depth(sources, depths, poses, tgt_intrinsics, src_intrinsics, (self.height, self.width))
+            reprojected, mask = process_depth(sources, depths, poses, tgt_intrinsics, src_intrinsics, (self.height, self.width))
             
             loss_inputs = {"targets":inputs,
                            "sources":sources
                 }
             loss_outputs = {"reproj":reprojected,
-                            "depth":disp
+                            "disparities":disp,
+                            "initial_masks":mask
                 }
+
             losses = calc_loss(loss_inputs, loss_outputs)
             
-            #Back Propogate - TBD
+            #Back Propogate
             self.optimizer.zero_grad()
             losses.backward()
             self.optimizer.step()
@@ -135,6 +138,7 @@ class Trainer:
                 end_tracker += batch_size
             else:
                 end_tracker = len(self.dataset)
+        
         end_time = time.time()
         print("Time spent: {}".format(end_time-start_time))
         print("Loss: {}".format(losses.item()))
@@ -169,12 +173,12 @@ def disp_to_depth(disp, min_depth, max_depth):
     depth = 1 / scaled_disp
     return scaled_disp, depth            
 
-def display_depth_map(disp, height, width):
+def display_depth_map(disp, height, width, index=0):
     disp_resized = torch.nn.functional.interpolate(
         disp, (height, width), mode="bilinear", align_corners=False)
 
     # Saving colormapped depth image
-    disp_resized_np = disp_resized.squeeze().cpu().detach().numpy()
+    disp_resized_np = disp_resized[index].squeeze().cpu().detach().numpy()
     vmax = np.percentile(disp_resized_np, 95)
     normalizer = mpl.colors.Normalize(vmin=disp_resized_np.min(), vmax=vmax)
     mapper = cm.ScalarMappable(norm=normalizer, cmap='magma')
