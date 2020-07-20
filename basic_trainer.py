@@ -28,7 +28,7 @@ class Trainer:
         
         #Models
         self.models = {}
-        self.models['resnet_encoder'] = ResnetEncoder(18, pretrained = False).to(self.device)
+        self.models['resnet_encoder'] = ResnetEncoder(18, pretrained = True).to(self.device)
         self.scales = range(1)
         self.models['depth_decoder'] = DepthDecoder(num_ch_enc = self.models['resnet_encoder'].num_ch_enc, scales=self.scales).to(self.device)
 
@@ -48,7 +48,7 @@ class Trainer:
     def train(self):
         self.width = 1280
         self.height = 384
-        epochs = 10
+        epochs = 50
         for self.epoch in range (epochs):
             self.run_epoch()
         #return self.output
@@ -111,7 +111,7 @@ class Trainer:
                 src_intrinsics_stereo[i][0] = src_intrinsics_stereo[i][0] * (self.width / 1242)
                 src_intrinsics_stereo[i][1] = src_intrinsics_stereo[i][1] * (self.height / 375)
             
-            reprojected, mask = process_depth(sources, outputs[("depths", 0)], poses, tgt_intrinsics, src_intrinsics, (self.height, self.width))
+            reprojected, mask = process_depth(sources, depths, poses, tgt_intrinsics, src_intrinsics, (self.height, self.width))
             
             loss_inputs = {"targets":inputs,
                            "sources":sources
