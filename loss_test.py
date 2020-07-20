@@ -79,7 +79,8 @@ def test_calc_loss():
     }
     output1 = {
         "reproj": torch.zeros(3, 3, 3, 4, 5),
-        "depth": torch.ones(3, 1, 4, 5)
+        "depth": torch.ones(3, 1, 4, 5),
+        "initial_masks": torch.ones(3, 3, 3, 4, 5, dtype=torch.bool)
     }
     torch.testing.assert_allclose(calc_loss(input1, output1), torch.tensor(0).float())
 
@@ -105,9 +106,13 @@ def test_process_depth():
     tgt_intrs1 = torch.eye(3, dtype=torch.float).reshape(1, 3, 3)
     src_intrs1 = torch.cat((tgt_intrs1[0], torch.zeros(3, 3)), dim=0).reshape(2, 1, 3, 3)
 
-    ans1 = process_depth(source_imgs1, depths1, poses1, tgt_intrs1, src_intrs1, (src_img1.shape[1], src_img1.shape[2]))
-    torch.testing.assert_allclose(ans1[0], src_img1)
-    torch.testing.assert_allclose(ans1[1], torch.from_numpy(np.full((1, 3, 2, 3), np.nan, dtype=np.float32)))
+    reproj1, mask1 = process_depth(source_imgs1, depths1, poses1, tgt_intrs1, src_intrs1,
+                                   (src_img1.shape[1], src_img1.shape[2]))
+
+    torch.testing.assert_allclose(reproj1[0], src_img1)
+    torch.testing.assert_allclose(reproj1[1], torch.zeros(1, 3, 2, 3))
+    torch.testing.assert_allclose(mask1[0].float(), torch.ones(1, 1, 2, 3))
+    torch.testing.assert_allclose(mask1[1].float(), torch.zeros(1, 1, 2, 3))
 
     source_imgs2 = torch.arange(120, dtype=torch.float).reshape(1, 2, 3, 4, 5)
 
@@ -118,35 +123,46 @@ def test_process_depth():
     poses2 = torch.eye(4).repeat(1, 2, 1, 1)
     poses2[0, :, 0, 1] = 0.4
     poses2[0, 0, 1, 3] = 5
-    ans2 = process_depth(source_imgs2, depths2, poses2, tgt_intrs2, src_intrs2, (4, 5))
-    exp_ans2 = torch.tensor([[[[[np.nan, np.nan, 12.0000, 13.0000, 9.0000],
-                                [10.0000, 10.5667, 10.9714, 11.5250, np.nan],
-                                [13.3000, 14.0727, 14.8833, 15.7231, np.nan],
-                                [np.nan, np.nan, np.nan, np.nan, np.nan]],
 
-                               [[np.nan, np.nan, 32.0000, 33.0000, 29.0000],
-                                [30.0000, 30.5667, 30.9714, 31.5250, np.nan],
-                                [33.3000, 34.0727, 34.8833, 35.7231, np.nan],
-                                [np.nan, np.nan, np.nan, np.nan, np.nan]],
+    reproj2, mask2 = process_depth(source_imgs2, depths2, poses2, tgt_intrs2, src_intrs2, (4, 5))
+    exp_ans2 = torch.tensor([[[[[0, 0, 12.0000, 13.0000, 9.0000],
+                                [10.0000, 10.5667, 10.9714, 11.5250, 0],
+                                [13.3000, 14.0727, 14.8833, 15.7231, 0],
+                                [0, 0, 0, 0, 0]],
 
-                               [[np.nan, np.nan, 52.0000, 53.0000, 49.0000],
-                                [50.0000, 50.5667, 50.9714, 51.5250, np.nan],
-                                [53.3000, 54.0727, 54.8833, 55.7231, np.nan],
-                                [np.nan, np.nan, np.nan, np.nan, np.nan]]],
+                               [[0, 0, 32.0000, 33.0000, 29.0000],
+                                [30.0000, 30.5667, 30.9714, 31.5250, 0],
+                                [33.3000, 34.0727, 34.8833, 35.7231, 0],
+                                [0, 0, 0, 0, 0]],
 
-                              [[[np.nan, np.nan, 60.0000, 61.0000, 62.0000],
-                                [np.nan, np.nan, 65.0000, 66.0000, 67.0000],
-                                [np.nan, np.nan, 71.0000, 72.0000, 73.0000],
-                                [np.nan, 75.0000, 76.0000, 77.0000, 78.0000]],
+                               [[0, 0, 52.0000, 53.0000, 49.0000],
+                                [50.0000, 50.5667, 50.9714, 51.5250, 0],
+                                [53.3000, 54.0727, 54.8833, 55.7231, 0],
+                                [0, 0, 0, 0, 0]]],
 
-                               [[np.nan, np.nan, 80.0000, 81.0000, 82.0000],
-                                [np.nan, np.nan, 85.0000, 86.0000, 87.0000],
-                                [np.nan, np.nan, 91.0000, 92.0000, 93.0000],
-                                [np.nan, 95.0000, 96.0000, 97.0000, 98.0000]],
+                              [[[0, 0, 60.0000, 61.0000, 62.0000],
+                                [0, 0, 65.0000, 66.0000, 67.0000],
+                                [0, 0, 71.0000, 72.0000, 73.0000],
+                                [0, 75.0000, 76.0000, 77.0000, 78.0000]],
 
-                               [[np.nan, np.nan, 100.0000, 101.0000, 102.0000],
-                                [np.nan, np.nan, 105.0000, 106.0000, 107.0000],
-                                [np.nan, np.nan, 111.0000, 112.0000, 113.0000],
-                                [np.nan, 115.0000, 116.0000, 117.0000, 118.0000]]]]])
+                               [[0, 0, 80.0000, 81.0000, 82.0000],
+                                [0, 0, 85.0000, 86.0000, 87.0000],
+                                [0, 0, 91.0000, 92.0000, 93.0000],
+                                [0, 95.0000, 96.0000, 97.0000, 98.0000]],
 
-    torch.testing.assert_allclose(ans2, exp_ans2)
+                               [[0, 0, 100.0000, 101.0000, 102.0000],
+                                [0, 0, 105.0000, 106.0000, 107.0000],
+                                [0, 0, 111.0000, 112.0000, 113.0000],
+                                [0, 115.0000, 116.0000, 117.0000, 118.0000]]]]])
+
+    torch.testing.assert_allclose(reproj2, exp_ans2)
+    exp_mask2 = torch.tensor([[[[[False, False, True, True, True],
+                                 [True, True, True, True, False],
+                                 [True, True, True, True, False],
+                                 [False, False, False, False, False]]],
+
+                               [[[False, False, True, True, True],
+                                 [False, False, True, True, True],
+                                 [False, False, True, True, True],
+                                 [False, True, True, True, True]]]]])
+    torch.testing.assert_allclose(mask2.float(), exp_mask2.float())
