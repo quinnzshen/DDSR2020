@@ -1,0 +1,12 @@
+train_config_path: configs/oneframe_overfit.yml
+encoder_layers: 18
+pretrained: True
+num_scales: 1
+learning_rate: 0.0001
+scheduler_step_size: 15
+weight_decay: 0.1
+width: 1280
+height: 384
+num_epochs: 10
+batch_size: 1
+display_predictions: True

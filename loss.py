@@ -171,10 +171,12 @@ def process_depth(src_images, depths, poses, tgt_intr, src_intr, img_shape):
     masks = torch.zeros((len(src_images), len(depths), 1, img_shape[0], img_shape[1]), dtype=torch.bool, device=poses.device)
 
     # Creates an array of all image coordinates: [0, 0], [1, 0], [2, 0], etc.
-    img_indices = torch.ones((img_shape[0] * img_shape[1], 3), device=poses.device)
-    img_coords = torch.meshgrid([torch.arange(img_shape[0]), torch.arange(img_shape[1])])
-    img_indices[:, 1] = img_coords[0].flatten()
-    img_indices[:, 0] = img_coords[1].flatten()
+    img_ones = torch.ones((img_shape[0] * img_shape[1], 1), device=poses.device)
+    img_coords = torch.meshgrid([
+        torch.arange(img_shape[0], dtype=torch.float, device=poses.device),
+        torch.arange(img_shape[1], dtype=torch.float, device=poses.device)
+    ])
+    img_indices = torch.cat((img_coords[1].reshape(-1, 1), img_coords[0].reshape(-1, 1), img_ones), dim=1)
 
     # Transposes intrinsic matrices, also inverting those that need to be inverted
     tgt_intr_torch_T = tgt_intr.transpose(1, 2)
