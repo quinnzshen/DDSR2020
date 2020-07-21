@@ -55,7 +55,7 @@ class Trainer:
         
         #Image dimensions
         self.width = self.config["width"]
-        self.height = self.config["width"]
+        self.height = self.config["height"]
         
         #Epoch and batch info
         self.num_epochs = self.config["num_epochs"]
