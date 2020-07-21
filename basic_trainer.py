@@ -4,6 +4,7 @@ from third_party.monodepth2.DepthDecoder import DepthDecoder
 import torch
 import torch.nn.functional as F
 import torch.optim as optim
+from torch.utils.tensorboard import SummaryWriter
 import time
 import math
 import os
@@ -48,10 +49,11 @@ class Trainer:
     def train(self):
         self.width = 1280
         self.height = 384
-        epochs = 50
+        epochs = 100
+        self.writer = SummaryWriter()
         for self.epoch in range (epochs):
             self.run_epoch()
-        #return self.output
+        self.writer.close()
         """self.save_model()
         print('Model saved.')"""
         
@@ -122,7 +124,7 @@ class Trainer:
                 }
 
             losses = calc_loss(loss_inputs, loss_outputs)
-            
+            self.writer.add_scalar('loss', losses.item(), self.epoch*batch_size + batch_idx)
             #Back Propogate
             self.optimizer.zero_grad()
             losses.backward()
