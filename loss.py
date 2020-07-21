@@ -216,11 +216,16 @@ def process_depth(src_images, depths, poses, tgt_intr, src_intr, img_shape):
                 src_img[:, y12[1], x12[0]] * xdiff[1] * ydiff[0] + \
                 src_img[:, y12[1], x12[1]] * xdiff[0] * ydiff[0]
 
-            masks[i, j, 0, src_coords[:, 4].long(), src_coords[:, 3].long()] = 1
-
             int_coords = (x12[0] == x12[1]) | (y12[0] == y12[1])
             if int_coords.any():
                 rounded_coords = src_coords[int_coords].round().long()
                 reprojected[i, j, :, rounded_coords[:, 4], rounded_coords[:, 3]] = src_img[:, rounded_coords[:, 1], rounded_coords[:, 0]].float()
+
+            # Using F.grid_sample
+            # pic_coords = torch.empty((1, img_shape[0], img_shape[1], 2))
+            # pic_coords[0, src_coords[:, 4].long(), src_coords[:, 3].long()] = 2 * src_coords[:, :2] / torch.tensor([img_shape[1], img_shape[0]]) - 1
+            # reprojected[i, j] = F.grid_sample(src_images[i, j].unsqueeze(0), pic_coords, align_corners=True)
+
+            masks[i, j, 0, src_coords[:, 4].long(), src_coords[:, 3].long()] = 1
 
     return reprojected, masks
