@@ -20,7 +20,7 @@ def generate_lidar_point_coord_camera_image(lidar_point_coord_velodyne, camera_i
     # Based on code from monodepth2 repo.
 
     # Add right column of ones to lidar_point_coord_velodyne.
-    lidar_point_coord_velodyne[:, 3] = np.ones((len(lidar_point_coord_velodyne)))
+    lidar_point_coord_velodyne = np.hstack((lidar_point_coord_velodyne, np.ones((len(lidar_point_coord_velodyne))).reshape(-1, 1)))
     # Remove points behind velodyne sensor.
     lidar_point_coord_velodyne = lidar_point_coord_velodyne[lidar_point_coord_velodyne[:, 0] >=0, :]
     
