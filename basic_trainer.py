@@ -99,7 +99,10 @@ class Trainer:
             outputs = self.models['depth_decoder'](features)
             disp = outputs[("disp", 0)]
             disp = F.interpolate(disp, [self.height, self.width], mode="bilinear", align_corners=False)
-            display_depth_map(disp, self.height, self.width)
+            
+            if(self.display_predictions):
+                display_depth_map(disp, self.height, self.width)
+            
             _, depths = disp_to_depth(disp, 0.1, 100)
             outputs[("depths", 0)] = depths
             
