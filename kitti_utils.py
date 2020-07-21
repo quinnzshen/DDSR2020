@@ -60,7 +60,7 @@ def read_calibration_file(path):
 
 def compute_image_from_velodyne_matrices(calibration_dir):
     """
-    This function computes the translation matrix to project 3D lidar points into the 2D image plane.
+    This function computes the transformation matrix to project 3D lidar points into the 2D image plane.
     :param [String] calibration_dir: Directory to folder containing camera/lidar calibration files
     :return:  dictionary of numpy.arrays of shape [4, 4] that converts 3D lidar points to 2D image plane for each camera
     (keys: stereo_left, stereo_right)
@@ -285,7 +285,7 @@ def string_to_nano(time_string):
 
 def get_relative_pose(scene_path, target, source):
     """
-    Computes relative pose matrix [4x4] between the 2 given frames in a scene.
+    Computes relative pose matrix [4x4] between the 2 given frames in a scene (frames must be consecutive).
     By multiplying, transforms target coordinates into source coordinates.
     :param [str] scene_path: Path name to the scene folder
     :param [int] target : The target frame number

@@ -194,3 +194,15 @@ def test_get_relative_pose():
         [-0.002787, 0.007216, 0.99997, -0.82535],
         [0., 0., 0., 1.]
     ], dtype=np.float32), rtol=1e-4)
+
+
+def test_get_pose():
+    pose_zero = ku.get_pose(EXAMPLE_SCENE_PATH, 0)
+    assert np.allclose(pose_zero, np.eye(4))
+    pose_five = ku.get_pose(EXAMPLE_SCENE_PATH, 5)
+    test_arr = np.array([[ 9.99792635e-01, 1.81311052e-02, 9.26876627e-03, 9.47578682e-03],
+                         [-1.81172267e-02, 9.99834597e-01, -1.41100562e-03, 7.62027617e-03],
+                         [-9.29586589e-03, 1.41093857e-03, 9.99955773e-01, -3.05062038e+00],
+                         [0.00000000e+00, 0.00000000e+00, 0.00000000e+00, 1.00000000e+00]])
+    assert np.allclose(test_arr, pose_five)
+test_get_pose()

@@ -26,7 +26,7 @@ def generate_lidar_point_coord_camera_image(lidar_point_coord_velodyne, camera_i
     
     # Project points to image plane.
     lidar_point_coord_camera_image = np.dot(camera_image_from_velodyne, lidar_point_coord_velodyne.T).T
-    # lidar_point_coord_camera_image = lidar_point_coord_camera_image[lidar_point_coord_camera_image[:, 2] > 0]
+    
     lidar_point_coord_camera_image[:, :2] = lidar_point_coord_camera_image[:, :2] / lidar_point_coord_camera_image[:, 2][..., np.newaxis]
     
     # Round X and Y pixel coordinates to int.
