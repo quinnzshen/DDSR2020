@@ -15,22 +15,28 @@ import PIL.Image as pil
 import matplotlib as mpl
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt
+import yaml
 warnings.filterwarnings("ignore")
 
 
 class Trainer:
-    def __init__(self):
+    def __init__(self, config_filename):
+        
+        #Config setup
+        with open(config_filename) as file:
+            self.config = yaml.load(file, Loader=yaml.Loader)
+        
         #GPU/CPU setup
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-        #Set up dataloader for one frame.
-        train_config_path = 'configs/oneframe_overfit.yml'
+        #Set up dataloader
+        train_config_path = self.config["train_config_path"]
         self.dataset = KittiDataset.init_from_config(train_config_path)
         
         #Models
         self.models = {}
-        self.models['resnet_encoder'] = ResnetEncoder(18, pretrained = True).to(self.device)
-        self.scales = range(1)
+        self.models['resnet_encoder'] = ResnetEncoder(self.config["encoder_layers"], pretrained = True).to(self.device)
+        self.scales = range(self.config["num_scales"])
         self.models['depth_decoder'] = DepthDecoder(num_ch_enc = self.models['resnet_encoder'].num_ch_enc, scales=self.scales).to(self.device)
 
         #Parameters
@@ -39,36 +45,49 @@ class Trainer:
         parameters_to_train += list(self.models['depth_decoder'].parameters())
 
         #Optimizer
-        learning_rate = 0.0001
+        learning_rate = self.config["learning_rate"]
         self.optimizer = optim.Adam(parameters_to_train, learning_rate)
 
-        #Scheduler
-        scheduler_step_size = 15
-        self.lr_scheduler = optim.lr_scheduler.StepLR(self.optimizer, scheduler_step_size, 0.1)
+        #Learning rate scheduler
+        scheduler_step_size = self.config["scheduler_step_size"]
+        weight_decay = self.config["weight_decay"]
+        self.lr_scheduler = optim.lr_scheduler.StepLR(self.optimizer, scheduler_step_size, weight_decay)
         
+        #Image dimensions
+        self.width = self.config["width"]
+        self.height = self.config["width"]
+        
+        #Epoch and batch info
+        self.num_epochs = self.config["num_epochs"]
+        self.batch_size = self.config["batch_size"]
+        
+        #Display Predictions
+        self.display_predictions = self.config["display_predictions"]
+    
     def train(self):
-        self.width = 1280
-        self.height = 384
-        epochs = 100
+        
         self.writer = SummaryWriter()
-        for self.epoch in range (epochs):
+        
+        for self.epoch in range (self.num_epochs):
             self.run_epoch()
+        
         self.writer.close()
+        
         """self.save_model()
         print('Model saved.')"""
         
     def run_epoch(self):
+        
         start_time = time.time()
         print("Starting epoch {}".format(self.epoch+1), end=", ")
         self.lr_scheduler.step()
         self.models['resnet_encoder'].train()
         self.models['depth_decoder'].train()
         
-        batch_size = 1
         start_tracker = 0
-        end_tracker = batch_size
+        end_tracker = self.batch_size
         
-        num_batches = math.ceil(len(self.dataset)/batch_size)
+        num_batches = math.ceil(len(self.dataset)/self.batch_size)
         
         #Iterate through batches
         for batch_idx in range(num_batches):
@@ -124,7 +143,7 @@ class Trainer:
                 }
 
             losses = calc_loss(loss_inputs, loss_outputs)
-            self.writer.add_scalar('loss', losses.item(), self.epoch*batch_size + batch_idx)
+            self.writer.add_scalar('loss', losses.item(), self.epoch*self.batch_size + batch_idx)
             #Back Propogate
             self.optimizer.zero_grad()
             losses.backward()
@@ -132,13 +151,13 @@ class Trainer:
 
             if end_tracker == len(self.dataset):
                 start_tracker = 0
-                end_tracker = batch_size
+                end_tracker = self.batch_size
                 break
             else:
-                start_tracker+=batch_size
+                start_tracker+=self.sebatch_size
                 
-            if (end_tracker+batch_size) <= len(self.dataset):
-                end_tracker += batch_size
+            if (end_tracker + self.batch_size) <= len(self.dataset):
+                end_tracker += self.batch_size
             else:
                 end_tracker = len(self.dataset)
         
@@ -190,5 +209,5 @@ def display_depth_map(disp, height, width, index=0):
     plt.figure()    
     plt.imshow(im)
     
-test = Trainer()
+test = Trainer("configs/oneframe_model.yml")
 test.train()
