@@ -31,14 +31,12 @@ def reproject_source_to_target(tgt_intrinsic, src_intrinsic, lidar_point_coord_c
     # Homogenize image frame target lidar point coordinates
     lidar_point_coord_camera_image_tgt = np.hstack((lidar_point_coord_camera_image_tgt[:, :2], np.ones((len(lidar_point_coord_camera_image_tgt), 1))))
     # Project target lidar points from image frame into world frame.
-    lidar_point_coord_world = (np.linalg.inv(src_intrinsic) @ lidar_point_coord_camera_image_tgt.T).T * depth
+    lidar_point_coord_world = lidar_point_coord_camera_image_tgt @ np.linalg.inv(tgt_intrinsic).T * depth
     # Homogenize world frame lidar point coordinates.
     lidar_point_coord_world = np.hstack((lidar_point_coord_world, np.ones((len(lidar_point_coord_world), 1))))
-    # Convert target intrinsic matrix into 3x4.
-    tgt_intrinsic = np.hstack((tgt_intrinsic, np.array([[0.], [0.], [0.]])))
     # Project world frame lidar points into source image frame
-    lidar_point_coord_camera_image_src = (tgt_intrinsic @ relative_pose @ lidar_point_coord_world.T).T
-
+    lidar_point_coord_camera_image_src = (lidar_point_coord_world @ relative_pose.T)[:, :3] @ src_intrinsic.T
+    lidar_point_coord_camera_image_src = lidar_point_coord_camera_image_src[lidar_point_coord_camera_image_src[:, 2] > 0]
     lidar_point_coord_camera_image_src = lidar_point_coord_camera_image_src[:, :2] / lidar_point_coord_camera_image_src[:, 2].reshape(-1, 1)
     # Round image frame target lidar points and image frame source lidar points.
     lidar_point_coord_camera_image_src = np.round(lidar_point_coord_camera_image_src, decimals=0).astype(int)

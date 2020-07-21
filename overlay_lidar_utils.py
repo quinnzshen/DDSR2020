@@ -63,7 +63,7 @@ def normalize_depth(lidar_point_coord_camera_image):
     lidar_point_coord_camera_image = lidar_point_coord_camera_image.astype('float32')
     max = lidar_point_coord_camera_image[:, 2].max()
     min = lidar_point_coord_camera_image[:, 2].min()
-    lidar_point_coord_camera_image[:, 2] = (lidar_point_coord_camera_image[:, 2] - min)/(max-min)
+    lidar_point_coord_camera_image[:, 2] = (lidar_point_coord_camera_image[:, 2]-min) / (max-min)
     return lidar_point_coord_camera_image
 
 
