@@ -35,7 +35,8 @@ class Trainer:
         
         #Models
         self.models = {}
-        self.models['resnet_encoder'] = ResnetEncoder(self.config["encoder_layers"], pretrained = True).to(self.device)
+        self.pretrained = self.config["pretrained"]
+        self.models['resnet_encoder'] = ResnetEncoder(self.config["encoder_layers"], pretrained = self.pretrained).to(self.device)
         self.scales = range(self.config["num_scales"])
         self.models['depth_decoder'] = DepthDecoder(num_ch_enc = self.models['resnet_encoder'].num_ch_enc, scales=self.scales).to(self.device)
 
@@ -157,7 +158,7 @@ class Trainer:
                 end_tracker = self.batch_size
                 break
             else:
-                start_tracker+=self.sebatch_size
+                start_tracker += self.batch_size
                 
             if (end_tracker + self.batch_size) <= len(self.dataset):
                 end_tracker += self.batch_size
