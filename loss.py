@@ -166,14 +166,14 @@ def process_depth(src_images, depths, poses, tgt_intr, src_intr, img_shape):
     [num_source_imgs, batch_size, 3, H, W], and the second containing binary masks recording which pixels were able to
     be reprojected back onto target, in format [num_source_imgs, 1, batch_size, H, W]
     """
-    reprojected = torch.full((len(src_images), len(depths), 3, img_shape[0], img_shape[1]), 127, dtype=torch.float)
-    masks = torch.zeros((len(src_images), len(depths), 1, img_shape[0], img_shape[1]), dtype=torch.bool)
+    reprojected = torch.full((len(src_images), len(depths), 3, img_shape[0], img_shape[1]), 127, dtype=torch.float, device=poses.device)
+    masks = torch.zeros((len(src_images), len(depths), 1, img_shape[0], img_shape[1]), dtype=torch.bool, device=poses.device)
 
     # Creates an array of all image coordinates: [0, 0], [1, 0], [2, 0], etc.
-    img_indices = torch.ones((img_shape[0] * img_shape[1], 3))
-    img_coords = torch.from_numpy(np.indices(img_shape).ravel().reshape(-1, 2, order="F"))
-    img_indices[:, 1] = img_coords[:, 0]
-    img_indices[:, 0] = img_coords[:, 1]
+    img_indices = torch.ones((img_shape[0] * img_shape[1], 3), device=poses.device)
+    img_coords = torch.meshgrid([torch.arange(img_shape[0]), torch.arange(img_shape[1])])
+    img_indices[:, 1] = img_coords[0].flatten()
+    img_indices[:, 0] = img_coords[1].flatten()
 
     # Transposes intrinsic matrices, also inverting those that need to be inverted
     tgt_intr_torch_T = tgt_intr.transpose(1, 2)
@@ -186,11 +186,11 @@ def process_depth(src_images, depths, poses, tgt_intr, src_intr, img_shape):
     for i in range(len(src_images)):
         # Iterates through all images in batch
         for j in range(len(depths)):
-            world_coords = torch.ones(img_indices.shape[0], 4)
+            world_coords = torch.ones(img_indices.shape[0], 4, device=poses.device)
 
             world_coords[:, :3] = img_indices @ tgt_intr_inv_torch_T[j] * depths[j, 0].view(-1, 1)
 
-            src_coords = torch.empty(img_indices.shape[0], 5)
+            src_coords = torch.empty(img_indices.shape[0], 5, device=poses.device)
             src_coords[:, 3:] = img_indices[:, :2]
 
             src_coords[:, :3] = (world_coords @ t_poses[i, j])[:, :3] @ src_intr_torch_T[i, j]

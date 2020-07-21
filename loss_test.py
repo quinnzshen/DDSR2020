@@ -97,30 +97,31 @@ def test_calc_loss():
 
 
 def test_process_depth():
-    src_img1 = torch.ones(3, 2, 3)
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    src_img1 = torch.ones(3, 2, 3, device=device)
     src_img1[:, 0, 0] = 5
 
     source_imgs1 = src_img1.repeat(2, 1, 1, 1, 1)
-    depths1 = torch.ones(1, 1, 2, 3)
-    poses1 = torch.eye(4).repeat(2, 1, 1, 1)
-    tgt_intrs1 = torch.eye(3, dtype=torch.float).reshape(1, 3, 3)
-    src_intrs1 = torch.cat((tgt_intrs1[0], torch.zeros(3, 3)), dim=0).reshape(2, 1, 3, 3)
+    depths1 = torch.ones(1, 1, 2, 3, device=device)
+    poses1 = torch.eye(4, device=device).repeat(2, 1, 1, 1)
+    tgt_intrs1 = torch.eye(3, dtype=torch.float, device=device).reshape(1, 3, 3)
+    src_intrs1 = torch.cat((tgt_intrs1[0], torch.zeros(3, 3, device=device)), dim=0).reshape(2, 1, 3, 3)
 
     reproj1, mask1 = process_depth(source_imgs1, depths1, poses1, tgt_intrs1, src_intrs1,
                                    (src_img1.shape[1], src_img1.shape[2]))
 
     torch.testing.assert_allclose(reproj1[0], src_img1)
-    torch.testing.assert_allclose(reproj1[1], torch.full((1, 3, 2, 3), 127, dtype=torch.float))
-    torch.testing.assert_allclose(mask1[0].float(), torch.ones(1, 1, 2, 3))
-    torch.testing.assert_allclose(mask1[1].float(), torch.zeros(1, 1, 2, 3))
+    torch.testing.assert_allclose(reproj1[1], torch.full((1, 3, 2, 3), 127, dtype=torch.float, device=device))
+    torch.testing.assert_allclose(mask1[0].float(), torch.ones(1, 1, 2, 3, device=device))
+    torch.testing.assert_allclose(mask1[1].float(), torch.zeros(1, 1, 2, 3, device=device))
 
-    source_imgs2 = torch.arange(120, dtype=torch.float).reshape(1, 2, 3, 4, 5)
+    source_imgs2 = torch.arange(120, dtype=torch.float, device=device).reshape(1, 2, 3, 4, 5)
 
-    tgt_intrs2 = torch.eye(3, dtype=torch.float).repeat(2, 1, 1)
+    tgt_intrs2 = torch.eye(3, dtype=torch.float, device=device).repeat(2, 1, 1)
     tgt_intrs2[1, :2, 2] = 5
     src_intrs2 = tgt_intrs2.reshape(1, 2, 3, 3)
-    depths2 = torch.arange(40).reshape(2, 1, 4, 5)
-    poses2 = torch.eye(4).repeat(1, 2, 1, 1)
+    depths2 = torch.arange(40, device=device).reshape(2, 1, 4, 5)
+    poses2 = torch.eye(4, device=device).repeat(1, 2, 1, 1)
     poses2[0, :, 0, 1] = 0.4
     poses2[0, 0, 1, 3] = 5
 
@@ -153,7 +154,7 @@ def test_process_depth():
                                [[127.0000, 127.0000, 100.0000, 101.0000, 102.0000],
                                 [127.0000, 127.0000, 105.0000, 106.0000, 107.0000],
                                 [127.0000, 127.0000, 111.0000, 112.0000, 113.0000],
-                                [127.0000, 115.0000, 116.0000, 117.0000, 118.0000]]]]])
+                                [127.0000, 115.0000, 116.0000, 117.0000, 118.0000]]]]], device=device)
 
     torch.testing.assert_allclose(reproj2, exp_ans2)
     exp_mask2 = torch.tensor([[[[[False, False, True, True, True],
@@ -164,5 +165,5 @@ def test_process_depth():
                                [[[False, False, True, True, True],
                                  [False, False, True, True, True],
                                  [False, False, True, True, True],
-                                 [False, True, True, True, True]]]]])
+                                 [False, True, True, True, True]]]]], device=device)
     torch.testing.assert_allclose(mask2.float(), exp_mask2.float())
