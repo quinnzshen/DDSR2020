@@ -42,7 +42,8 @@ def visualize_error(error_array, image, fig_h=20, fig_w=20, alpha=.6, s=15):
     a grayscaled version of the original image. The combined visualization is then displayed.
     This allows users to see where the predicted depth is accurate and inaccurate compared to the "true" 
     groundtruth LiDAR depth
-    :param [numpy.array] error_array: an [N, 3] array containing # of LiDAR points within the image, x position, y position, and abs difference between predicted and LiDAR depth
+    :param [numpy.array] error_array: an [N, 3] array containing # of LiDAR points within the image, x position, y position, 
+    and abs difference between predicted and LiDAR depth
     :param [numpy.array] image: an array of the original RGB image
     :param [int] fig_h: the height of the figure that will be displayed
     :param [int] fig_w: the width of the figure that will be displayed
