@@ -11,8 +11,10 @@ def compute_error(depth_image_array, lidar_points):
     This function computes the metrics of the loss and allows an understanding of how well the model is
     predicting depth compared to the "true" groundtruth LiDAR depth while also returning an array of the L1 loss
     at each LiDAR point
-    :param [numpy.array] depth_image_array: an array where each value within the array represents the predicted depth of a pixel within the image
-    :param [numpy.array] lidar_points: an [N, 4] array containing # of LiDAR points within the image, x position, y position, LiDAR depth, and reflectivity
+    :param [numpy.array] depth_image_array: an array where each value within the array represents the 
+    predicted depth of a pixel within the image
+    :param [numpy.array] lidar_points: an [N, 4] array containing # of LiDAR points within the image,
+    x position, y position, LiDAR depth, and reflectivity
     :return [float] mean_diff: avg abs difference between predicted and LiDAR depth for the entire image
             [float] max_diff: max difference between predicted and LiDAR depth for the entire image
             [float] min_diff: min difference between predicted and LiDAR depth for the entire image
