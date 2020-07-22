@@ -18,7 +18,8 @@ def compute_error(depth_image_array, lidar_points):
     :return [float] mean_diff: avg abs difference between predicted and LiDAR depth for the entire image
             [float] max_diff: max difference between predicted and LiDAR depth for the entire image
             [float] min_diff: min difference between predicted and LiDAR depth for the entire image
-            [numpy.array] final_error_array: an [N, 3] array containing # of LiDAR points within the image, x position, y position, and abs difference between predicted and LiDAR depth
+            [numpy.array] final_error_array: an [N, 3] array containing # of LiDAR points within the image, x position,
+            y position, and abs difference between predicted and LiDAR depth
     """
     total_diff = 0
     max_diff = 0
