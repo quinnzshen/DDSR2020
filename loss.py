@@ -188,21 +188,37 @@ def process_depth(src_images, depths, poses, tgt_intr, src_intr, img_shape):
     for i in range(len(src_images)):
         # Iterates through all images in batch
         for j in range(len(depths)):
-            world_coords = torch.ones(img_indices.shape[0], 4, device=poses.device)
+            world_coords = torch.cat((img_indices @ tgt_intr_inv_torch_T[j] * depths[j, 0].view(-1, 1),
+                                      torch.ones(img_indices.shape[0], 1, device=poses.device)), dim=1)
 
-            world_coords[:, :3] = img_indices @ tgt_intr_inv_torch_T[j] * depths[j, 0].view(-1, 1)
-
-            src_coords = torch.empty(img_indices.shape[0], 5, device=poses.device)
-            src_coords[:, 3:] = img_indices[:, :2]
-
-            src_coords[:, :3] = (world_coords @ t_poses[i, j])[:, :3] @ src_intr_torch_T[i, j]
-
+            src_coords = torch.cat(((world_coords @ t_poses[i, j])[:, :3] @ src_intr_torch_T[i, j], img_indices[:, :2]),
+                                   dim=1)
             src_coords = src_coords[src_coords[:, 2] > 0]
-            src_coords[:, :2] = src_coords[:, :2] / src_coords[:, 2].reshape(-1, 1)
+
+            src_coords = torch.cat((src_coords[:, :2] / src_coords[:, 2].reshape(-1, 1), src_coords[:, 2:]), dim=1)
 
             src_coords = src_coords[
                 (src_coords[:, 1] >= 0) & (src_coords[:, 1] <= img_shape[0] - 1) & (src_coords[:, 0] >= 0) & (
-                            src_coords[:, 0] <= img_shape[1] - 1)]
+                        src_coords[:, 0] <= img_shape[1] - 1)]
+
+            # Bilinear sampling
+            # x = src_coords[:, 0]
+            # y = src_coords[:, 1]
+            # x12 = (torch.floor(x).long(), torch.ceil(x).long())
+            # y12 = (torch.floor(y).long(), torch.ceil(y).long())
+            # xdiff = (x - x12[0], x12[1] - x)
+            # ydiff = (y - y12[0], y12[1] - y)
+            # src_img = src_images[i, j]
+            # reprojected[i, j, :, src_coords[:, 4].long(), src_coords[:, 3].long()] = \
+            #     src_img[:, y12[0], x12[0]] * xdiff[1] * ydiff[1] + \
+            #     src_img[:, y12[0], x12[1]] * xdiff[0] * ydiff[1] + \
+            #     src_img[:, y12[1], x12[0]] * xdiff[1] * ydiff[0] + \
+            #     src_img[:, y12[1], x12[1]] * xdiff[0] * ydiff[0]
+            #
+            # int_coords = (x12[0] == x12[1]) | (y12[0] == y12[1])
+            # if int_coords.any():
+            #     rounded_coords = src_coords[int_coords].round().long()
+            #     reprojected[i, j, :, rounded_coords[:, 4], rounded_coords[:, 3]] = src_img[:, rounded_coords[:, 1], rounded_coords[:, 0]].float()
 
             # Bilinear sampling
             x = src_coords[:, 0]
