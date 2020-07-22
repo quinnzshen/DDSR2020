@@ -144,8 +144,7 @@ def test_depth_model(image_path, model_name, **kwargs):
             # Saving numpy file
             output_name = os.path.splitext(os.path.basename(image_path))[0]
             name_dest_npy = os.path.join(output_directory, "{}_disp.npy".format(output_name))
-            scaled_disp, _ = disp_to_depth(disp, 0.1, 100)
-
+            scaled_disp, depth_image = disp_to_depth(disp, 0.1, 100)
 
             # Saving colormapped depth image
             disp_resized_np = disp_resized.squeeze().cpu().numpy()
@@ -166,4 +165,6 @@ def test_depth_model(image_path, model_name, **kwargs):
                 f, axarr = plt.subplots(2,1)
                 axarr[0].imshow(mpimg.imread(image_path))
                 axarr[1].imshow(colormapped_im)
+
+            return disp, depth_image
     print('-> Done!')

@@ -6,7 +6,7 @@ import kitti_utils
 
 def generate_lidar_point_coord_camera_image(lidar_point_coord_velodyne, camera_image_from_velodyne, im_width, im_height):
     """
-    This function removes the lidar pointts that are not in the image plane, rounds x/y pixel values for lidar points, 
+    This function removes the lidar points that are not in the image plane, rounds x/y pixel values for lidar points, 
     and projects the lidar points onto the image plane
     :param [numpy.array] lidar_point_coord_velodyne: [N, 4], matrix of lidar points, each row is format [X, Y, Z, reflectivity]
     :param [numpy.array] camera_image_from_velodyne: [4, 4], converts 3D lidar points to 2D image plane
@@ -35,7 +35,7 @@ def generate_lidar_point_coord_camera_image(lidar_point_coord_velodyne, camera_i
     
     return lidar_point_coord_camera_image, filtered_index
 
-def plot_lidar_on_image(image, lidar_point_coord_camera_image):
+def plot_lidar_on_image(image, lidar_point_coord_camera_image, alpha=1.0):
     """
     This function plots lidar points on the image with colors corresponding to their depth(higher hsv hue val = further away) 
     :param [numpy.array] image: [H, W], contains image data
@@ -54,7 +54,7 @@ def plot_lidar_on_image(image, lidar_point_coord_camera_image):
     plt.imshow(image, cmap='Greys_r')
     
     # Plot lidar points.
-    plt.scatter(lidar_point_coord_camera_image[:, 0], lidar_point_coord_camera_image[:, 1], c = colors, s = 5)
+    plt.scatter(lidar_point_coord_camera_image[:, 0], lidar_point_coord_camera_image[:, 1], c = colors, s = 5, alpha=alpha)
     plt.show()
 
 def normalize_depth(lidar_point_coord_camera_image):
