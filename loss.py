@@ -139,7 +139,7 @@ def calc_loss(inputs, outputs, smooth_term=0.001):
     disp = outputs["disparities"]
     normalized_disp = disp / disp.mean(2, True).mean(3, True)
 
-    loss = loss + torch.mean(min_errors.data[min_errors < torch.finfo(torch.float).max])
+    loss = loss + torch.mean(min_errors[min_errors < torch.finfo(torch.float).max])
     if torch.isnan(loss):
         loss = 1
     loss = loss + smooth_term * calc_smooth_loss(normalized_disp, targets)
