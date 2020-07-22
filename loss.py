@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import numpy as np
 
 
@@ -168,15 +169,22 @@ def process_depth(src_images, depths, poses, tgt_intr, src_intr, img_shape):
     """
 
     reprojected = torch.full((len(src_images), len(depths), 3, img_shape[0], img_shape[1]), 127, dtype=torch.float, device=poses.device)
+    reprojectedd = reprojected.clone()
     masks = torch.zeros((len(src_images), len(depths), 1, img_shape[0], img_shape[1]), dtype=torch.bool, device=poses.device)
-
     # Creates an array of all image coordinates: [0, 0], [1, 0], [2, 0], etc.
-    img_ones = torch.ones((img_shape[0] * img_shape[1], 1), device=poses.device)
-    img_coords = torch.meshgrid([
-        torch.arange(img_shape[0], dtype=torch.float, device=poses.device),
-        torch.arange(img_shape[1], dtype=torch.float, device=poses.device)
-    ])
-    img_indices = torch.cat((img_coords[1].reshape(-1, 1), img_coords[0].reshape(-1, 1), img_ones), dim=1)
+    # img_ones = torch.full((img_shape[0] * img_shape[1],), 1, device=poses.device)
+    # img_coords = torch.meshgrid([
+    #     torch.arange(img_shape[0], dtype=torch.float, device=poses.device),
+    #     torch.arange(img_shape[1], dtype=torch.float, device=poses.device)
+    # ])
+    # img_indices = torch.cat((img_coords[1].reshape(-1, 1), img_coords[0].reshape(-1, 1), img_ones), dim=1)
+    # img_indices = torch.stack((img_coords[1].reshape(-1), img_coords[0].reshape(-1), img_ones), dim=1)
+    img_indices = torch.ones((img_shape[0] * img_shape[1], 3), device=poses.device)
+    img_coords = torch.from_numpy(np.indices(img_shape).ravel().reshape(-1, 2, order="F"))
+    img_indices[:, 1] = img_coords[:, 0]
+    img_indices[:, 0] = img_coords[:, 1]
+    print(img_indices.shape)
+    # torch.autograd.set_detect_anomaly(True)
 
     # Transposes intrinsic matrices, also inverting those that need to be inverted
     tgt_intr_torch_T = tgt_intr.transpose(1, 2)
@@ -206,29 +214,29 @@ def process_depth(src_images, depths, poses, tgt_intr, src_intr, img_shape):
                             src_coords[:, 0] <= img_shape[1] - 1)]
 
             # Bilinear sampling
-            x = src_coords[:, 0]
-            y = src_coords[:, 1]
-            x12 = (torch.floor(x).long(), torch.ceil(x).long())
-            y12 = (torch.floor(y).long(), torch.ceil(y).long())
-            xdiff = (x - x12[0], x12[1] - x)
-            ydiff = (y - y12[0], y12[1] - y)
-            src_img = src_images[i, j]
-            reprojected[i, j, :, src_coords[:, 4].long(), src_coords[:, 3].long()] = \
-                src_img[:, y12[0], x12[0]] * xdiff[1] * ydiff[1] + \
-                src_img[:, y12[0], x12[1]] * xdiff[0] * ydiff[1] + \
-                src_img[:, y12[1], x12[0]] * xdiff[1] * ydiff[0] + \
-                src_img[:, y12[1], x12[1]] * xdiff[0] * ydiff[0]
-
-            int_coords = (x12[0] == x12[1]) | (y12[0] == y12[1])
-            if int_coords.any():
-                rounded_coords = src_coords[int_coords].round().long()
-                reprojected[i, j, :, rounded_coords[:, 4], rounded_coords[:, 3]] = src_img[:, rounded_coords[:, 1], rounded_coords[:, 0]].float()
+            # x = src_coords[:, 0]
+            # y = src_coords[:, 1]
+            # x12 = (torch.floor(x).long(), torch.ceil(x).long())
+            # y12 = (torch.floor(y).long(), torch.ceil(y).long())
+            # xdiff = (x - x12[0], x12[1] - x)
+            # ydiff = (y - y12[0], y12[1] - y)
+            # src_img = src_images[i, j]
+            # reprojected[i, j, :, src_coords[:, 4].long(), src_coords[:, 3].long()] = \
+            #     src_img[:, y12[0], x12[0]] * xdiff[1] * ydiff[1] + \
+            #     src_img[:, y12[0], x12[1]] * xdiff[0] * ydiff[1] + \
+            #     src_img[:, y12[1], x12[0]] * xdiff[1] * ydiff[0] + \
+            #     src_img[:, y12[1], x12[1]] * xdiff[0] * ydiff[0]
+            #
+            # int_coords = (x12[0] == x12[1]) | (y12[0] == y12[1])
+            # if int_coords.any():
+            #     rounded_coords = src_coords[int_coords].round().long()
+            #     reprojected[i, j, :, rounded_coords[:, 4], rounded_coords[:, 3]] = src_img[:, rounded_coords[:, 1], rounded_coords[:, 0]].float()
 
             # Using F.grid_sample
-            # pic_coords = torch.empty((1, img_shape[0], img_shape[1], 2))
-            # pic_coords[0, src_coords[:, 4].long(), src_coords[:, 3].long()] = 2 * src_coords[:, :2] / torch.tensor([img_shape[1], img_shape[0]]) - 1
-            # reprojected[i, j] = F.grid_sample(src_images[i, j].unsqueeze(0), pic_coords, align_corners=True)
+            pic_coords = torch.empty((1, img_shape[0], img_shape[1], 2), device=poses.device)
+            pic_coords[0, src_coords[:, 4].long(), src_coords[:, 3].long()] = 2 * src_coords[:, :2] / torch.tensor([img_shape[1], img_shape[0]], device=poses.device) - 1
+            reprojectedd[i, j] = F.grid_sample(src_images[i, j].unsqueeze(0), pic_coords, align_corners=True)
 
             masks[i, j, 0, src_coords[:, 4].long(), src_coords[:, 3].long()] = 1
 
-    return reprojected, masks
+    return reprojectedd, masks

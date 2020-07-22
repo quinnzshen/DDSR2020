@@ -74,7 +74,7 @@ def test_get_mask():
 
 def test_calc_loss():
     input1 = {
-        "targets": torch.zeros(3, 3, 4, 5),
+        "targets": torch.zeros(3, 3, 4, 5, requires_grad=True),
         "sources": torch.ones(3, 3, 3, 4, 5)
     }
     output1 = {
@@ -83,7 +83,7 @@ def test_calc_loss():
         "initial_masks": torch.ones(3, 3, 1, 4, 5, dtype=torch.bool)
     }
     torch.testing.assert_allclose(calc_loss(input1, output1), torch.tensor(0).float())
-
+    calc_loss(input1, output1).backward()
     input2 = {
         "targets": torch.arange(108, dtype=torch.float).reshape(2, 3, 3, 6),
         "sources": torch.zeros(2, 2, 3, 3, 6)
@@ -98,7 +98,7 @@ def test_calc_loss():
 
 def test_process_depth():
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    src_img1 = torch.ones(3, 2, 3, device=device)
+    src_img1 = torch.ones(3, 2, 3, device=device, requires_grad=True)
     src_img1[:, 0, 0] = 5
 
     source_imgs1 = src_img1.repeat(2, 1, 1, 1, 1)
@@ -109,7 +109,7 @@ def test_process_depth():
 
     reproj1, mask1 = process_depth(source_imgs1, depths1, poses1, tgt_intrs1, src_intrs1,
                                    (src_img1.shape[1], src_img1.shape[2]))
-
+    reproj1.mean().backward()
     torch.testing.assert_allclose(reproj1[0], src_img1)
     torch.testing.assert_allclose(reproj1[1], torch.full((1, 3, 2, 3), 127, dtype=torch.float, device=device))
     torch.testing.assert_allclose(mask1[0].float(), torch.ones(1, 1, 2, 3, device=device))
