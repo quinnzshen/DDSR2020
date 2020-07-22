@@ -82,8 +82,8 @@ def calc_smooth_loss(disp, image):
     image_dx = torch.mean(torch.abs(image[:, :, :, 1:] - image[:, :, :, :-1]), 1, True)
     image_dy = torch.mean(torch.abs(image[:, :, 1:, :] - image[:, :, :-1, :]), 1, True)
 
-    disp_dx *= torch.exp(-image_dx)
-    disp_dy *= torch.exp(-image_dy)
+    disp_dx = disp_dx * torch.exp(-image_dx)
+    disp_dy = disp_dy * torch.exp(-image_dy)
 
     return disp_dx.mean() + disp_dy.mean()
 
@@ -136,11 +136,10 @@ def calc_loss(inputs, outputs, smooth_term=0.001):
 
     # Auto-masking
     min_errors[~get_mask(targets, sources, min_errors)] = torch.finfo(torch.float).max
-
     disp = outputs["disparities"]
     normalized_disp = disp / disp.mean(2, True).mean(3, True)
 
-    loss = loss + torch.mean(min_errors[min_errors < torch.finfo(torch.float).max])
+    loss = loss + torch.mean(min_errors.data[min_errors < torch.finfo(torch.float).max])
     if torch.isnan(loss):
         loss = 1
     loss = loss + smooth_term * calc_smooth_loss(normalized_disp, targets)
