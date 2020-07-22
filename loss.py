@@ -130,12 +130,11 @@ def calc_loss(inputs, outputs, smooth_term=0.001):
 
     reproj_errors = torch.stack([calc_pe(reprojections[i], targets).squeeze(1) for i in range(len(reprojections))])
 
-    reproj_errors.data[~reproj_masks.squeeze(2)] = torch.finfo(torch.float).max
+    reproj_errors[~reproj_masks.squeeze(2)] = torch.finfo(torch.float).max
     min_errors, _ = torch.min(reproj_errors, dim=0)
 
     # Auto-masking
-    min_errors.data[~get_mask(targets, sources, min_errors)] = torch.finfo(torch.float).max
-
+    min_errors[~get_mask(targets, sources, min_errors)] = torch.finfo(torch.float).max
     disp = outputs["disparities"]
     normalized_disp = disp / disp.mean(2, True).mean(3, True)
 
