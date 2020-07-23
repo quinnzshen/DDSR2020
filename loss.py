@@ -141,7 +141,7 @@ def calc_loss(inputs, outputs, smooth_term=0.001):
 
     loss = loss + torch.mean(min_errors[min_errors < torch.finfo(torch.float).max])
     if torch.isnan(loss):
-        loss = 1
+        loss = 10
     loss = loss + smooth_term * calc_smooth_loss(normalized_disp, targets)
 
     return loss
