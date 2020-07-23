@@ -77,8 +77,8 @@ class Trainer:
 
         self.writer.close()
 
-        """self.save_model()
-        print('Model saved.')"""
+        self.save_model()
+        print('Model saved.')
 
     def run_epoch(self):
 
@@ -107,8 +107,9 @@ class Trainer:
             disp = outputs[("disp", 0)]
             disp = F.interpolate(disp, [self.height, self.width], mode="bilinear", align_corners=False)
 
-            if self.display_predictions:
-                display_depth_map(disp, self.height, self.width)
+
+            if batch_idx == 0 and self.display_predictions:
+                display_depth_map(disp, self.height, self.width, self.epoch)
 
             _, depths = disp_to_depth(disp, 0.1, 100)
             outputs[("depths", 0)] = depths
@@ -177,6 +178,7 @@ class Trainer:
                             }
 
             losses = calc_loss(loss_inputs, loss_outputs)
+            # print(losses)
             self.writer.add_scalar('loss', losses.item(), self.epoch * self.batch_size + batch_idx)
             # Back Propogate
             self.optimizer.zero_grad()
@@ -229,12 +231,14 @@ def disp_to_depth(disp, min_depth, max_depth):
     return scaled_disp, depth
 
 
-def display_depth_map(disp, height, width, index=0):
+def display_depth_map(disp, height, width, epoch, index=0):
     disp_resized = torch.nn.functional.interpolate(
         disp[index].unsqueeze(0), (height, width), mode="bilinear", align_corners=False)
 
     # Saving colormapped depth image
     disp_resized_np = disp_resized.squeeze().cpu().detach().numpy()
+    print(disp_resized_np.shape)
+    np.save(os.path.join("outdisp", f"{epoch}_disp.npy"), disp_resized_np)
     vmax = np.percentile(disp_resized_np, 95)
     normalizer = mpl.colors.Normalize(vmin=disp_resized_np.min(), vmax=vmax)
     mapper = cm.ScalarMappable(norm=normalizer, cmap='magma')
