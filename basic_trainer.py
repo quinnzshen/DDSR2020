@@ -3,6 +3,7 @@ from third_party.monodepth2.ResnetEncoder import ResnetEncoder
 from third_party.monodepth2.DepthDecoder import DepthDecoder
 import torch
 import torch.nn.functional as F
+from torchvision import transforms
 import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
 import time
@@ -19,16 +20,14 @@ import yaml
 
 warnings.filterwarnings("ignore")
 
-
 class Trainer:
     def __init__(self, config_filename):
 
         # Config setup
         with open(config_filename) as file:
-            self.config = yaml.load(file, Loader=yaml.Loader)
-
+            self.config = yaml.load(file, Loader=yaml.Loader)\
         # GPU/CPU setup
-        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        self.device = torch.device("cpu")
 
         # Set up dataloader
         train_config_path = self.config["train_config_path"]
@@ -74,11 +73,13 @@ class Trainer:
 
         for self.epoch in range(self.num_epochs):
             self.run_epoch()
+            self.save_model()
+            print('Model saved. Epoch {}'.format(self.epoch))
 
         self.writer.close()
 
-        """self.save_model()
-        print('Model saved.')"""
+        self.save_model()
+        print('Model saved.')
 
     def run_epoch(self):
 
@@ -106,10 +107,13 @@ class Trainer:
             outputs = self.models['depth_decoder'](features)
             disp = outputs[("disp", 0)]
             disp = F.interpolate(disp, [self.height, self.width], mode="bilinear", align_corners=False)
-
-            if self.display_predictions:
-                display_depth_map(disp, self.height, self.width)
-
+            
+            #if self.display_predictions:
+            #    display_depth_map(disp, self.height, self.width)
+            
+            #Tensorboard images
+            self.add_disparity_map_to_tensorboard(disp, batch_idx, start_tracker, 0)
+ 
             _, depths = disp_to_depth(disp, 0.1, 100)
             outputs[("depths", 0)] = depths
 
@@ -147,6 +151,7 @@ class Trainer:
                  for i in range(start_tracker, end_tracker)])
             rel_pose_forward = torch.matmul(torch.inverse(tgt_poses), temporal_forward_poses)
             rel_pose_backward = torch.matmul(torch.inverse(tgt_poses), temporal_backward_poses)
+            
             poses = torch.stack((rel_pose_stereo, rel_pose_forward, rel_pose_backward))
 
             # Intrinsics
@@ -156,7 +161,6 @@ class Trainer:
             src_intrinsics_stereo = torch.cat([torch.tensor(self.dataset[i]["intrinsics"]["stereo_right"],
                                                             device=self.device, dtype=torch.float32).unsqueeze(0) for i
                                                in range(start_tracker, end_tracker)])
-            src_intrinsics = torch.stack((src_intrinsics_stereo, tgt_intrinsics, tgt_intrinsics))
 
             # Adjust intrinsics based on input size
             for i in range(0, curr_batch_size):
@@ -164,7 +168,9 @@ class Trainer:
                 tgt_intrinsics[i][1] = tgt_intrinsics[i][1] * (self.height / 375)
                 src_intrinsics_stereo[i][0] = src_intrinsics_stereo[i][0] * (self.width / 1242)
                 src_intrinsics_stereo[i][1] = src_intrinsics_stereo[i][1] * (self.height / 375)
-
+            
+            src_intrinsics = torch.stack((src_intrinsics_stereo, tgt_intrinsics, tgt_intrinsics))
+            
             reprojected, mask = process_depth(sources, depths, poses, tgt_intrinsics, src_intrinsics,
                                               (self.height, self.width))
 
@@ -178,11 +184,13 @@ class Trainer:
 
             losses = calc_loss(loss_inputs, loss_outputs)
             self.writer.add_scalar('loss', losses.item(), self.epoch * self.batch_size + batch_idx)
+            
             # Back Propogate
             self.optimizer.zero_grad()
             losses.backward()
             self.optimizer.step()
-
+            
+            #Adjust trackers for batches
             if end_tracker == len(self.dataset):
                 start_tracker = 0
                 end_tracker = self.batch_size
@@ -216,6 +224,16 @@ class Trainer:
         save_path = os.path.join(save_folder, "{}.pth".format("adam"))
         torch.save(self.optimizer.state_dict(), save_path)
 
+    def add_disparity_map_to_tensorboard(self, disp, batch_idx, start_tracker, index):
+        disp_resized = torch.nn.functional.interpolate(
+        disp[index].unsqueeze(0), (self.height, self.width), mode="bilinear", align_corners=False)
+        disp_resized_np = disp_resized.squeeze().cpu().detach().numpy()
+        vmax = np.percentile(disp_resized_np, 95)
+        normalizer = mpl.colors.Normalize(vmin=disp_resized_np.min(), vmax=vmax)
+        mapper = cm.ScalarMappable(norm=normalizer, cmap='magma')
+        colormapped_im = (mapper.to_rgba(disp_resized_np)[:, :, :3] * 255).astype(np.uint8)
+        im = transforms.ToTensor()(colormapped_im)
+        self.writer.add_image('Epoch: {}, '.format(self.epoch) + 'Image: {}'.format(start_tracker), im, self.epoch * self.batch_size + batch_idx)
 
 def disp_to_depth(disp, min_depth, max_depth):
     """Convert network's sigmoid output into depth prediction
@@ -243,7 +261,6 @@ def display_depth_map(disp, height, width, index=0):
     plt.figure()
     plt.imshow(im)
 
-
-test = Trainer("configs/oneframe_model.yml")
+test = Trainer("configs/scene_model.yml")
 test.train()
 plt.show()

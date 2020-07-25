@@ -61,7 +61,6 @@ tgt_intrinsics = torch.cat([torch.tensor(dataset[2]["intrinsics"]["stereo_left"]
                                      dtype=torch.float32).unsqueeze(0)])
 src_intrinsics_stereo = torch.cat([torch.tensor(dataset[2]["intrinsics"]["stereo_right"],
                                             dtype=torch.float32).unsqueeze(0)])
-src_intrinsics = torch.stack((src_intrinsics_stereo, tgt_intrinsics))
 
 # Adjust intrinsics based on input size
 for i in range(0, 1):
@@ -69,9 +68,12 @@ for i in range(0, 1):
     tgt_intrinsics[i][1] = tgt_intrinsics[i][1] * (height / 375)
     src_intrinsics_stereo[i][0] = src_intrinsics_stereo[i][0] * (width / 1242)
     src_intrinsics_stereo[i][1] = src_intrinsics_stereo[i][1] * (height / 375)
+src_intrinsics = torch.stack((src_intrinsics_stereo, tgt_intrinsics))
 
 reprojected, mask = process_depth(sources, depths, poses, tgt_intrinsics, src_intrinsics,
                               (height, width))
+plt.imshow(target_image[0].permute(1,2,0)/255)
+plt.figure()
 plt.imshow(reprojected[0,0].permute(1,2,0)/255)
 plt.figure()
 plt.imshow(reprojected[1,0].permute(1,2,0)/255)
