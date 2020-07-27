@@ -10,14 +10,11 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
 from torchvision import transforms
-import warnings
 import yaml
 from dataloader import KittiDataset
 from loss import process_depth, calc_loss
 from third_party.monodepth2.ResnetEncoder import ResnetEncoder
 from third_party.monodepth2.DepthDecoder import DepthDecoder
-
-warnings.filterwarnings("ignore")
 
 class Trainer:
     def __init__(self, config_filename):
@@ -240,6 +237,6 @@ def disp_to_depth(disp, min_depth, max_depth):
     depth = 1 / scaled_disp
     return scaled_disp, depth
 
-test = Trainer("configs/oneframe_overfit.yml")
+test = Trainer("configs/oneframe_model.yml")
 test.train()
 plt.show()
