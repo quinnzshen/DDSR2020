@@ -112,6 +112,7 @@ def get_timestamp_nsec(sample_path, idx):
                 return iso_string_to_nanoseconds(line)
             count += 1
 
+
 def get_nearby_frames_data(path_name, idx, previous_frames, next_frames):
         """
         Given a specific index, return a dictionary containing information about the frame n frames before and after the target index
@@ -119,7 +120,7 @@ def get_nearby_frames_data(path_name, idx, previous_frames, next_frames):
         :param dataset_index [pd.DataFrame]: The dataframe containing the paths and indices of the data
         :param [int] previous_frames: Number of frames before the target frame that will be retrieved.
         :param [int] next_frames: Number of frames after the target frame that will be retrieved.
-        :return [dict]: Dictionary containing camera data of nearby frames, the key is the relative index and the value is the data.
+        :return [dict]: Dictionary containing camera data and pose of nearby frames, the key is the relative index and the value is the data.
                         (e.g. -1 would be the previous image, 2 would be the next-next image).
         """
         nearby_frames = {}
@@ -127,9 +128,13 @@ def get_nearby_frames_data(path_name, idx, previous_frames, next_frames):
             # We do not want to include the current frame in the nearby frames data.
             if relative_idx == 0:
                 continue
-
-            nearby_frames[relative_idx] = get_camera_data(path_name, idx + relative_idx)
+            try:
+                nearby_frames[relative_idx] = get_camera_data(path_name, idx + relative_idx)
+            except:
+                nearby_frames[relative_idx] = None
+        
         return nearby_frames
+
 
 
 def get_camera_data(path_name, idx):
