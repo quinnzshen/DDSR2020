@@ -243,6 +243,6 @@ def disp_to_depth(disp, min_depth, max_depth):
     depth = 1 / scaled_disp
     return scaled_disp, depth
 
-test = Trainer("configs/scene_model.yml")
+test = Trainer("configs/oneframe_overfit.yml")
 test.train()
 plt.show()
