@@ -7,6 +7,6 @@ scheduler_step_size: 15
 weight_decay: 0.1
 width: 1280
 height: 384
-num_epochs: 10
+num_epochs: 50
 batch_size: 1
 display_predictions: True

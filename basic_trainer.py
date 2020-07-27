@@ -12,7 +12,6 @@ import os
 from loss import process_depth, calc_loss
 import warnings
 import numpy as np
-import PIL.Image as pil
 import matplotlib as mpl
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt
@@ -25,9 +24,9 @@ class Trainer:
 
         # Config setup
         with open(config_filename) as file:
-            self.config = yaml.load(file, Loader=yaml.Loader)\
+            self.config = yaml.load(file, Loader=yaml.Loader)
         # GPU/CPU setup
-        self.device = torch.device("cpu")
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
         # Set up dataloader
         train_config_path = self.config["train_config_path"]
@@ -73,8 +72,6 @@ class Trainer:
 
         for self.epoch in range(self.num_epochs):
             self.run_epoch()
-            self.save_model()
-            print('Model saved. Epoch {}'.format(self.epoch))
 
         self.writer.close()
 
@@ -84,7 +81,9 @@ class Trainer:
     def run_epoch(self):
 
         start_time = time.time()
+        
         print("Starting epoch {}".format(self.epoch + 1), end=", ")
+        
         self.lr_scheduler.step()
         self.models['resnet_encoder'].train()
         self.models['depth_decoder'].train()
@@ -107,9 +106,6 @@ class Trainer:
             outputs = self.models['depth_decoder'](features)
             disp = outputs[("disp", 0)]
             disp = F.interpolate(disp, [self.height, self.width], mode="bilinear", align_corners=False)
-            
-            #if self.display_predictions:
-            #    display_depth_map(disp, self.height, self.width)
             
             #Tensorboard images
             self.add_disparity_map_to_tensorboard(disp, batch_idx, start_tracker, 0)
@@ -225,6 +221,7 @@ class Trainer:
         torch.save(self.optimizer.state_dict(), save_path)
 
     def add_disparity_map_to_tensorboard(self, disp, batch_idx, start_tracker, index):
+        """Add output disparity map to tensorbord"""
         disp_resized = torch.nn.functional.interpolate(
         disp[index].unsqueeze(0), (self.height, self.width), mode="bilinear", align_corners=False)
         disp_resized_np = disp_resized.squeeze().cpu().detach().numpy()
@@ -245,21 +242,6 @@ def disp_to_depth(disp, min_depth, max_depth):
     scaled_disp = min_disp + (max_disp - min_disp) * disp
     depth = 1 / scaled_disp
     return scaled_disp, depth
-
-
-def display_depth_map(disp, height, width, index=0):
-    disp_resized = torch.nn.functional.interpolate(
-        disp[index].unsqueeze(0), (height, width), mode="bilinear", align_corners=False)
-
-    # Saving colormapped depth image
-    disp_resized_np = disp_resized.squeeze().cpu().detach().numpy()
-    vmax = np.percentile(disp_resized_np, 95)
-    normalizer = mpl.colors.Normalize(vmin=disp_resized_np.min(), vmax=vmax)
-    mapper = cm.ScalarMappable(norm=normalizer, cmap='magma')
-    colormapped_im = (mapper.to_rgba(disp_resized_np)[:, :, :3] * 255).astype(np.uint8)
-    im = pil.fromarray(colormapped_im)
-    plt.figure()
-    plt.imshow(im)
 
 test = Trainer("configs/scene_model.yml")
 test.train()
