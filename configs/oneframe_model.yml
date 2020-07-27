@@ -9,4 +9,3 @@ width: 1280
 height: 384
 num_epochs: 50
 batch_size: 1
-display_predictions: True

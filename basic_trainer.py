@@ -63,9 +63,6 @@ class Trainer:
         self.num_epochs = self.config["num_epochs"]
         self.batch_size = self.config["batch_size"]
 
-        # Display Predictions
-        self.display_predictions = self.config["display_predictions"]
-
     def train(self):
 
         self.writer = SummaryWriter()
@@ -230,7 +227,7 @@ class Trainer:
         mapper = cm.ScalarMappable(norm=normalizer, cmap='magma')
         colormapped_im = (mapper.to_rgba(disp_resized_np)[:, :, :3] * 255).astype(np.uint8)
         im = transforms.ToTensor()(colormapped_im)
-        self.writer.add_image('Epoch: {}, '.format(self.epoch) + 'Image: {}'.format(start_tracker), im, self.epoch * self.batch_size + batch_idx)
+        self.writer.add_image('Epoch: {}, '.format(self.epoch+1) + 'Image: {}'.format(start_tracker+1), im, self.epoch * self.batch_size + batch_idx)
 
 def disp_to_depth(disp, min_depth, max_depth):
     """Convert network's sigmoid output into depth prediction
