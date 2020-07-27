@@ -45,8 +45,10 @@ def test_iso_string_to_nanoseconds():
 
 
 def test_get_timestamp_nsec():
-    assert ku.get_timestamp_nsec("data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/image_03/timestamps.txt", 3) == 1317046451221580544
-    assert ku.get_timestamp_nsec("data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/image_02/timestamps.txt", 5).dtype == np.int64
+    assert ku.get_timestamp_nsec("data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/image_03/timestamps.txt",
+                                 3) == 1317046451221580544
+    assert ku.get_timestamp_nsec("data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/image_02/timestamps.txt",
+                                 5).dtype == np.int64
 
 
 def test_get_camera_data():
@@ -114,38 +116,40 @@ def test_get_imu_dataframe():
 def kitti_root_directory():
     return 'data/kitti_example'
 
+
 @pytest.fixture
 def kitti_dataset_index():
-    test_data = {'path_name': ['data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/', 
+    test_data = {'path_name': ['data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/',
                                'data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/',
                                'data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/'],
                  'index': ['0', '1', '2']}
-    
-    return pd.DataFrame(test_data, columns = ['path_name', 'index'])
+
+    return pd.DataFrame(test_data, columns=['path_name', 'index'])
+
 
 def test_get_nearby_frames(kitti_root_directory, kitti_dataset_index):
     """
     Tests the return of get_nearby_frames in the kitti_utils.py
     """
-    dataset = KittiDataset(root_dir=kitti_root_directory, 
-                           dataset_index=kitti_dataset_index, 
+    dataset = KittiDataset(root_dir=kitti_root_directory,
+                           dataset_index=kitti_dataset_index,
                            previous_frames=2,
                            next_frames=2)
 
     # On index 0, we expect there to be data for the relative index +1 and an empty dictionary for the relative index -1
     expected_fields = ['camera_data', 'pose']
-    expected_camera_data_fields = ['stereo_left_image', 
-                       'stereo_left_shape', 
-                       'stereo_left_capture_time_nsec', 
-                       'stereo_right_image', 'stereo_right_shape', 
-                       'stereo_right_capture_time_nsec']
+    expected_camera_data_fields = ['stereo_left_image',
+                                   'stereo_left_shape',
+                                   'stereo_left_capture_time_nsec',
+                                   'stereo_right_image', 'stereo_right_shape',
+                                   'stereo_right_capture_time_nsec']
 
     data = dataset[0]
     # When idx = 0, [nearby_frames] keys: -1 and -2 should return empty dictionaries
     assert data['nearby_frames'][-1]['camera_data'] == {}
     assert data['nearby_frames'][-1]['pose'] == {}
     assert data['nearby_frames'][-2]['camera_data'] == {}
-    assert data['nearby_frames'][-2]['pose']  == {}
+    assert data['nearby_frames'][-2]['pose'] == {}
     # Keys for [nearby_frames] should be int values within range(-previous_frames, next_frames + 1) with exception of 0
     assert list(data['nearby_frames'].keys()) == [-2, -1, 1, 2]
     # Values of valid [nearby_frames] keys should be elements of [expected_fields]
@@ -153,16 +157,17 @@ def test_get_nearby_frames(kitti_root_directory, kitti_dataset_index):
     assert list(data['nearby_frames'][1]['camera_data'].keys()) == expected_camera_data_fields
     # Values of invalid [nearby_frames] keys should be empty dictionaries
     assert list(data['nearby_frames'][-1]['camera_data'].keys()) == []
-    
+
     data = dataset[1]
     # When idx = 0, [nearby_frames] keys: -1 should return camera data, while -2 should return an empty dictionary
     assert data['nearby_frames'][-1]['camera_data'] != {}
-    assert data['nearby_frames'][-2]['camera_data']  == {}
+    assert data['nearby_frames'][-2]['camera_data'] == {}
     # Keys for [nearby_frames] should be int values within range(-previous_frames, next_frames + 1) with exception of 0
     assert list(data['nearby_frames'].keys()) == [-2, -1, 1, 2]
     # Values of valid [nearby_frames] keys should be elements of [expected_fields]
     assert list(data['nearby_frames'][-1].keys()) == expected_fields
     assert list(data['nearby_frames'][1]['camera_data'].keys()) == expected_camera_data_fields
+
 
 def test_get_camera_intrinsic_dict():
     sample_cam_intrinsic_dict = ku.get_camera_intrinsic_dict(EXAMPLE_CALIBRATION_DIR)
@@ -200,9 +205,11 @@ def test_get_pose():
     pose_zero = ku.get_pose(EXAMPLE_SCENE_PATH, 0)
     assert np.allclose(pose_zero, np.eye(4))
     pose_five = ku.get_pose(EXAMPLE_SCENE_PATH, 5)
-    test_arr = np.array([[ 9.99792635e-01, 1.81311052e-02, 9.26876627e-03, 9.47578682e-03],
+    test_arr = np.array([[9.99792635e-01, 1.81311052e-02, 9.26876627e-03, 9.47578682e-03],
                          [-1.81172267e-02, 9.99834597e-01, -1.41100562e-03, 7.62027617e-03],
                          [-9.29586589e-03, 1.41093857e-03, 9.99955773e-01, -3.05062038e+00],
                          [0.00000000e+00, 0.00000000e+00, 0.00000000e+00, 1.00000000e+00]])
     assert np.allclose(test_arr, pose_five)
+
+
 test_get_pose()
