@@ -130,8 +130,10 @@ def get_nearby_frames_data(path_name, idx, previous_frames, next_frames):
             # We do not want to include the current frame in the nearby frames data.
             if relative_idx == 0:
                 continue
-
-            nearby_frames[relative_idx] = {'camera_data' : get_camera_data(path_name, idx + relative_idx), 'pose' : get_pose(path_name, idx + relative_idx)}
+            try:
+                nearby_frames[relative_idx] = {'camera_data' : get_camera_data(path_name, idx + relative_idx), 'pose' : get_pose(path_name, idx + relative_idx)}
+            except:
+                nearby_frames[relative_idx] = None
         return nearby_frames
 
 
