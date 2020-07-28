@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from dataloader import KittiDataset
+from kitti_dataset import KittiDataset
 import kitti_utils as ku
 
 EXAMPLE_SCENE_PATH = 'data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/'

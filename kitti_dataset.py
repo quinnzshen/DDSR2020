@@ -8,6 +8,7 @@ import os
 from kitti_utils import get_camera_data, get_lidar_data, get_nearby_frames_data, get_camera_intrinsic_dict, get_relative_rotation_stereo, get_relative_translation_stereo, compute_image_from_velodyne_matrices, get_relative_pose, get_pose
 from compute_photometric_error_utils import compute_relative_pose_matrix
 
+
 class KittiDataset(Dataset):
     def __init__(self, root_dir, dataset_index, previous_frames, next_frames):
         """

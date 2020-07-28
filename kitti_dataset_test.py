@@ -1,7 +1,7 @@
 import pytest
 import numpy as np
 
-from dataloader import KittiDataset
+from kitti_dataset import KittiDataset
 from kitti_utils import iso_string_to_nanoseconds
 
 TEST_CONFIG_PATH = "configs/kitti_dataset.yml"
