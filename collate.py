@@ -11,10 +11,19 @@ default_collate_err_msg_format = (
 
 class TrainerCollator(object):
     def __init__(self, height, width):
+        """
+        Creates an instance of TrainerCollator
+        :param [int] height: image height used in training
+        :param [int] width: image width used in training
+        """
         self.height = height
         self.width = width
+        
     def __call__(self, batch):
-        """Puts each data field into a tensor with outer dimension batch size"""
+        """
+        Puts each data field into a tensor with outer dimension batch size
+        :param [list] batch: List of information for each batch
+        """
         elem = batch[0]
         elem_type = type(elem)
         if isinstance(elem, torch.Tensor):

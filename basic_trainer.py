@@ -103,15 +103,18 @@ class Trainer:
 
         num_batches = math.ceil(len(self.dataset) / self.batch_size)
         for batch_idx, item in enumerate(self.dataloader):
+            
+            # Predict disparity map for images in batch
             inputs = item["stereo_left_image"].to(self.device)
             features = self.models['resnet_encoder'](inputs)
             outputs = self.models['depth_decoder'](features)
             disp = outputs[("disp", 0)]
             disp = F.interpolate(disp, [self.height, self.width], mode="bilinear", align_corners=False)
 
-            #Tensorboard images
+            # Add disparity map of the first image in each batch to tensorboard
             self.add_disparity_map_to_tensorboard(disp, img_num, num_batches, batch_idx)
             
+            #Convert disparity to depth
             _, depths = disp_to_depth(disp, 0.1, 100)
             outputs[("depths", 0)] = depths
 
@@ -142,11 +145,12 @@ class Trainer:
             tgt_intrinsics[:, 1] = tgt_intrinsics[:, 1] * (self.height / 375)
             src_intrinsics_stereo[:, 0] = src_intrinsics_stereo[:, 0] * (self.width / 1242)
             src_intrinsics_stereo[:, 1] = src_intrinsics_stereo[:, 1] * (self.height / 375)
-
+            
             src_intrinsics = torch.stack((src_intrinsics_stereo, tgt_intrinsics, tgt_intrinsics))
+            
             reprojected, mask = process_depth(sources, depths, poses, tgt_intrinsics, src_intrinsics,
                                               (self.height, self.width))
-
+            # Compute Losses
             loss_inputs = {"targets": inputs,
                            "sources": sources
                            }
@@ -154,11 +158,11 @@ class Trainer:
                             "disparities": disp,
                             "initial_masks": mask
                             }
-
             losses = calc_loss(loss_inputs, loss_outputs)
 
             # Add loss to tensorboard
             self.writer.add_scalar('loss', losses.item(), self.epoch * num_batches + batch_idx)
+            
             # Back Propogate
             self.optimizer.zero_grad()
             losses.backward()
