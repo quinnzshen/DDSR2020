@@ -1,37 +1,43 @@
-from dataloader import KittiDataset
-from third_party.monodepth2.ResnetEncoder import ResnetEncoder
-from third_party.monodepth2.DepthDecoder import DepthDecoder
-import torch
-import torch.nn.functional as F
-from torchvision import transforms
-import torch.optim as optim
-from torch.utils.tensorboard import SummaryWriter
-import time
 import math
-import os
-from loss import process_depth, calc_loss
-import warnings
-import numpy as np
-import PIL.Image as pil
 import matplotlib as mpl
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt
+import numpy as np
+import os
+import time
+import torch
+import torch.nn.functional as F
+import torch.optim as optim
+from torch.utils.data import DataLoader
+from torch.utils.tensorboard import SummaryWriter
+from torchvision import transforms
 import yaml
 
-warnings.filterwarnings("ignore")
+from collate import default_collate
+from dataloader import KittiDataset
+from loss import process_depth, calc_loss
+from third_party.monodepth2.ResnetEncoder import ResnetEncoder
+from third_party.monodepth2.DepthDecoder import DepthDecoder
 
 class Trainer:
     def __init__(self, config_filename):
 
         # Config setup
         with open(config_filename) as file:
-            self.config = yaml.load(file, Loader=yaml.Loader)\
+            self.config = yaml.load(file, Loader=yaml.Loader)
+        
         # GPU/CPU setup
-        self.device = torch.device("cpu")
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
+        # Epoch and batch info
+        self.num_epochs = self.config["num_epochs"]
+        self.batch_size = self.config["batch_size"]
+        
         # Set up dataloader
         train_config_path = self.config["train_config_path"]
         self.dataset = KittiDataset.init_from_config(train_config_path)
+        self.collate = default_collate
+        self.dataloader = DataLoader(self.dataset, batch_size = self.batch_size, shuffle = False, collate_fn = self.collate)
 
         # Models
         self.models = {}
@@ -60,12 +66,6 @@ class Trainer:
         self.width = self.config["width"]
         self.height = self.config["height"]
 
-        # Epoch and batch info
-        self.num_epochs = self.config["num_epochs"]
-        self.batch_size = self.config["batch_size"]
-
-        # Display Predictions
-        self.display_predictions = self.config["display_predictions"]
 
     def train(self):
 
@@ -73,8 +73,6 @@ class Trainer:
 
         for self.epoch in range(self.num_epochs):
             self.run_epoch()
-            self.save_model()
-            print('Model saved. Epoch {}'.format(self.epoch))
 
         self.writer.close()
 
@@ -84,93 +82,59 @@ class Trainer:
     def run_epoch(self):
 
         start_time = time.time()
+        
         print("Starting epoch {}".format(self.epoch + 1), end=", ")
-        self.lr_scheduler.step()
+        
         self.models['resnet_encoder'].train()
         self.models['depth_decoder'].train()
 
-        start_tracker = 0
-        end_tracker = self.batch_size
-
+        img_num = 1
+        
         num_batches = math.ceil(len(self.dataset) / self.batch_size)
-
-        # Iterate through batches
-        for batch_idx in range(num_batches):
-
-            curr_batch_size = end_tracker - start_tracker
-            inputs = torch.cat([F.interpolate((torch.tensor(self.dataset[i]["stereo_left_image"].transpose(2, 0, 1),
-                                                            device=self.device, dtype=torch.float32).unsqueeze(0)),
-                                              [self.height, self.width], mode="bilinear", align_corners=False) for i in
-                                range(start_tracker, end_tracker)])
-
-            features = self.models['resnet_encoder'](torch.tensor(inputs))
+        
+        for batch_idx, item in enumerate(self.dataloader):
+            
+            inputs = item["stereo_left_image"].to(self.device)
+            features = self.models['resnet_encoder'](inputs)
             outputs = self.models['depth_decoder'](features)
             disp = outputs[("disp", 0)]
             disp = F.interpolate(disp, [self.height, self.width], mode="bilinear", align_corners=False)
 
-            #if self.display_predictions:
-            #    display_depth_map(disp, self.height, self.width)
-            
             #Tensorboard images
-            self.add_disparity_map_to_tensorboard(disp, batch_idx, start_tracker, 0)
- 
+            self.add_disparity_map_to_tensorboard(disp, batch_idx, img_num, 0)
+            
             _, depths = disp_to_depth(disp, 0.1, 100)
             outputs[("depths", 0)] = depths
-
+            
             # Source images
-            stereo_images = torch.cat([F.interpolate((torch.tensor(
-                self.dataset[i]["stereo_right_image"].transpose(2, 0, 1), device=self.device,
-                dtype=torch.float32).unsqueeze(0)), [self.height, self.width], mode="bilinear", align_corners=False) for
-                                       i in range(start_tracker, end_tracker)])
-            temporal_forward_images = torch.cat([F.interpolate((torch.tensor(
-                self.dataset[i]["nearby_frames"][1]["camera_data"]["stereo_left_image"].transpose(2, 0, 1),
-                device=self.device, dtype=torch.float32).unsqueeze(0)), [self.height, self.width], mode="bilinear",
-                                                               align_corners=False) for i in
-                                                 range(start_tracker, end_tracker)])
-            temporal_backward_images = torch.cat([F.interpolate((torch.tensor(
-                self.dataset[i]["nearby_frames"][-1]["camera_data"]["stereo_left_image"].transpose(2, 0, 1),
-                device=self.device, dtype=torch.float32).unsqueeze(0)), [self.height, self.width], mode="bilinear",
-                                                                align_corners=False) for i in
-                                                  range(start_tracker, end_tracker)])
-            sources = torch.stack((stereo_images, temporal_forward_images, temporal_backward_images))
-
+            stereo_images = item["stereo_right_image"].to(self.device)
+            temporal_forward_images = item["nearby_frames"][1]["camera_data"]["stereo_left_image"].to(self.device)
+            temporal_backward_images = item["nearby_frames"][-1]["camera_data"]["stereo_left_image"].to(self.device)
+            sources = torch.stack((stereo_images, temporal_forward_images, temporal_backward_images))            
+            
             # Poses
-            tgt_poses = torch.cat(
-                [torch.tensor(self.dataset[i]["pose"], device=self.device, dtype=torch.float32).unsqueeze(0) for i in
-                 range(start_tracker, end_tracker)])
-            temporal_forward_poses = torch.cat([torch.tensor(self.dataset[i]["nearby_frames"][1]["pose"],
-                                                             device=self.device, dtype=torch.float32).unsqueeze(0) for i
-                                                in range(start_tracker, end_tracker)])
-            temporal_backward_poses = torch.cat([torch.tensor(self.dataset[i]["nearby_frames"][-1]["pose"],
-                                                              device=self.device, dtype=torch.float32).unsqueeze(0) for
-                                                 i in range(start_tracker, end_tracker)])
+            tgt_poses = item["pose"].to(self.device)
+            temporal_forward_poses = item["nearby_frames"][1]["pose"].to(self.device)
+            temporal_backward_poses = item["nearby_frames"][-1]["pose"].to(self.device)
 
             # Relative Poses
-            rel_pose_stereo = torch.cat(
-                [torch.tensor(self.dataset[i]["rel_pose_stereo"], device=self.device, dtype=torch.float32).unsqueeze(0)
-                 for i in range(start_tracker, end_tracker)])
+            rel_pose_stereo = item["rel_pose_stereo"].to(self.device)
             rel_pose_forward = torch.matmul(torch.inverse(tgt_poses), temporal_forward_poses)
             rel_pose_backward = torch.matmul(torch.inverse(tgt_poses), temporal_backward_poses)
             
             poses = torch.stack((rel_pose_stereo, rel_pose_forward, rel_pose_backward))
-
+            
             # Intrinsics
-            tgt_intrinsics = torch.cat([torch.tensor(self.dataset[i]["intrinsics"]["stereo_left"], device=self.device,
-                                                     dtype=torch.float32).unsqueeze(0) for i in
-                                        range(start_tracker, end_tracker)])
-            src_intrinsics_stereo = torch.cat([torch.tensor(self.dataset[i]["intrinsics"]["stereo_right"],
-                                                            device=self.device, dtype=torch.float32).unsqueeze(0) for i
-                                               in range(start_tracker, end_tracker)])
-
+            tgt_intrinsics = item["intrinsics"]["stereo_left"].to(self.device)
+            src_intrinsics_stereo = item["intrinsics"]["stereo_right"].to(self.device)
+            
             # Adjust intrinsics based on input size
-            for i in range(0, curr_batch_size):
-                tgt_intrinsics[i][0] = tgt_intrinsics[i][0] * (self.width / 1242)
-                tgt_intrinsics[i][1] = tgt_intrinsics[i][1] * (self.height / 375)
-                src_intrinsics_stereo[i][0] = src_intrinsics_stereo[i][0] * (self.width / 1242)
-                src_intrinsics_stereo[i][1] = src_intrinsics_stereo[i][1] * (self.height / 375)
+            tgt_intrinsics[:,0] = tgt_intrinsics[:,0] * (self.width / 1242)
+            tgt_intrinsics[:,1] = tgt_intrinsics[:,1] * (self.height / 375)
+            src_intrinsics_stereo[:,0] = src_intrinsics_stereo[:,0] * (self.width / 1242)
+            src_intrinsics_stereo[:,1] = src_intrinsics_stereo[:,1] * (self.height / 375)
             
             src_intrinsics = torch.stack((src_intrinsics_stereo, tgt_intrinsics, tgt_intrinsics))
-            
             reprojected, mask = process_depth(sources, depths, poses, tgt_intrinsics, src_intrinsics,
                                               (self.height, self.width))
 
@@ -183,27 +147,19 @@ class Trainer:
                             }
 
             losses = calc_loss(loss_inputs, loss_outputs)
-            # print(losses)
-            self.writer.add_scalar('loss', losses.item(), self.epoch * self.batch_size + batch_idx)
             
+            # Add loss to tensorboard
+            self.writer.add_scalar('loss', losses.item(), self.epoch * num_batches + batch_idx)
+
             # Back Propogate
             self.optimizer.zero_grad()
             losses.backward()
             self.optimizer.step()
             
-            #Adjust trackers for batches
-            if end_tracker == len(self.dataset):
-                start_tracker = 0
-                end_tracker = self.batch_size
-                break
-            else:
-                start_tracker += self.batch_size
-
-            if (end_tracker + self.batch_size) <= len(self.dataset):
-                end_tracker += self.batch_size
-            else:
-                end_tracker = len(self.dataset)
-
+            img_num += self.batch_size
+            
+        self.lr_scheduler.step()
+        
         end_time = time.time()
         print("Time spent: {}".format(end_time - start_time))
         print("Loss: {}".format(losses.item()))
@@ -225,7 +181,8 @@ class Trainer:
         save_path = os.path.join(save_folder, "{}.pth".format("adam"))
         torch.save(self.optimizer.state_dict(), save_path)
 
-    def add_disparity_map_to_tensorboard(self, disp, batch_idx, start_tracker, index):
+    def add_disparity_map_to_tensorboard(self, disp, batch_idx, img_num, index):
+        """Add output disparity map to tensorbord"""
         disp_resized = torch.nn.functional.interpolate(
         disp[index].unsqueeze(0), (self.height, self.width), mode="bilinear", align_corners=False)
         disp_resized_np = disp_resized.squeeze().cpu().detach().numpy()
@@ -234,7 +191,7 @@ class Trainer:
         mapper = cm.ScalarMappable(norm=normalizer, cmap='magma')
         colormapped_im = (mapper.to_rgba(disp_resized_np)[:, :, :3] * 255).astype(np.uint8)
         im = transforms.ToTensor()(colormapped_im)
-        self.writer.add_image('Epoch: {}, '.format(self.epoch) + 'Image: {}'.format(start_tracker), im, self.epoch * self.batch_size + batch_idx)
+        self.writer.add_image('Epoch: {}, '.format(self.epoch+1) + 'Image: {}'.format(img_num), im, self.epoch * self.batch_size + batch_idx)
 
 def disp_to_depth(disp, min_depth, max_depth):
     """Convert network's sigmoid output into depth prediction
@@ -248,22 +205,6 @@ def disp_to_depth(disp, min_depth, max_depth):
     return scaled_disp, depth
 
 
-def display_depth_map(disp, height, width, epoch, index=0):
-    disp_resized = torch.nn.functional.interpolate(
-        disp[index].unsqueeze(0), (height, width), mode="bilinear", align_corners=False)
-
-    # Saving colormapped depth image
-    disp_resized_np = disp_resized.squeeze().cpu().detach().numpy()
-    print(disp_resized_np.shape)
-    np.save(os.path.join("outdisp", f"{epoch}_disp.npy"), disp_resized_np)
-    vmax = np.percentile(disp_resized_np, 95)
-    normalizer = mpl.colors.Normalize(vmin=disp_resized_np.min(), vmax=vmax)
-    mapper = cm.ScalarMappable(norm=normalizer, cmap='magma')
-    colormapped_im = (mapper.to_rgba(disp_resized_np)[:, :, :3] * 255).astype(np.uint8)
-    im = pil.fromarray(colormapped_im)
-    plt.figure()
-    plt.imshow(im)
-
-test = Trainer("configs/scene_model.yml")
+test = Trainer("configs/oneframe_model.yml")
 test.train()
 plt.show()
