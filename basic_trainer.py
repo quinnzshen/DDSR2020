@@ -1,7 +1,6 @@
 import math
 import matplotlib as mpl
 import matplotlib.cm as cm
-import matplotlib.pyplot as plt
 import numpy as np
 import os
 import time
@@ -13,7 +12,7 @@ from torch.utils.tensorboard import SummaryWriter
 from torchvision import transforms
 import yaml
 
-from collate import default_collate
+from collate import TrainerCollator
 from dataloader import KittiDataset
 from loss import process_depth, calc_loss
 from third_party.monodepth2.ResnetEncoder import ResnetEncoder
@@ -21,10 +20,16 @@ from third_party.monodepth2.DepthDecoder import DepthDecoder
 
 
 class Trainer:
-    def __init__(self, config_filename):
+    def __init__(self, config_path):
+        """
+        Creates an instance of tranier using a config file
+        The config file contains all the information needed to train a model
+        :param [str] config_path: The path to the config file
+        :return [Trainer]: Object instance of the trainer
+        """
 
-        # Config setup
-        with open(config_filename) as file:
+        # Load data from config
+        with open(config_path) as file:
             self.config = yaml.load(file, Loader=yaml.Loader)
 
         # GPU/CPU setup
@@ -34,17 +39,17 @@ class Trainer:
         self.num_epochs = self.config["num_epochs"]
         self.batch_size = self.config["batch_size"]
 
-        # Set up dataloader
+        # Image dimensions
+        self.width = self.config["width"]
+        self.height = self.config["height"]
+
+        # Dataloader setup
         train_config_path = self.config["train_config_path"]
         self.dataset = KittiDataset.init_from_config(train_config_path)
-
-        self.prev_frames = self.dataset.previous_frames
-        self.next_frames = self.dataset.next_frames
-
-        self.collate = default_collate
+        self.collate = TrainerCollator(self.height, self.width)
         self.dataloader = DataLoader(self.dataset, batch_size=self.batch_size, shuffle=False, collate_fn=self.collate)
 
-        # Models
+        # Model setup
         self.models = {}
         self.pretrained = self.config["pretrained"]
         self.models['resnet_encoder'] = ResnetEncoder(self.config["encoder_layers"], pretrained=self.pretrained).to(
@@ -67,13 +72,15 @@ class Trainer:
         weight_decay = self.config["weight_decay"]
         self.lr_scheduler = optim.lr_scheduler.StepLR(self.optimizer, scheduler_step_size, weight_decay)
 
-        # Image dimensions
-        self.width = self.config["width"]
-        self.height = self.config["height"]
-
+        # Writer for tensorboard
         self.writer = SummaryWriter()
 
     def train(self):
+        """
+        Runs the entire training pipeline
+        Saves the model's weights at the end of training
+        """
+
         for self.epoch in range(self.num_epochs):
             self.run_epoch()
 
@@ -83,6 +90,10 @@ class Trainer:
         print('Model saved.')
 
     def run_epoch(self):
+        """
+        Runs a single epoch of training
+        """
+
         start_time = time.time()
 
         print("Starting epoch {}".format(self.epoch + 1), end=", ")
@@ -94,15 +105,17 @@ class Trainer:
 
         num_batches = math.ceil(len(self.dataset) / self.batch_size)
         for batch_idx, item in enumerate(self.dataloader):
+            # Predict disparity map for images in batch
             inputs = item["stereo_left_image"].to(self.device)
             features = self.models['resnet_encoder'](inputs)
             outputs = self.models['depth_decoder'](features)
             disp = outputs[("disp", 0)]
             disp = F.interpolate(disp, [self.height, self.width], mode="bilinear", align_corners=False)
 
-            # Tensorboard images
-            self.add_disparity_map_to_tensorboard(disp, batch_idx, img_num, 0)
+            # Add disparity map of the first image in each batch to tensorboard
+            self.add_disparity_map_to_tensorboard(disp, img_num, num_batches, batch_idx)
 
+            # Convert disparity to depth
             _, depths = disp_to_depth(disp, 0.1, 100)
             outputs[("depths", 0)] = depths
 
@@ -116,7 +129,8 @@ class Trainer:
 
                 # Source images and poses
                 sources_list.append(item["nearby_frames"][i]["camera_data"]["stereo_left_image"].to(self.device))
-                poses_list.append(torch.matmul(torch.inverse(tgt_poses), item["nearby_frames"][i]["pose"].to(self.device)))
+                poses_list.append(
+                    torch.matmul(torch.inverse(tgt_poses), item["nearby_frames"][i]["pose"].to(self.device)))
 
             # Stacking to turn into tensors
             sources = torch.stack(sources_list, dim=0)
@@ -139,7 +153,7 @@ class Trainer:
 
             reprojected, mask = process_depth(sources, depths, poses, tgt_intrinsics, src_intrinsics,
                                               (self.height, self.width))
-
+            # Compute Losses
             loss_inputs = {"targets": inputs,
                            "sources": sources
                            }
@@ -147,11 +161,11 @@ class Trainer:
                             "disparities": disp,
                             "initial_masks": mask
                             }
-
             losses = calc_loss(loss_inputs, loss_outputs)
 
             # Add loss to tensorboard
             self.writer.add_scalar('loss', losses.item(), self.epoch * num_batches + batch_idx)
+
             # Back Propogate
             self.optimizer.zero_grad()
             losses.backward()
@@ -166,7 +180,8 @@ class Trainer:
         print("Loss: {}".format(losses.item()))
 
     def save_model(self):
-        """Save model weights to disk (from monodepth2 repo)
+        """
+        Saves model weights to disk (from monodepth2 repo)
         """
         save_folder = os.path.join("models", "weights_{}".format(self.epoch))
         if not os.path.exists(save_folder):
@@ -182,10 +197,16 @@ class Trainer:
         save_path = os.path.join(save_folder, "{}.pth".format("adam"))
         torch.save(self.optimizer.state_dict(), save_path)
 
-    def add_disparity_map_to_tensorboard(self, disp, batch_idx, img_num, index):
-        """Add output disparity map to tensorbord"""
+    def add_disparity_map_to_tensorboard(self, disp, img_num, num_batches, batch_idx):
+        """
+        Adds output disparity map to tensorboard
+        :param [tensor] disp: The disparity map outputted by the network
+        :param [int] img_num: The index of the input image in the training data file
+        :param [int] num_batches: The number of batches in each epoch
+        :param [int] batch_idx: The current batch number
+        """
         disp_resized = torch.nn.functional.interpolate(
-            disp[index].unsqueeze(0), (self.height, self.width), mode="bilinear", align_corners=False)
+            disp[0].unsqueeze(0), (self.height, self.width), mode="bilinear", align_corners=False)
         disp_resized_np = disp_resized.squeeze().cpu().detach().numpy()
         vmax = np.percentile(disp_resized_np, 95)
         normalizer = mpl.colors.Normalize(vmin=disp_resized_np.min(), vmax=vmax)
@@ -193,13 +214,17 @@ class Trainer:
         colormapped_im = (mapper.to_rgba(disp_resized_np)[:, :, :3] * 255).astype(np.uint8)
         im = transforms.ToTensor()(colormapped_im)
         self.writer.add_image('Epoch: {}, '.format(self.epoch + 1) + 'Image: {}'.format(img_num), im,
-                              self.epoch * self.batch_size + batch_idx)
+                              self.epoch * num_batches + batch_idx)
 
 
 def disp_to_depth(disp, min_depth, max_depth):
-    """Convert network's sigmoid output into depth prediction
+    """
+    Converts network's sigmoid output into depth prediction (from monodepth 2 repo)
     The formula for this conversion is given in the 'additional considerations'
-    section of the paper.
+    section of the paper
+    :param [tensor] disp: The disparity map outputted by the network
+    :param [int] min_depth: The minimum depth value
+    :param [int] max_depth: The maximum depth value
     """
     min_disp = 1 / max_depth
     max_disp = 1 / min_depth
@@ -211,4 +236,3 @@ def disp_to_depth(disp, min_depth, max_depth):
 if __name__ == "__main__":
     test = Trainer("configs/oneframe_model.yml")
     test.train()
-    plt.show()
