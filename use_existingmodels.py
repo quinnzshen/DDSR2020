@@ -1,24 +1,19 @@
 from __future__ import absolute_import, division, print_function
-
-import os
 import glob
-import numpy as np
-import PIL.Image as pil
 import matplotlib as mpl
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
-
-import sys
-sys.path.append('third_party/monodepth2')
-from ResnetEncoder import ResnetEncoder
-from DepthDecoder import DepthDecoder
-
+import numpy as np
+import os
+import PIL.Image as pil
 import torch
 from torchvision import transforms
 
-from layers import disp_to_depth
-from monodepth2_utils import download_model_if_doesnt_exist
+from third_party.monodepth2.ResnetEncoder import ResnetEncoder
+from third_party.monodepth2.DepthDecoder import DepthDecoder
+from third_party.monodepth2.layers import disp_to_depth
+from third_party.monodepth2.monodepth2_utils import download_model_if_doesnt_exist
 
 """
 Adapted from Monodepth 2
