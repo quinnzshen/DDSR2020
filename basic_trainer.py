@@ -37,6 +37,10 @@ class Trainer:
         # Set up dataloader
         train_config_path = self.config["train_config_path"]
         self.dataset = KittiDataset.init_from_config(train_config_path)
+
+        self.prev_frames = self.dataset.previous_frames
+        self.next_frames = self.dataset.next_frames
+
         self.collate = default_collate
         self.dataloader = DataLoader(self.dataset, batch_size=self.batch_size, shuffle=False, collate_fn=self.collate)
 
@@ -90,7 +94,6 @@ class Trainer:
 
         num_batches = math.ceil(len(self.dataset) / self.batch_size)
         for batch_idx, item in enumerate(self.dataloader):
-            print(item["stereo_left_image"].dtype)
             inputs = item["stereo_left_image"].to(self.device)
             features = self.models['resnet_encoder'](inputs)
             outputs = self.models['depth_decoder'](features)
@@ -103,23 +106,21 @@ class Trainer:
             _, depths = disp_to_depth(disp, 0.1, 100)
             outputs[("depths", 0)] = depths
 
-            # Source images
-            stereo_images = item["stereo_right_image"].to(self.device)
-            temporal_forward_images = item["nearby_frames"][1]["camera_data"]["stereo_left_image"].to(self.device)
-            temporal_backward_images = item["nearby_frames"][-1]["camera_data"]["stereo_left_image"].to(self.device)
-            sources = torch.stack((stereo_images, temporal_forward_images, temporal_backward_images))
-
-            # Poses
             tgt_poses = item["pose"].to(self.device)
-            temporal_forward_poses = item["nearby_frames"][1]["pose"].to(self.device)
-            temporal_backward_poses = item["nearby_frames"][-1]["pose"].to(self.device)
+            sources_list = [item["stereo_right_image"].to(self.device)]
+            poses_list = [item["rel_pose_stereo"].to(self.device)]
 
-            # Relative Poses
-            rel_pose_stereo = item["rel_pose_stereo"].to(self.device)
-            rel_pose_forward = torch.matmul(torch.inverse(tgt_poses), temporal_forward_poses)
-            rel_pose_backward = torch.matmul(torch.inverse(tgt_poses), temporal_backward_poses)
+            for i in range(-self.prev_frames, self.next_frames + 1):
+                if i == 0:
+                    continue
 
-            poses = torch.stack((rel_pose_stereo, rel_pose_forward, rel_pose_backward))
+                # Source images and poses
+                sources_list.append(item["nearby_frames"][i]["camera_data"]["stereo_left_image"].to(self.device))
+                poses_list.append(torch.matmul(torch.inverse(tgt_poses), item["nearby_frames"][i]["pose"].to(self.device)))
+
+            # Stacking to turn into tensors
+            sources = torch.stack(sources_list, dim=0)
+            poses = torch.stack(poses_list, dim=0)
 
             # Intrinsics
             tgt_intrinsics = item["intrinsics"]["stereo_left"].to(self.device)
@@ -131,7 +132,11 @@ class Trainer:
             src_intrinsics_stereo[:, 0] = src_intrinsics_stereo[:, 0] * (self.width / 1242)
             src_intrinsics_stereo[:, 1] = src_intrinsics_stereo[:, 1] * (self.height / 375)
 
-            src_intrinsics = torch.stack((src_intrinsics_stereo, tgt_intrinsics, tgt_intrinsics))
+            intrinsics = [src_intrinsics_stereo]
+            for i in range(len(poses_list) - 1):
+                intrinsics.append(tgt_intrinsics)
+            src_intrinsics = torch.stack(intrinsics)
+
             reprojected, mask = process_depth(sources, depths, poses, tgt_intrinsics, src_intrinsics,
                                               (self.height, self.width))
 
