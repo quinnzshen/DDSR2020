@@ -2,7 +2,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 
-def compute_relative_pose_matrix(relative_translation, relative_rotation):
+def rel_pose_from_rotation_matrix_translation_vector(relative_translation, relative_rotation):
     """
     This function computes the relative pose matrix that relates the positions of the target and source cameras.
     :param [numpy.array] relative_translation: [3, 1] vector representing the relative translation between the camera that 
@@ -57,7 +57,8 @@ def plot_sparse_img_and_surrounding_lidar(front_lidar_points_image_plane, pixel_
     """
     plt.figure(figsize=(40, 7.5))
     # Plot surrounding lidar points.
-    plt.scatter(front_lidar_points_image_plane[:, 0], front_lidar_points_image_plane[:, 1], c=np.array([[.75, .75, .75]]), s=7, marker='s')
+    SURROUNDING_LIDAR_COLOR = np.array([[.75, .75, .75]])
+    plt.scatter(front_lidar_points_image_plane[:, 0], front_lidar_points_image_plane[:, 1], c=SURROUNDING_LIDAR_COLOR, s=7, marker='s')
     # Plot sparse image on top of lidar points.
     plt.scatter(pixel_coords[:, 0], pixel_coords[:, 1], c=colors, s=7, marker='s')
     plt.axis([-500, 1750, 375, 100])
