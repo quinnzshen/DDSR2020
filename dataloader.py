@@ -5,8 +5,11 @@ import pandas as pd
 
 import os
 
-from kitti_utils import get_camera_data, get_lidar_data, get_nearby_frames_data, get_camera_intrinsic_dict, get_relative_rotation_stereo, get_relative_translation_stereo, compute_image_from_velodyne_matrices, get_relative_pose, get_pose
+from kitti_utils import get_camera_data, get_lidar_data, get_nearby_frames_data, get_camera_intrinsic_dict, \
+    get_relative_rotation_stereo, get_relative_translation_stereo, compute_image_from_velodyne_matrices, \
+    get_relative_pose, get_pose
 from compute_photometric_error_utils import compute_relative_pose_matrix
+
 
 class KittiDataset(Dataset):
     def __init__(self, root_dir, dataset_index, previous_frames, next_frames):
@@ -31,9 +34,9 @@ class KittiDataset(Dataset):
         with open(config_path, "r") as yml:
             config = yaml.load(yml, Loader=yaml.Loader)
             dataset_index = pd.concat([pd.read_csv(path, sep=" ", header=None) for path in config["dataset_paths"]])
-        return cls(root_dir=config["root_directory"], 
-                   dataset_index=dataset_index, 
-                   previous_frames=config["previous_frames"], 
+        return cls(root_dir=config["root_directory"],
+                   dataset_index=dataset_index,
+                   previous_frames=config["previous_frames"],
                    next_frames=config["next_frames"])
 
     def __len__(self):
@@ -55,7 +58,8 @@ class KittiDataset(Dataset):
         """
 
         if idx >= len(self.dataset_index) or idx < 0:
-            raise IndexError(f"Dataset index out of range. Given: {idx} (Less than 0 or greater than or equal to length)")
+            raise IndexError(
+                f"Dataset index out of range. Given: {idx} (Less than 0 or greater than or equal to length)")
 
         path_name = os.path.normpath(self.dataset_index.iloc[idx, 0])
         date_name = os.path.dirname(path_name)
@@ -68,10 +72,11 @@ class KittiDataset(Dataset):
             **get_camera_data(path_name, idx),
             **get_lidar_data(path_name, idx),
             **{'nearby_frames': nearby_frames_data},
-            **{'image_from_velodyne_matrices' : compute_image_from_velodyne_matrices(calibration_dir)},
-            **{'intrinsics' : get_camera_intrinsic_dict(calibration_dir)},
-            **{'rel_pose_stereo' : compute_relative_pose_matrix(get_relative_translation_stereo(calibration_dir), get_relative_rotation_stereo(calibration_dir))},
-            **{'pose' : get_pose(path_name, idx)}
+            **{'image_from_velodyne_matrices': compute_image_from_velodyne_matrices(calibration_dir)},
+            **{'intrinsics': get_camera_intrinsic_dict(calibration_dir)},
+            **{'rel_pose_stereo': compute_relative_pose_matrix(get_relative_translation_stereo(calibration_dir),
+                                                               get_relative_rotation_stereo(calibration_dir))},
+            **{'pose': get_pose(path_name, idx)}
         }
 
         return sample
