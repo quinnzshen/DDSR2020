@@ -19,25 +19,26 @@ from loss import process_depth, calc_loss
 from third_party.monodepth2.ResnetEncoder import ResnetEncoder
 from third_party.monodepth2.DepthDecoder import DepthDecoder
 
+
 class Trainer:
     def __init__(self, config_filename):
 
         # Config setup
         with open(config_filename) as file:
             self.config = yaml.load(file, Loader=yaml.Loader)
-        
+
         # GPU/CPU setup
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
         # Epoch and batch info
         self.num_epochs = self.config["num_epochs"]
         self.batch_size = self.config["batch_size"]
-        
+
         # Set up dataloader
         train_config_path = self.config["train_config_path"]
         self.dataset = KittiDataset.init_from_config(train_config_path)
         self.collate = default_collate
-        self.dataloader = DataLoader(self.dataset, batch_size = self.batch_size, shuffle = False, collate_fn = self.collate)
+        self.dataloader = DataLoader(self.dataset, batch_size=self.batch_size, shuffle=False, collate_fn=self.collate)
 
         # Models
         self.models = {}
@@ -66,11 +67,9 @@ class Trainer:
         self.width = self.config["width"]
         self.height = self.config["height"]
 
-
-    def train(self):
-
         self.writer = SummaryWriter()
 
+    def train(self):
         for self.epoch in range(self.num_epochs):
             self.run_epoch()
 
@@ -80,38 +79,36 @@ class Trainer:
         print('Model saved.')
 
     def run_epoch(self):
-
         start_time = time.time()
-        
+
         print("Starting epoch {}".format(self.epoch + 1), end=", ")
-        
+
         self.models['resnet_encoder'].train()
         self.models['depth_decoder'].train()
 
         img_num = 1
-        
+
         num_batches = math.ceil(len(self.dataset) / self.batch_size)
-        
         for batch_idx, item in enumerate(self.dataloader):
-            
+            print(item["stereo_left_image"].dtype)
             inputs = item["stereo_left_image"].to(self.device)
             features = self.models['resnet_encoder'](inputs)
             outputs = self.models['depth_decoder'](features)
             disp = outputs[("disp", 0)]
             disp = F.interpolate(disp, [self.height, self.width], mode="bilinear", align_corners=False)
 
-            #Tensorboard images
+            # Tensorboard images
             self.add_disparity_map_to_tensorboard(disp, batch_idx, img_num, 0)
-            
+
             _, depths = disp_to_depth(disp, 0.1, 100)
             outputs[("depths", 0)] = depths
-            
+
             # Source images
             stereo_images = item["stereo_right_image"].to(self.device)
             temporal_forward_images = item["nearby_frames"][1]["camera_data"]["stereo_left_image"].to(self.device)
             temporal_backward_images = item["nearby_frames"][-1]["camera_data"]["stereo_left_image"].to(self.device)
-            sources = torch.stack((stereo_images, temporal_forward_images, temporal_backward_images))            
-            
+            sources = torch.stack((stereo_images, temporal_forward_images, temporal_backward_images))
+
             # Poses
             tgt_poses = item["pose"].to(self.device)
             temporal_forward_poses = item["nearby_frames"][1]["pose"].to(self.device)
@@ -121,19 +118,19 @@ class Trainer:
             rel_pose_stereo = item["rel_pose_stereo"].to(self.device)
             rel_pose_forward = torch.matmul(torch.inverse(tgt_poses), temporal_forward_poses)
             rel_pose_backward = torch.matmul(torch.inverse(tgt_poses), temporal_backward_poses)
-            
+
             poses = torch.stack((rel_pose_stereo, rel_pose_forward, rel_pose_backward))
-            
+
             # Intrinsics
             tgt_intrinsics = item["intrinsics"]["stereo_left"].to(self.device)
             src_intrinsics_stereo = item["intrinsics"]["stereo_right"].to(self.device)
-            
+
             # Adjust intrinsics based on input size
-            tgt_intrinsics[:,0] = tgt_intrinsics[:,0] * (self.width / 1242)
-            tgt_intrinsics[:,1] = tgt_intrinsics[:,1] * (self.height / 375)
-            src_intrinsics_stereo[:,0] = src_intrinsics_stereo[:,0] * (self.width / 1242)
-            src_intrinsics_stereo[:,1] = src_intrinsics_stereo[:,1] * (self.height / 375)
-            
+            tgt_intrinsics[:, 0] = tgt_intrinsics[:, 0] * (self.width / 1242)
+            tgt_intrinsics[:, 1] = tgt_intrinsics[:, 1] * (self.height / 375)
+            src_intrinsics_stereo[:, 0] = src_intrinsics_stereo[:, 0] * (self.width / 1242)
+            src_intrinsics_stereo[:, 1] = src_intrinsics_stereo[:, 1] * (self.height / 375)
+
             src_intrinsics = torch.stack((src_intrinsics_stereo, tgt_intrinsics, tgt_intrinsics))
             reprojected, mask = process_depth(sources, depths, poses, tgt_intrinsics, src_intrinsics,
                                               (self.height, self.width))
@@ -147,19 +144,18 @@ class Trainer:
                             }
 
             losses = calc_loss(loss_inputs, loss_outputs)
-            
+
             # Add loss to tensorboard
             self.writer.add_scalar('loss', losses.item(), self.epoch * num_batches + batch_idx)
-
             # Back Propogate
             self.optimizer.zero_grad()
             losses.backward()
             self.optimizer.step()
-            
+
             img_num += self.batch_size
-            
+
         self.lr_scheduler.step()
-        
+
         end_time = time.time()
         print("Time spent: {}".format(end_time - start_time))
         print("Loss: {}".format(losses.item()))
@@ -184,14 +180,16 @@ class Trainer:
     def add_disparity_map_to_tensorboard(self, disp, batch_idx, img_num, index):
         """Add output disparity map to tensorbord"""
         disp_resized = torch.nn.functional.interpolate(
-        disp[index].unsqueeze(0), (self.height, self.width), mode="bilinear", align_corners=False)
+            disp[index].unsqueeze(0), (self.height, self.width), mode="bilinear", align_corners=False)
         disp_resized_np = disp_resized.squeeze().cpu().detach().numpy()
         vmax = np.percentile(disp_resized_np, 95)
         normalizer = mpl.colors.Normalize(vmin=disp_resized_np.min(), vmax=vmax)
         mapper = cm.ScalarMappable(norm=normalizer, cmap='magma')
         colormapped_im = (mapper.to_rgba(disp_resized_np)[:, :, :3] * 255).astype(np.uint8)
         im = transforms.ToTensor()(colormapped_im)
-        self.writer.add_image('Epoch: {}, '.format(self.epoch+1) + 'Image: {}'.format(img_num), im, self.epoch * self.batch_size + batch_idx)
+        self.writer.add_image('Epoch: {}, '.format(self.epoch + 1) + 'Image: {}'.format(img_num), im,
+                              self.epoch * self.batch_size + batch_idx)
+
 
 def disp_to_depth(disp, min_depth, max_depth):
     """Convert network's sigmoid output into depth prediction
@@ -205,6 +203,7 @@ def disp_to_depth(disp, min_depth, max_depth):
     return scaled_disp, depth
 
 
-test = Trainer("configs/oneframe_model.yml")
-test.train()
-plt.show()
+if __name__ == "__main__":
+    test = Trainer("configs/oneframe_model.yml")
+    test.train()
+    plt.show()

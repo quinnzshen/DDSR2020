@@ -13,11 +13,11 @@ class KITTICameraNames(str, Enum):
     stereo_left = "stereo_left"
     stereo_right = "stereo_right"
 
+
 CAMERA_NAME_TO_PATH_MAPPING = {
     KITTICameraNames.stereo_left: "image_02",
     KITTICameraNames.stereo_right: "image_03"
 }
-
 
 KITTI_TIMESTAMPS = ["/timestamps.txt", "velodyne_points/timestamps_start.txt", "velodyne_points/timestamps_end.txt"]
 EPOCH = np.datetime64("1970-01-01")
@@ -115,8 +115,9 @@ def get_timestamp_nsec(sample_path, idx):
                 return iso_string_to_nanoseconds(line)
             count += 1
 
+
 def get_nearby_frames_data(path_name, idx, previous_frames, next_frames):
-        """
+    """
         Given a specific index, return a dictionary containing information about the frame n frames before and after the target index
         in the dataset.
         :param dataset_index [pd.DataFrame]: The dataframe containing the paths and indices of the data
@@ -125,14 +126,15 @@ def get_nearby_frames_data(path_name, idx, previous_frames, next_frames):
         :return [dict]: Dictionary containing camera data and pose of nearby frames, the key is the relative index and the value is the data.
                         (e.g. -1 would be the previous image, 2 would be the next-next image).
         """
-        nearby_frames = {}
-        for relative_idx in range(-previous_frames, next_frames + 1):
-            # We do not want to include the current frame in the nearby frames data.
-            if relative_idx == 0:
-                continue
+    nearby_frames = {}
+    for relative_idx in range(-previous_frames, next_frames + 1):
+        # We do not want to include the current frame in the nearby frames data.
+        if relative_idx == 0:
+            continue
 
-            nearby_frames[relative_idx] = {'camera_data' : get_camera_data(path_name, idx + relative_idx), 'pose' : get_pose(path_name, idx + relative_idx)}
-        return nearby_frames
+        nearby_frames[relative_idx] = {'camera_data': get_camera_data(path_name, idx + relative_idx),
+                                       'pose': get_pose(path_name, idx + relative_idx)}
+    return nearby_frames
 
 
 def get_camera_data(path_name, idx):
@@ -147,7 +149,7 @@ def get_camera_data(path_name, idx):
 
     for camera_name in KITTICameraNames:
         camera_path = CAMERA_NAME_TO_PATH_MAPPING[camera_name]
-        
+
         # Check if required paths exist.
         # The f-string is following the format of KITTI, padding the frame number with 10 zeros.
         camera_image_path = os.path.join(path_name, f"{camera_path}/data/{idx:010}.png")
@@ -229,11 +231,11 @@ def get_camera_intrinsic_dict(calibration_dir):
     camera_intrinsic_dict = {}
     for camera_name in KITTICameraNames:
         camera_path = CAMERA_NAME_TO_PATH_MAPPING[camera_name]
-        
+
         # Get camera number by slicing last 2 characters off of camera_name string.
         cam_num = camera_path[-2:]
-        intrinsic_matrix = cam2cam[f"K_{cam_num}"].reshape(3,3)
-        camera_intrinsic_dict.update({KITTICameraNames(camera_name).name : intrinsic_matrix})
+        intrinsic_matrix = cam2cam[f"K_{cam_num}"].reshape(3, 3)
+        camera_intrinsic_dict.update({KITTICameraNames(camera_name).name: intrinsic_matrix})
     return camera_intrinsic_dict
 
 
@@ -328,10 +330,11 @@ def get_relative_pose(scene_path, target, source):
     # Determines displacement by multiplying velocity by time
     pos = velo * delta_time_nsec / 1E9
     # Convert trnasformation from IMU frame to camera frame.
-    pos_cam = np.array([-1*pos[1], -1*pos[2], pos[0]])
-    rot_cam = np.array([-1*rot[1], -1*rot[2], rot[0]])
-    rel_pose = calc_transformation_matrix(rot_cam, pos_cam) 
+    pos_cam = np.array([-1 * pos[1], -1 * pos[2], pos[0]])
+    rot_cam = np.array([-1 * rot[1], -1 * rot[2], rot[0]])
+    rel_pose = calc_transformation_matrix(rot_cam, pos_cam)
     return rel_pose
+
 
 def get_pose(scene_path, frame):
     """
@@ -342,6 +345,6 @@ def get_pose(scene_path, frame):
     """
     rel_rot = get_relative_pose(scene_path, frame, 0)[:3, :3]
     rel_translation = np.array([0., 0., 0.])
-    for idx in range(0, frame-1):
-        rel_translation += get_relative_pose(scene_path, idx, idx+1)[:3, 3] 
+    for idx in range(0, frame - 1):
+        rel_translation += get_relative_pose(scene_path, idx, idx + 1)[:3, 3]
     return compute_relative_pose_matrix(rel_translation.reshape(3, -1), rel_rot)
