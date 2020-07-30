@@ -14,8 +14,6 @@ def compute_relative_pose_matrix(relative_translation, relative_rotation):
     """
     pose = torch.eye(4)
     pose[:3, :3] = relative_rotation
-    print(pose[:3, 3].shape)
-    print(relative_translation.shape)
     pose[:3, 3] = relative_translation
     return pose
 

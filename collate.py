@@ -54,17 +54,12 @@ class TrainerCollator(object):
         elif isinstance(elem, string_classes):
             return batch
         elif isinstance(elem, container_abcs.Mapping):
+
             if 'lidar_point_coord_velodyne' in elem.keys():
                 rem_list = ['lidar_point_coord_velodyne', 'lidar_point_reflectivity']
                 for d in batch:
                     [d.pop(key) for key in rem_list]
-            if 'stereo_right_image' in elem.keys():
-                resize_list = ['stereo_right_image', 'stereo_left_image']
-                # for key in resize_list:
-                #     for d in batch:
-                #         d[key] = F.interpolate(
-                #             (d[key].permute(2, 0, 1).float().unsqueeze(0)),
-                #             [self.height, self.width], mode="bilinear", align_corners=False).squeeze(0)
+
             return {key: self([d[key] for d in batch]) for key in elem}
         elif isinstance(elem, tuple) and hasattr(elem, '_fields'):  # namedtuple
             return elem_type(*(self(samples) for samples in zip(*batch)))

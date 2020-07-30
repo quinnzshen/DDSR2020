@@ -173,20 +173,20 @@ def test_get_nearby_frames(kitti_root_directory, kitti_dataset_index):
 def test_get_camera_intrinsic_dict():
     sample_cam_intrinsic_dict = ku.get_camera_intrinsic_dict(EXAMPLE_CALIBRATION_DIR)
     assert len(sample_cam_intrinsic_dict) == 2
-    test_arr = torch.tensor([[959.791, 0., 696.0217], [0., 956.9251, 224.1806], [0., 0., 1.]], dtype=torch.double)
+    test_arr = torch.tensor([[959.791, 0., 696.0217], [0., 956.9251, 224.1806], [0., 0., 1.]])
     torch.testing.assert_allclose(sample_cam_intrinsic_dict["stereo_left"], test_arr)
 
 
 def test_get_relative_rotation_stereo():
     rel_rotation_sample = ku.get_relative_rotation_stereo(EXAMPLE_CALIBRATION_DIR)
     test_arr = torch.tensor(
-        [[.9995572, -.02222673, .01978616], [.02225614, .99975152, -.00126738], [-.01975307, .00170718, .99980338]], dtype=torch.double)
+        [[.9995572, -.02222673, .01978616], [.02225614, .99975152, -.00126738], [-.01975307, .00170718, .99980338]])
     torch.testing.assert_allclose(rel_rotation_sample, test_arr)
 
 
 def test_get_relative_translation_stereo():
     rel_translation_sample = ku.get_relative_translation_stereo(EXAMPLE_CALIBRATION_DIR)
-    test_arr = torch.tensor([-0.53267121, 0.00526146, -0.00782809], dtype=torch.double)
+    test_arr = torch.tensor([-0.53267121, 0.00526146, -0.00782809])
     torch.testing.assert_allclose(rel_translation_sample, test_arr)
 
 

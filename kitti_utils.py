@@ -235,7 +235,7 @@ def get_camera_intrinsic_dict(calibration_dir):
 
         # Get camera number by slicing last 2 characters off of camera_name string.
         cam_num = camera_path[-2:]
-        intrinsic_matrix = torch.from_numpy(cam2cam[f"K_{cam_num}"].reshape(3, 3))
+        intrinsic_matrix = torch.from_numpy(cam2cam[f"K_{cam_num}"].reshape(3, 3)).float()
         camera_intrinsic_dict.update({KITTICameraNames(camera_name).name: intrinsic_matrix})
     return camera_intrinsic_dict
 
@@ -253,7 +253,7 @@ def get_relative_rotation_stereo(calibration_dir):
     rotation_target = cam2cam['R_02'].reshape(3, 3)
     rotation_source = cam2cam['R_03'].reshape(3, 3)
     rotation_source_to_target = np.linalg.inv(rotation_source) @ rotation_target
-    return torch.from_numpy(rotation_source_to_target)
+    return torch.from_numpy(rotation_source_to_target).float()
 
 
 def get_relative_translation_stereo(calibration_dir):
@@ -269,7 +269,7 @@ def get_relative_translation_stereo(calibration_dir):
     translation_target = cam2cam['T_02']
     translation_source = cam2cam['T_03']
     translation_source_to_target = translation_source - translation_target
-    return torch.from_numpy(translation_source_to_target)
+    return torch.from_numpy(translation_source_to_target).float()
 
 
 def string_to_nano(time_string):
