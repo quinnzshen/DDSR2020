@@ -6,11 +6,11 @@ import torch
 def compute_relative_pose_matrix(relative_translation, relative_rotation):
     """
     This function computes the relative pose matrix that relates the positions of the target and source cameras.
-    :param [numpy.array] relative_translation: [3, 1] vector representing the relative translation between the camera that 
+    :param [torch.Tensor] relative_translation: [3, 1] vector representing the relative translation between the camera that
     captured the source image and the camera that captured the target image.
-    :param [numpy.array] relative_rotation: [3, 3] matrix representing the relative rotation between the camera that 
+    :param [torch.Tensor] relative_rotation: [3, 3] matrix representing the relative rotation between the camera that
     captured the source image and the camera that captured the target image.
-    :return: numpy.array of shape [4, 4] that relates the positions of the target and source cameras.
+    :return: torch.Tensor of shape [4, 4] that relates the positions of the target and source cameras.
     """
     pose = torch.eye(4)
     pose[:3, :3] = relative_rotation

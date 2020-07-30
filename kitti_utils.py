@@ -244,8 +244,8 @@ def get_relative_rotation_stereo(calibration_dir):
     """
     This function computes the relative rotation matrix between stereo cameras for KITTI.
     :param: [string] calibration dir: directory where KITTI calibration files are located.
-    :return: numpy.array of shape [3, 3], matrix representing the relative rotation between the camera that captured the source 
-    image and the camera that captured the target image.
+    :return: torch.Tensor of shape [3, 3], matrix representing the relative rotation between the camera that captured
+    the source image and the camera that captured the target image.
     """
     # Read calibration file.
     cam2cam = read_calibration_file(os.path.join(calibration_dir, 'calib_cam_to_cam.txt'))
@@ -260,8 +260,8 @@ def get_relative_translation_stereo(calibration_dir):
     """
     This function computes the relative translation vector between stereo cameras for KITTI.
     :param: [string] calibration dir: directory where KITTI calibration files are located.
-    :return: numpy.array of shape [3, 1], vector representing the relative translation between the camera that captured the source 
-    image and the camera that captured the target image.
+    :return: torch.Tensor of shape [3, 1], vector representing the relative translation between the camera that captured
+    the source image and the camera that captured the target image.
     """
     # Read calibration file.
     cam2cam = read_calibration_file(os.path.join(calibration_dir, 'calib_cam_to_cam.txt'))

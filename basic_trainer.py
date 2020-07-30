@@ -108,7 +108,7 @@ class Trainer:
         img_num = 1
 
         num_batches = math.ceil(len(self.dataset) / self.batch_size)
-        
+
         for batch_idx, item in enumerate(self.dataloader):
             # Predict disparity map for images in batch
             inputs = F.interpolate(item["stereo_left_image"].to(self.device).permute(0, 3, 1, 2).float(), (self.height, self.width), mode="bilinear", align_corners=False)
