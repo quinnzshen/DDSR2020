@@ -2,6 +2,9 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 
+SURROUNDING_LIDAR_COLOR = np.array([[.75, .75, .75]])
+
+
 def rel_pose_from_rotation_matrix_translation_vector(relative_translation, relative_rotation):
     """
     This function computes the relative pose matrix that relates the positions of the target and source cameras.
@@ -57,7 +60,6 @@ def plot_sparse_img_and_surrounding_lidar(front_lidar_points_image_plane, pixel_
     """
     plt.figure(figsize=(40, 7.5))
     # Plot surrounding lidar points.
-    SURROUNDING_LIDAR_COLOR = np.array([[.75, .75, .75]])
     plt.scatter(front_lidar_points_image_plane[:, 0], front_lidar_points_image_plane[:, 1], c=SURROUNDING_LIDAR_COLOR, s=7, marker='s')
     # Plot sparse image on top of lidar points.
     plt.scatter(pixel_coords[:, 0], pixel_coords[:, 1], c=colors, s=7, marker='s')
@@ -97,27 +99,27 @@ def calc_transformation_matrix(rotation, translation):
     ], dtype=np.float32)
 
 
-def calc_photo_error(tgt_image, color_points):
+def calc_photo_error(target_image, color_points):
     """
     Calculates photometric error given the target image and coordinates of the projected points and their colors
-    :param [np.ndarray] tgt_image: Shape of [H, W, 3], the target image to be compared to
+    :param [np.ndarray] target_image: Shape of [H, W, 3], the target image to be compared to
     :param [np.ndarray] color_points: The projected point information, in format [x, y, depth, 1, R, G, B]
     :return [np.ndarray]: Float array of shape [H, W], where each value is the photometric error at that position if
     there is was a color point there. If not, that position is just 0
     """
-    pixel_error = np.zeros((tgt_image.shape[0], tgt_image.shape[1]), dtype=np.float32)
-    pixel_error[color_points[:, 1], color_points[:, 0]] = np.sqrt(np.sum(np.square(color_points[:, 4:] - tgt_image[color_points[:, 1], color_points[:, 0]]), axis=1))
+    pixel_error = np.zeros((target_image.shape[0], target_image.shape[1]), dtype=np.float32)
+    pixel_error[color_points[:, 1], color_points[:, 0]] = np.sqrt(np.sum(np.square(color_points[:, 4:] - target_image[color_points[:, 1], color_points[:, 0]]), axis=1))
     return pixel_error
 
 
-def calc_photo_error_velo(tgt_image, color_points):
+def calc_photo_error_velo(target_image, color_points):
     """
     Calculates photometric error given the target image and coordinates of the projected points and their colors
-    :param [np.ndarray] tgt_image: Shape of [H, W, 3], the target image to be compared to
+    :param [np.ndarray] target_image: Shape of [H, W, 3], the target image to be compared to
     :param [np.ndarray] color_points: The projected point information, in format [x, y, depth, 1, R, G, B]
     :return [np.ndarray]: Float array of shape [N], where N is the number of color_points. Each value represents the
     photometric error of the associated point in color_points when compared to the image
     """
     velo_error = np.zeros(color_points.shape[0], dtype=np.float32)
-    velo_error[:] = np.sqrt(np.sum(np.square(color_points[:, 4:] - tgt_image[color_points[:, 1], color_points[:, 0]]), axis=1))
+    velo_error[:] = np.sqrt(np.sum(np.square(color_points[:, 4:] - target_image[color_points[:, 1], color_points[:, 0]]), axis=1))
     return velo_error
