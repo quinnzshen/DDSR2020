@@ -1,5 +1,6 @@
 import numpy as np
 from matplotlib import pyplot as plt
+import torch
 
 
 def compute_relative_pose_matrix(relative_translation, relative_rotation):
@@ -11,9 +12,12 @@ def compute_relative_pose_matrix(relative_translation, relative_rotation):
     captured the source image and the camera that captured the target image.
     :return: numpy.array of shape [4, 4] that relates the positions of the target and source cameras.
     """
-    relative_pose = np.hstack((relative_rotation, relative_translation))
-    relative_pose = np.vstack((relative_pose, np.array([[0., 0., 0., 1.]])))
-    return relative_pose
+    pose = torch.eye(4)
+    pose[:3, :3] = relative_rotation
+    print(pose[:3, 3].shape)
+    print(relative_translation.shape)
+    pose[:3, 3] = relative_translation
+    return pose
 
 
 def reproject_source_to_target(tgt_intrinsic, src_intrinsic, lidar_point_coord_camera_image_tgt, relative_pose):

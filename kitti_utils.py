@@ -2,11 +2,12 @@ from __future__ import absolute_import, division, print_function
 
 import numpy as np
 from PIL import Image
+import torch
 
 import os
 import pandas as pd
 from enum import Enum
-from compute_photometric_error_utils import calc_transformation_matrix, compute_relative_pose_matrix
+from compute_photometric_error_utils import calc_transformation_matrix
 
 
 class KITTICameraNames(str, Enum):
@@ -118,14 +119,14 @@ def get_timestamp_nsec(sample_path, idx):
 
 def get_nearby_frames_data(path_name, idx, previous_frames, next_frames):
     """
-        Given a specific index, return a dictionary containing information about the frame n frames before and after the target index
-        in the dataset.
-        :param dataset_index [pd.DataFrame]: The dataframe containing the paths and indices of the data
-        :param [int] previous_frames: Number of frames before the target frame that will be retrieved.
-        :param [int] next_frames: Number of frames after the target frame that will be retrieved.
-        :return [dict]: Dictionary containing camera data and pose of nearby frames, the key is the relative index and the value is the data.
-                        (e.g. -1 would be the previous image, 2 would be the next-next image).
-        """
+    Given a specific index, return a dictionary containing information about the frame n frames before and after the target index
+    in the dataset.
+    :param dataset_index [pd.DataFrame]: The dataframe containing the paths and indices of the data
+    :param [int] previous_frames: Number of frames before the target frame that will be retrieved.
+    :param [int] next_frames: Number of frames after the target frame that will be retrieved.
+    :return [dict]: Dictionary containing camera data and pose of nearby frames, the key is the relative index and the value is the data.
+                    (e.g. -1 would be the previous image, 2 would be the next-next image).
+    """
     nearby_frames = {}
     for relative_idx in range(-previous_frames, next_frames + 1):
         # We do not want to include the current frame in the nearby frames data.
@@ -156,7 +157,7 @@ def get_camera_data(path_name, idx):
         timestamp_path = os.path.join(path_name, f"{camera_path}/timestamps.txt")
 
         if os.path.exists(camera_image_path) and os.path.exists(timestamp_path):
-            camera_image = np.asarray(Image.open(camera_image_path))
+            camera_image = torch.from_numpy(np.asarray(Image.open(camera_image_path)))
             timestamp = get_timestamp_nsec(timestamp_path, idx)
             camera_data[f"{camera_name}_image"] = camera_image
             camera_data[f"{camera_name}_shape"] = camera_image.shape
@@ -172,7 +173,7 @@ def get_lidar_data(path_name, idx):
     :param [int] idx: The frame number in the scene
     :return [dict]: A dictionary containing the points, reflectivity, start, and end times of the LiDAR scan.
     """
-    lidar_points = load_lidar_points(os.path.join(path_name, f"velodyne_points/data/{idx:010}.bin"))
+    lidar_points = torch.from_numpy(load_lidar_points(os.path.join(path_name, f"velodyne_points/data/{idx:010}.bin")))
     start_time = get_timestamp_nsec(os.path.join(path_name, "velodyne_points/timestamps_start.txt"), idx)
     end_time = get_timestamp_nsec(os.path.join(path_name, "velodyne_points/timestamps_end.txt"), idx)
     return {
@@ -234,7 +235,7 @@ def get_camera_intrinsic_dict(calibration_dir):
 
         # Get camera number by slicing last 2 characters off of camera_name string.
         cam_num = camera_path[-2:]
-        intrinsic_matrix = cam2cam[f"K_{cam_num}"].reshape(3, 3)
+        intrinsic_matrix = torch.from_numpy(cam2cam[f"K_{cam_num}"].reshape(3, 3))
         camera_intrinsic_dict.update({KITTICameraNames(camera_name).name: intrinsic_matrix})
     return camera_intrinsic_dict
 
@@ -252,7 +253,7 @@ def get_relative_rotation_stereo(calibration_dir):
     rotation_target = cam2cam['R_02'].reshape(3, 3)
     rotation_source = cam2cam['R_03'].reshape(3, 3)
     rotation_source_to_target = np.linalg.inv(rotation_source) @ rotation_target
-    return rotation_source_to_target
+    return torch.from_numpy(rotation_source_to_target)
 
 
 def get_relative_translation_stereo(calibration_dir):
@@ -265,10 +266,10 @@ def get_relative_translation_stereo(calibration_dir):
     # Read calibration file.
     cam2cam = read_calibration_file(os.path.join(calibration_dir, 'calib_cam_to_cam.txt'))
     # Compute relative translation vector.
-    translation_target = cam2cam['T_02'].reshape(3, 1)
-    translation_source = cam2cam['T_03'].reshape(3, 1)
+    translation_target = cam2cam['T_02']
+    translation_source = cam2cam['T_03']
     translation_source_to_target = translation_source - translation_target
-    return translation_source_to_target
+    return torch.from_numpy(translation_source_to_target)
 
 
 def string_to_nano(time_string):
@@ -292,7 +293,7 @@ def get_relative_pose(scene_path, target, source):
     :param [str] scene_path: Path name to the scene folder
     :param [int] target : The target frame number
     :param [int] source: The source frame number
-    :return [np.ndarray]: Shape of (4, 4) containing the values to transform between target frame to source frame
+    :return [torch.tensor]: Shape of (4, 4) containing the values to transform between target frame to source frame
     """
     if target == source:
         return np.eye(4, dtype=np.float32)
@@ -333,7 +334,7 @@ def get_relative_pose(scene_path, target, source):
     pos_cam = np.array([-1 * pos[1], -1 * pos[2], pos[0]])
     rot_cam = np.array([-1 * rot[1], -1 * rot[2], rot[0]])
     rel_pose = calc_transformation_matrix(rot_cam, pos_cam)
-    return rel_pose
+    return torch.from_numpy(rel_pose)
 
 
 def get_pose(scene_path, frame):
@@ -341,10 +342,12 @@ def get_pose(scene_path, frame):
     This function gets the pose matrix with respect to the frame at index 0 for a given frame.
     :param [str] scene_path: Path name to the scene folder
     :param [int] frame: the index of the frame that pose is being calculated for.
-    :return: numpy.array of shape [4, 4] containing the pose of the image at index frame with respect to the the image at index 0.
+    :return: tensor of shape [4, 4] containing the pose of the image at index frame with respect to the the image at index 0.
     """
-    rel_rot = get_relative_pose(scene_path, frame, 0)[:3, :3]
-    rel_translation = np.array([0., 0., 0.])
+    pose = get_relative_pose(scene_path, frame, 0)
+    rel_translation = torch.zeros(3)
     for idx in range(0, frame - 1):
         rel_translation += get_relative_pose(scene_path, idx, idx + 1)[:3, 3]
-    return compute_relative_pose_matrix(rel_translation.reshape(3, -1), rel_rot)
+    pose[:3, 3] = rel_translation
+
+    return pose

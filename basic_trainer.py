@@ -49,6 +49,10 @@ class Trainer:
         self.collate = TrainerCollator(self.height, self.width)
         self.dataloader = DataLoader(self.dataset, batch_size=self.batch_size, shuffle=False, collate_fn=self.collate)
 
+        # Neighboring frames
+        self.prev_frames = self.dataset.previous_frames
+        self.next_frames = self.dataset.next_frames
+
         # Model setup
         self.models = {}
         self.pretrained = self.config["pretrained"]
@@ -106,10 +110,12 @@ class Trainer:
         num_batches = math.ceil(len(self.dataset) / self.batch_size)
         for batch_idx, item in enumerate(self.dataloader):
             # Predict disparity map for images in batch
-            inputs = item["stereo_left_image"].to(self.device)
+            inputs = F.interpolate(item["stereo_left_image"].to(self.device).permute(0, 3, 1, 2).float(), (self.height, self.width), mode="bilinear", align_corners=False)
+            print(item["stereo_left_image"].shape)
             features = self.models['resnet_encoder'](inputs)
             outputs = self.models['depth_decoder'](features)
             disp = outputs[("disp", 0)]
+            print(disp.shape)
             disp = F.interpolate(disp, [self.height, self.width], mode="bilinear", align_corners=False)
 
             # Add disparity map of the first image in each batch to tensorboard
@@ -120,7 +126,8 @@ class Trainer:
             outputs[("depths", 0)] = depths
 
             tgt_poses = item["pose"].to(self.device)
-            sources_list = [item["stereo_right_image"].to(self.device)]
+            sources_list = [F.interpolate(item["stereo_right_image"].to(self.device).permute(0, 3, 1, 2).float(), (self.height, self.width), mode="bilinear", align_corners=False)]
+            print(item["stereo_right_image"].shape)
             poses_list = [item["rel_pose_stereo"].to(self.device)]
 
             for i in range(-self.prev_frames, self.next_frames + 1):
@@ -128,14 +135,15 @@ class Trainer:
                     continue
 
                 # Source images and poses
-                sources_list.append(item["nearby_frames"][i]["camera_data"]["stereo_left_image"].to(self.device))
+                sources_list.append(F.interpolate(item["nearby_frames"][i]["camera_data"]["stereo_left_image"].to(self.device).permute(0, 3, 1, 2).float(), (self.height, self.width), mode="bilinear", align_corners=False))
                 poses_list.append(
                     torch.matmul(torch.inverse(tgt_poses), item["nearby_frames"][i]["pose"].to(self.device)))
 
             # Stacking to turn into tensors
             sources = torch.stack(sources_list, dim=0)
             poses = torch.stack(poses_list, dim=0)
-
+            print(sources.shape)
+            print(inputs.shape)
             # Intrinsics
             tgt_intrinsics = item["intrinsics"]["stereo_left"].to(self.device)
             src_intrinsics_stereo = item["intrinsics"]["stereo_right"].to(self.device)
