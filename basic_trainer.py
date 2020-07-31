@@ -1,3 +1,4 @@
+import math
 import matplotlib as mpl
 import matplotlib.cm as cm
 import numpy as np
@@ -17,7 +18,6 @@ from loss import process_depth, calc_loss
 from third_party.monodepth2.ResnetEncoder import ResnetEncoder
 from third_party.monodepth2.DepthDecoder import DepthDecoder
 
-
 class Trainer:
     def __init__(self, config_path):
         """
@@ -32,8 +32,8 @@ class Trainer:
             self.config = yaml.load(file, Loader=yaml.Loader)
 
         # GPU/CPU setup
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        # self.device = "cpu"
+        #self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.device = "cpu"
 
         # Epoch and batch info
         self.num_epochs = self.config["num_epochs"]
@@ -96,18 +96,19 @@ class Trainer:
         Runs the entire training pipeline
         Saves the model's weights at the end of training
         """
+        self.num_batches_train = math.ceil(len(self.train_dataset) / self.batch_size)
 
         for self.epoch in range(self.num_epochs):
             self.run_epoch()
 
         # Calculating loss on test data
-        img_num = 1
+        self.img_num = 1
 
         total_loss = count = 0
         for batch_idx, batch in enumerate(self.test_dataloader):
             with torch.no_grad():
                 count += 1
-                total_loss += self.process_batch(batch_idx, batch, img_num, len(self.test_dataset), False).item()
+                total_loss += self.process_batch(batch_idx, batch, len(self.test_dataset), False).item()
         total_loss /= count
         self.writer.add_scalar("Testing" + ' Loss', total_loss, 0)
         print(f"Testing Loss: {total_loss}")
@@ -129,23 +130,23 @@ class Trainer:
         self.models['resnet_encoder'].train()
         self.models['depth_decoder'].train()
 
-        img_num = 1
-
-        total_loss = count = 0
+        self.img_num = 1
         
+        total_loss = count = 0
         for batch_idx, batch in enumerate(self.train_dataloader):
             count += 1
-            total_loss += self.process_batch(batch_idx, batch, img_num, len(self.train_dataset), True).item()
-        total_loss /= count
+            loss = self.process_batch(batch_idx, batch, len(self.train_dataset), True).item()
+            self.writer.add_scalar("Training" + ' Loss', loss, self.epoch * self.num_batches_train + batch_idx)
+            total_loss += loss
 
-        self.writer.add_scalar("Training" + ' Loss', total_loss, self.epoch)
+        total_loss /= count
 
         self.lr_scheduler.step()
 
         train_end_time = time.time()
 
         print(f"Training Loss: {total_loss}")
-        print(f"Time spent: {train_end_time - train_start_time}\n")
+        print(f"Time spent: {train_end_time - train_start_time}")
 
         # Validation
         val_start_time = time.time()
@@ -155,13 +156,13 @@ class Trainer:
         self.models['resnet_encoder'].eval()
         self.models['depth_decoder'].eval()
 
-        img_num = 1
+        self.img_num = 1
 
         total_loss = count = 0
-        for batch_idx, batch in enumerate(self.valid_dataloader):
+        for batch_idx, batch in enumerate(self.val_dataloader):
             with torch.no_grad():
                 count += 1
-                total_loss += self.process_batch(batch_idx, batch, img_num, len(self.valid_dataset), False).item()
+                total_loss += self.process_batch(batch_idx, batch, len(self.val_dataset), False).item()
         total_loss /= count
 
         self.writer.add_scalar("Validation" + ' Loss', total_loss, self.epoch)
@@ -169,10 +170,9 @@ class Trainer:
         val_end_time = time.time()
 
         print(f"Validation Loss: {total_loss}")
-        print(f"Time spent: {val_end_time - val_start_time}\n\n")
-        print()
+        print(f"Time spent: {val_end_time - val_start_time}\n")
 
-    def process_batch(self, batch_idx, batch, img_num, dataset_length, train):
+    def process_batch(self, batch_idx, batch, dataset_length, train):
         """
         Computes loss for a single batch
         :param [int] batch_idx: The batch index
@@ -192,8 +192,8 @@ class Trainer:
         disp = F.interpolate(disp, [self.height, self.width], mode="bilinear", align_corners=False)
 
         # Add disparity map to tensorboard
-        for i in range(dataset_length):
-            self.add_disparity_map_to_tensorboard(disp, img_num + i, dataset_length, train)
+        for i, disp_map in enumerate(disp):
+            self.add_disparity_map_to_tensorboard(disp_map, self.img_num + i, dataset_length, train)
 
         # Convert disparity to depth
         _, depths = disp_to_depth(disp, 0.1, 100)
@@ -254,7 +254,7 @@ class Trainer:
             self.optimizer.step()
 
         # Adjusts image number    
-        img_num += self.batch_size
+        self.img_num += self.batch_size
 
         return losses
 
@@ -286,7 +286,7 @@ class Trainer:
         """
         # Processing disparity map
         disp_resized = torch.nn.functional.interpolate(
-            disp[0].unsqueeze(0), (self.height, self.width), mode="bilinear", align_corners=False)
+            disp.unsqueeze(0), (self.height, self.width), mode="bilinear", align_corners=False)
         disp_resized_np = disp_resized.squeeze().cpu().detach().numpy()
         vmax = np.percentile(disp_resized_np, 95)
         normalizer = mpl.colors.Normalize(vmin=disp_resized_np.min(), vmax=vmax)

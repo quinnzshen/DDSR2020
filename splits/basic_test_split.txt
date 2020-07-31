@@ -4,13 +4,3 @@ data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/ 11 10
 data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/ 15 6
 data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/ 19 2
 data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/ 20 1
-data/kitti_example/2011_09_26/2011_09_26_drive_0060_sync/ 2 75
-data/kitti_example/2011_09_26/2011_09_26_drive_0060_sync/ 6 71
-data/kitti_example/2011_09_26/2011_09_26_drive_0060_sync/ 10 67
-data/kitti_example/2011_09_26/2011_09_26_drive_0060_sync/ 14 63
-data/kitti_example/2011_09_26/2011_09_26_drive_0060_sync/ 18 59
-data/kitti_example/2011_09_26/2011_09_26_drive_0060_sync/ 22 55
-data/kitti_example/2011_09_26/2011_09_26_drive_0060_sync/ 26 51
-data/kitti_example/2011_09_26/2011_09_26_drive_0060_sync/ 30 47
-data/kitti_example/2011_09_26/2011_09_26_drive_0060_sync/ 34 43
-
