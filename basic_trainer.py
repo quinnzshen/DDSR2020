@@ -32,8 +32,8 @@ class Trainer:
             self.config = yaml.load(file, Loader=yaml.Loader)
 
         # GPU/CPU setup
-        # self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        self.device = "cpu"
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        # self.device = "cpu"
 
         # Epoch and batch info
         self.num_epochs = self.config["num_epochs"]
@@ -53,11 +53,13 @@ class Trainer:
 
         val_config_path = self.config["valid_config_path"]
         self.val_dataset = KittiDataset.init_from_config(val_config_path)
-        self.val_dataloader = DataLoader(self.val_dataset, batch_size=self.batch_size, shuffle=False, collate_fn=self.collate)
-        
+        self.val_dataloader = DataLoader(self.val_dataset, batch_size=self.batch_size, shuffle=False,
+                                         collate_fn=self.collate)
+
         test_config_path = self.config["test_config_path"]
         self.test_dataset = KittiDataset.init_from_config(test_config_path)
-        self.test_dataloader = DataLoader(self.test_dataset, batch_size=self.batch_size, shuffle=False, collate_fn=self.collate)
+        self.test_dataloader = DataLoader(self.test_dataset, batch_size=self.batch_size, shuffle=False,
+                                          collate_fn=self.collate)
 
         # Neighboring frames
         self.prev_frames = self.train_dataset.previous_frames
@@ -101,15 +103,15 @@ class Trainer:
         # Calculating loss on test data
         img_num = 1
 
-        total_loss = 0
-
+        total_loss = count = 0
         for batch_idx, item in enumerate(self.test_dataloader):
             with torch.no_grad():
-                total_loss += self.process_batch(batch_idx, item, img_num, len(self.test_dataset), False)
-        
-        self.writer.add_scalar("Testing" +  ' Loss', total_loss.item(), 0) 
-        print("Testing Loss: {}".format(total_loss.item()))
-        
+                count += 1
+                total_loss += self.process_batch(batch_idx, item, img_num, len(self.test_dataset), False).item()
+        total_loss /= count
+        self.writer.add_scalar("Testing" + ' Loss', total_loss, 0)
+        print(f"Testing Loss: {total_loss}")
+
         self.writer.close()
         self.save_model()
         print('Model saved.')
@@ -129,10 +131,11 @@ class Trainer:
 
         img_num = 1
 
-        total_loss = 0
+        total_loss = count = 0
         for batch_idx, batch in enumerate(self.train_dataloader):
+            count += 1
             total_loss += self.process_batch(batch_idx, batch, img_num, len(self.train_dataset), True).item()
-        total_loss /= batch_idx + 1
+        total_loss /= count
 
         self.writer.add_scalar("Training" + ' Loss', total_loss, self.epoch)
 
@@ -153,11 +156,12 @@ class Trainer:
 
         img_num = 1
 
-        total_loss = 0
-        for batch_idx, item in enumerate(self.val_dataloader):
+        total_loss = count = 0
+        for batch_idx, item in enumerate(self.valid_dataloader):
             with torch.no_grad():
-                total_loss += self.process_batch(batch_idx, item, img_num, len(self.val_dataset), False).item()
-        total_loss /= batch_idx + 1
+                count += 1
+                total_loss += self.process_batch(batch_idx, item, img_num, len(self.valid_dataset), False).item()
+        total_loss /= count
 
         self.writer.add_scalar("Validation" + ' Loss', total_loss, self.epoch)
 
