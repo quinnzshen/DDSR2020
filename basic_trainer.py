@@ -1,4 +1,3 @@
-import math
 import matplotlib as mpl
 import matplotlib.cm as cm
 import numpy as np
@@ -96,8 +95,7 @@ class Trainer:
         Runs the entire training pipeline
         Saves the model's weights at the end of training
         """
-        self.num_batches_train = math.ceil(len(self.train_dataset) / self.batch_size)
-
+        
         for self.epoch in range(self.num_epochs):
             self.run_epoch()
 
@@ -135,11 +133,10 @@ class Trainer:
         total_loss = count = 0
         for batch_idx, batch in enumerate(self.train_dataloader):
             count += 1
-            loss = self.process_batch(batch_idx, batch, len(self.train_dataset), True).item()
-            self.writer.add_scalar("Training" + ' Loss', loss, self.epoch * self.num_batches_train + batch_idx)
-            total_loss += loss
-
+            total_loss += self.process_batch(batch_idx, batch, len(self.train_dataset), True).item()
         total_loss /= count
+        
+        self.writer.add_scalars("Loss", {"Training" : total_loss}, self.epoch)
 
         self.lr_scheduler.step()
 
@@ -165,7 +162,7 @@ class Trainer:
                 total_loss += self.process_batch(batch_idx, batch, len(self.val_dataset), False).item()
         total_loss /= count
 
-        self.writer.add_scalar("Validation" + ' Loss', total_loss, self.epoch)
+        self.writer.add_scalars("Loss", {"Validation" : total_loss}, self.epoch)
 
         val_end_time = time.time()
 

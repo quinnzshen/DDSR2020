@@ -3,11 +3,11 @@ encoder_layers: 18
 pretrained: True
 num_scales: 1
 learning_rate: 0.0001
-scheduler_step_size: 7
+scheduler_step_size: 30
 weight_decay: 0.1
 width: 1280
 height: 384
-num_epochs: 10
+num_epochs: 50
 batch_size: 3
 valid_config_path: configs/basic_validation_dataset.yml
 test_config_path: configs/basic_test_dataset.yml
