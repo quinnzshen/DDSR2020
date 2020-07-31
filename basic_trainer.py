@@ -114,7 +114,7 @@ class Trainer:
         img_num = 1
                 
         for batch_idx, batch in enumerate(self.train_dataloader):
-            losses = self.process_batch(batch_idx, batch, True, img_num, len(self.train_dataset))
+            losses = self.process_batch(batch_idx, batch, img_num, len(self.train_dataset), True)
         
         self.writer.add_scalar("Training" +  ' Loss', losses.item(), self.epoch) 
         
@@ -138,7 +138,7 @@ class Trainer:
          
         for batch_idx, item in enumerate(self.valid_dataloader):
             with torch.no_grad():
-                losses = self.process_batch(batch_idx, item, False, img_num, len(self.valid_dataset))
+                losses = self.process_batch(batch_idx, item, img_num, len(self.valid_dataset), False)
         
         self.writer.add_scalar("Validation" +  ' Loss', losses.item(), self.epoch) 
 
@@ -254,7 +254,7 @@ class Trainer:
         :param [int] dataset_length: The length of the training/validation dataset
         :param [boolean] train: Differentiates between training and validation
         """
-        # Processing
+        # Processing disparity map
         disp_resized = torch.nn.functional.interpolate(
             disp[0].unsqueeze(0), (self.height, self.width), mode="bilinear", align_corners=False)
         disp_resized_np = disp_resized.squeeze().cpu().detach().numpy()
