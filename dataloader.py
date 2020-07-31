@@ -27,7 +27,7 @@ class KittiDataset(Dataset):
 
         self.dataset_index = dataset_index[
             (dataset_index["frames_from_begin"] >= previous_frames) &
-            (dataset_index["frames_from_end"] <= next_frames)
+            (dataset_index["frames_from_end"] >= next_frames)
             ]
 
     @classmethod
@@ -69,7 +69,7 @@ class KittiDataset(Dataset):
             raise IndexError(
                 f"Dataset index out of range. Given: {idx} (Less than 0 or greater than or equal to length)")
 
-        path_name = os.path.normpath(self.dataset_index.iloc["path"][idx])
+        path_name = os.path.normpath(self.dataset_index["path"][idx])
         date_name = os.path.dirname(path_name)
         idx = int(self.dataset_index.iloc[idx, 1])
 

@@ -104,10 +104,10 @@ class Trainer:
         img_num = 1
 
         total_loss = count = 0
-        for batch_idx, item in enumerate(self.test_dataloader):
+        for batch_idx, batch in enumerate(self.test_dataloader):
             with torch.no_grad():
                 count += 1
-                total_loss += self.process_batch(batch_idx, item, img_num, len(self.test_dataset), False).item()
+                total_loss += self.process_batch(batch_idx, batch, img_num, len(self.test_dataset), False).item()
         total_loss /= count
         self.writer.add_scalar("Testing" + ' Loss', total_loss, 0)
         print(f"Testing Loss: {total_loss}")
@@ -120,7 +120,7 @@ class Trainer:
         """
         Runs a single epoch of training and validation
         """
-
+        
         # Training
         train_start_time = time.time()
 
@@ -132,6 +132,7 @@ class Trainer:
         img_num = 1
 
         total_loss = count = 0
+        
         for batch_idx, batch in enumerate(self.train_dataloader):
             count += 1
             total_loss += self.process_batch(batch_idx, batch, img_num, len(self.train_dataset), True).item()
@@ -157,10 +158,10 @@ class Trainer:
         img_num = 1
 
         total_loss = count = 0
-        for batch_idx, item in enumerate(self.valid_dataloader):
+        for batch_idx, batch in enumerate(self.valid_dataloader):
             with torch.no_grad():
                 count += 1
-                total_loss += self.process_batch(batch_idx, item, img_num, len(self.valid_dataset), False).item()
+                total_loss += self.process_batch(batch_idx, batch, img_num, len(self.valid_dataset), False).item()
         total_loss /= count
 
         self.writer.add_scalar("Validation" + ' Loss', total_loss, self.epoch)
