@@ -1,10 +1,10 @@
-data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/ 1
-data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/ 5
-data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/ 9
-data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/ 13
-data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/ 17
-data/kitti_example/2011_09_26/2011_09_26_drive_0060_sync/ 21
-data/kitti_example/2011_09_26/2011_09_26_drive_0060_sync/ 25
-data/kitti_example/2011_09_26/2011_09_26_drive_0060_sync/ 29
-data/kitti_example/2011_09_26/2011_09_26_drive_0060_sync/ 33
-data/kitti_example/2011_09_26/2011_09_26_drive_0060_sync/ 37
+data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/ 1 20
+data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/ 5 16
+data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/ 9 12
+data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/ 13 8
+data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/ 17 4
+data/kitti_example/2011_09_26/2011_09_26_drive_0060_sync/ 21 56
+data/kitti_example/2011_09_26/2011_09_26_drive_0060_sync/ 25 52
+data/kitti_example/2011_09_26/2011_09_26_drive_0060_sync/ 29 48
+data/kitti_example/2011_09_26/2011_09_26_drive_0060_sync/ 33 44
+data/kitti_example/2011_09_26/2011_09_26_drive_0060_sync/ 37 40
