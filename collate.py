@@ -1,5 +1,4 @@
 import torch
-import torch.nn.functional as F
 import re
 from torch._six import container_abcs, string_classes, int_classes
 
