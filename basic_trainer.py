@@ -50,9 +50,13 @@ class Trainer:
         self.train_dataset = KittiDataset.init_from_config(train_config_path)
         self.train_dataloader = DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=False, collate_fn=self.collate)
 
-        valid_config_path = self.config["valid_config_path"]
-        self.valid_dataset = KittiDataset.init_from_config(valid_config_path)
-        self.valid_dataloader = DataLoader(self.valid_dataset, batch_size=len(self.valid_dataset), shuffle=False, collate_fn=self.collate)
+        val_config_path = self.config["valid_config_path"]
+        self.val_dataset = KittiDataset.init_from_config(val_config_path)
+        self.val_dataloader = DataLoader(self.val_dataset, batch_size=len(self.val_dataset), shuffle=False, collate_fn=self.collate)
+        
+        test_config_path = self.config["test_config_path"]
+        self.test_dataset = KittiDataset.init_from_config(test_config_path)
+        self.test_dataloader = DataLoader(self.test_dataset, batch_size=len(self.test_dataset), shuffle=False, collate_fn=self.collate)
         
         # Neighboring frames
         self.prev_frames = self.train_dataset.previous_frames
@@ -93,8 +97,17 @@ class Trainer:
         for self.epoch in range(self.num_epochs):
             self.run_epoch()
 
-        self.writer.close()
+        img_num = 1
 
+        # Calculating loss on test data
+        for batch_idx, item in enumerate(self.test_dataloader):
+            with torch.no_grad():
+                losses = self.process_batch(batch_idx, item, img_num, len(self.test_dataset), False)
+        
+        self.writer.add_scalar("Testing" +  ' Loss', losses.item(), 0) 
+        print("Testing Loss: {}".format(losses.item()))
+        
+        self.writer.close()
         self.save_model()
         print('Model saved.')
     
@@ -127,7 +140,7 @@ class Trainer:
         
         
         # Validation
-        valid_start_time = time.time()
+        val_start_time = time.time()
 
         print("Validating epoch {}".format(self.epoch + 1), end=", ")
 
@@ -136,16 +149,16 @@ class Trainer:
 
         img_num = 1
          
-        for batch_idx, item in enumerate(self.valid_dataloader):
+        for batch_idx, item in enumerate(self.val_dataloader):
             with torch.no_grad():
-                losses = self.process_batch(batch_idx, item, img_num, len(self.valid_dataset), False)
+                losses = self.process_batch(batch_idx, item, img_num, len(self.val_dataset), False)
         
         self.writer.add_scalar("Validation" +  ' Loss', losses.item(), self.epoch) 
 
-        valid_end_time = time.time()
+        val_end_time = time.time()
         
         print("Validation Loss: {}".format(losses.item()))
-        print("Time spent: {}".format(valid_end_time - valid_start_time))
+        print("Time spent: {}".format(val_end_time - val_start_time))
         print()
 
     def process_batch(self, batch_idx, batch, img_num, dataset_length, train):
@@ -153,9 +166,9 @@ class Trainer:
         Computes loss for a single batch
         :param [int] batch_idx: The batch index
         :param [dict] batch: The batch data
-        :param [int] img_num: The index of the input image in the training/validation file
-        :param [int] dataset_length: The length of the training/validation dataset
-        :param [boolean] train: Differentiates between training and validation
+        :param [int] img_num: The index of the input image in the training/validation/testing file
+        :param [int] dataset_length: The length of the training/validation/testing dataset
+        :param [boolean] train: Differentiates between training and evaluation
         :return [tensor] losses: A 0-dimensional tensor containing the loss of the batch
         """
     

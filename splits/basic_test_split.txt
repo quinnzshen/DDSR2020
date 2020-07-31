@@ -1,0 +1,16 @@
+data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/ 3
+data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/ 7
+data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/ 11
+data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/ 15
+data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/ 19
+data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/ 20
+data/kitti_example/2011_09_26/2011_09_26_drive_0060_sync/ 2
+data/kitti_example/2011_09_26/2011_09_26_drive_0060_sync/ 6
+data/kitti_example/2011_09_26/2011_09_26_drive_0060_sync/ 10
+data/kitti_example/2011_09_26/2011_09_26_drive_0060_sync/ 14
+data/kitti_example/2011_09_26/2011_09_26_drive_0060_sync/ 18
+data/kitti_example/2011_09_26/2011_09_26_drive_0060_sync/ 22
+data/kitti_example/2011_09_26/2011_09_26_drive_0060_sync/ 26
+data/kitti_example/2011_09_26/2011_09_26_drive_0060_sync/ 30
+data/kitti_example/2011_09_26/2011_09_26_drive_0060_sync/ 34
+
