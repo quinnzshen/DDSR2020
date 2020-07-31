@@ -32,8 +32,8 @@ class Trainer:
             self.config = yaml.load(file, Loader=yaml.Loader)
 
         # GPU/CPU setup
-        # self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        self.device = "cpu"
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        # self.device = "cpu"
 
         # Epoch and batch info
         self.num_epochs = self.config["num_epochs"]
@@ -51,10 +51,15 @@ class Trainer:
         self.train_dataloader = DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=False,
                                            collate_fn=self.collate)
 
-        valid_config_path = self.config["valid_config_path"]
-        self.valid_dataset = KittiDataset.init_from_config(valid_config_path)
-        self.valid_dataloader = DataLoader(self.valid_dataset, batch_size=self.batch_size, shuffle=False,
-                                           collate_fn=self.collate)
+        val_config_path = self.config["valid_config_path"]
+        self.val_dataset = KittiDataset.init_from_config(val_config_path)
+        self.val_dataloader = DataLoader(self.val_dataset, batch_size=self.batch_size, shuffle=False,
+                                         collate_fn=self.collate)
+
+        test_config_path = self.config["test_config_path"]
+        self.test_dataset = KittiDataset.init_from_config(test_config_path)
+        self.test_dataloader = DataLoader(self.test_dataset, batch_size=self.batch_size, shuffle=False,
+                                          collate_fn=self.collate)
 
         # Neighboring frames
         self.prev_frames = self.train_dataset.previous_frames
@@ -95,8 +100,19 @@ class Trainer:
         for self.epoch in range(self.num_epochs):
             self.run_epoch()
 
-        self.writer.close()
+        # Calculating loss on test data
+        img_num = 1
 
+        total_loss = count = 0
+        for batch_idx, item in enumerate(self.test_dataloader):
+            with torch.no_grad():
+                count += 1
+                total_loss += self.process_batch(batch_idx, item, img_num, len(self.test_dataset), False).item()
+        total_loss /= count
+        self.writer.add_scalar("Testing" + ' Loss', total_loss, 0)
+        print(f"Testing Loss: {total_loss}")
+
+        self.writer.close()
         self.save_model()
         print('Model saved.')
 
@@ -131,7 +147,7 @@ class Trainer:
         print(f"Time spent: {train_end_time - train_start_time}\n")
 
         # Validation
-        valid_start_time = time.time()
+        val_start_time = time.time()
 
         print(f"Validating epoch {self.epoch + 1}", end=", ")
 
@@ -149,19 +165,20 @@ class Trainer:
 
         self.writer.add_scalar("Validation" + ' Loss', total_loss, self.epoch)
 
-        valid_end_time = time.time()
+        val_end_time = time.time()
 
         print(f"Validation Loss: {total_loss}")
-        print(f"Time spent: {valid_end_time - valid_start_time}\n\n")
+        print(f"Time spent: {val_end_time - val_start_time}\n\n")
+        print()
 
     def process_batch(self, batch_idx, batch, img_num, dataset_length, train):
         """
         Computes loss for a single batch
         :param [int] batch_idx: The batch index
         :param [dict] batch: The batch data
-        :param [int] img_num: The index of the input image in the training/validation file
-        :param [int] dataset_length: The length of the training/validation dataset
-        :param [boolean] train: Differentiates between training and validation
+        :param [int] img_num: The index of the input image in the training/validation/testing file
+        :param [int] dataset_length: The length of the training/validation/testing dataset
+        :param [boolean] train: Differentiates between training and evaluation
         :return [tensor] losses: A 0-dimensional tensor containing the loss of the batch
         """
 
