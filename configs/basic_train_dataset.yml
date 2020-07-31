@@ -1,5 +1,5 @@
 root_directory: data/kitti_example
 dataset_paths:
-  - oneframe_overfit.txt
+  - basic_train_split.txt
 previous_frames: 1
 next_frames: 1

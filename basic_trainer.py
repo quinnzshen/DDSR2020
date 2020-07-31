@@ -146,6 +146,7 @@ class Trainer:
         
         print("Validation Loss: {}".format(losses.item()))
         print("Time spent: {}".format(valid_end_time - valid_start_time))
+        print()
 
     def process_batch(self, batch_idx, batch, img_num, dataset_length, train):
         """
@@ -292,5 +293,5 @@ def disp_to_depth(disp, min_depth, max_depth):
 
 
 if __name__ == "__main__":
-    test = Trainer("configs/oneframe_model.yml")
+    test = Trainer("configs/basic_model.yml")
     test.train()

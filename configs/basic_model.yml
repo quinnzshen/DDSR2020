@@ -1,4 +1,4 @@
-train_config_path: configs/oneframe_overfit.yml
+train_config_path: configs/basic_train_dataset.yml
 encoder_layers: 18
 pretrained: True
 num_scales: 1
@@ -8,4 +8,5 @@ weight_decay: 0.1
 width: 1280
 height: 384
 num_epochs: 50
-batch_size: 1
+batch_size: 3
+valid_config_path: configs/basic_validation_dataset.yml
