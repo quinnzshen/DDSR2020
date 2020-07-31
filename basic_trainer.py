@@ -115,10 +115,11 @@ class Trainer:
 
         img_num = 1
 
-        total_loss = 0
+        total_loss = count = 0
         for batch_idx, batch in enumerate(self.train_dataloader):
+            count += 1
             total_loss += self.process_batch(batch_idx, batch, img_num, len(self.train_dataset), True).item()
-        total_loss /= batch_idx + 1
+        total_loss /= count
 
         self.writer.add_scalar("Training" + ' Loss', total_loss, self.epoch)
 
@@ -139,11 +140,12 @@ class Trainer:
 
         img_num = 1
 
-        total_loss = 0
+        total_loss = count = 0
         for batch_idx, item in enumerate(self.valid_dataloader):
             with torch.no_grad():
+                count += 1
                 total_loss += self.process_batch(batch_idx, item, img_num, len(self.valid_dataset), False).item()
-        total_loss /= batch_idx
+        total_loss /= count
 
         self.writer.add_scalar("Validation" + ' Loss', total_loss, self.epoch)
 
