@@ -10,7 +10,7 @@ default_collate_err_msg_format = (
     "dicts or lists; found {}")
 
 
-class TrainerCollator(object):
+class Collator(object):
     def __init__(self, height, width):
         """
         Creates an instance of TrainerCollator
