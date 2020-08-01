@@ -17,6 +17,7 @@ from loss import process_depth, calc_loss
 from third_party.monodepth2.ResnetEncoder import ResnetEncoder
 from third_party.monodepth2.DepthDecoder import DepthDecoder
 
+
 class Trainer:
     def __init__(self, config_path):
         """
@@ -31,8 +32,8 @@ class Trainer:
             self.config = yaml.load(file, Loader=yaml.Loader)
 
         # GPU/CPU setup
-        #self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        self.device = "cpu"
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        # self.device = "cpu"
 
         # Epoch and batch info
         self.num_epochs = self.config["num_epochs"]
@@ -95,7 +96,7 @@ class Trainer:
         Runs the entire training pipeline
         Saves the model's weights at the end of training
         """
-        
+
         for self.epoch in range(self.num_epochs):
             self.run_epoch()
 
@@ -119,7 +120,7 @@ class Trainer:
         """
         Runs a single epoch of training and validation
         """
-        
+
         # Training
         train_start_time = time.time()
 
@@ -129,14 +130,14 @@ class Trainer:
         self.models['depth_decoder'].train()
 
         self.img_num = 1
-        
+
         total_loss = count = 0
         for batch_idx, batch in enumerate(self.train_dataloader):
             count += 1
             total_loss += self.process_batch(batch_idx, batch, len(self.train_dataset), True).item()
         total_loss /= count
-        
-        self.writer.add_scalars("Loss", {"Training" : total_loss}, self.epoch)
+
+        self.writer.add_scalars("Loss", {"Training": total_loss}, self.epoch)
 
         self.lr_scheduler.step()
 
@@ -162,7 +163,7 @@ class Trainer:
                 total_loss += self.process_batch(batch_idx, batch, len(self.val_dataset), False).item()
         total_loss /= count
 
-        self.writer.add_scalars("Loss", {"Validation" : total_loss}, self.epoch)
+        self.writer.add_scalars("Loss", {"Validation": total_loss}, self.epoch)
 
         val_end_time = time.time()
 
