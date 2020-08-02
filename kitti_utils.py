@@ -273,20 +273,6 @@ def get_relative_translation_stereo(calibration_dir):
     return translation_source_to_target
 
 
-def string_to_nano(time_string):
-    """
-    Converts a line in the format provided by timestamps.txt to the number of nanoseconds since the midnight of that day
-    :param time_string: The string to be converted into nanoseconds
-    :return: The number of nanoseconds since midnight
-    """
-    total = 0
-    total += int(time_string[11:13]) * 3600 * 1000000000
-    total += int(time_string[14:16]) * 60 * 1000000000
-    total += int(time_string[17:19]) * 1000000000
-    total += int(time_string[20:])
-    return total
-
-
 def get_relative_pose_between_consecutive_frames(scene_path, target, source):
     """
     Computes relative pose matrix [4x4] between the 2 given frames in a scene (frames must be consecutive).
@@ -319,11 +305,11 @@ def get_relative_pose_between_consecutive_frames(scene_path, target, source):
         source_time = 0
         for line in time:
             if i == target:
-                target_time = string_to_nano(line)
+                target_time = iso_string_to_nanoseconds(line)
                 if source_time:
                     break
             elif i == source:
-                source_time = string_to_nano(line)
+                source_time = iso_string_to_nanoseconds(line)
                 if target_time:
                     break
             i += 1
