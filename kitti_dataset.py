@@ -7,9 +7,8 @@ import os
 
 from kitti_utils import get_camera_data, get_lidar_data, get_nearby_frames_data, get_camera_intrinsic_dict, \
     get_relative_rotation_stereo, get_relative_translation_stereo, compute_image_from_velodyne_matrices, \
-    get_relative_pose, get_pose
-from compute_photometric_error_utils import compute_relative_pose_matrix
-
+    get_pose
+from compute_photometric_error_utils import rel_pose_from_rotation_matrix_translation_vector
 
 DATAFRAME_COLUMNS = ["path", "frames_from_begin", "frames_from_end"]
 
@@ -80,8 +79,8 @@ class KittiDataset(Dataset):
             **{'nearby_frames': nearby_frames_data},
             **{'image_from_velodyne_matrices': compute_image_from_velodyne_matrices(calib_dir)},
             **{'intrinsics': get_camera_intrinsic_dict(calib_dir)},
-            **{'rel_pose_stereo': compute_relative_pose_matrix(get_relative_translation_stereo(calib_dir),
-                                                               get_relative_rotation_stereo(calib_dir))},
+            **{'rel_pose_stereo': rel_pose_from_rotation_matrix_translation_vector(
+                get_relative_translation_stereo(calib_dir), get_relative_rotation_stereo(calib_dir))},
             **{'pose': get_pose(path_name, idx)}
         }
         return sample

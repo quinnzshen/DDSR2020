@@ -5,7 +5,7 @@ import pandas as pd
 import pytest
 import torch
 
-from dataloader import KittiDataset
+from kitti_dataset import KittiDataset
 import kitti_utils as ku
 
 EXAMPLE_SCENE_PATH = 'data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/'
@@ -191,10 +191,21 @@ def test_get_relative_translation_stereo():
 
 
 def test_get_relative_pose():
-    pose1 = ku.get_relative_pose(EXAMPLE_SCENE_PATH, 0, 0)
+    pose1 = ku.get_relative_pose_between_consecutive_frames(EXAMPLE_SCENE_PATH, 0, 0)
     torch.testing.assert_allclose(pose1, torch.eye(4))
-    pose2 = ku.get_relative_pose(EXAMPLE_SCENE_PATH, 3, 4)
+    pose2 = ku.get_relative_pose_between_consecutive_frames(EXAMPLE_SCENE_PATH, 3, 4)
     torch.testing.assert_allclose(pose2, torch.tensor([[1.0000, -0.0072, -0.0025, 0.0045],
                                                        [0.0072, 1.0000, 0.0028, -0.0030],
                                                        [0.0025, -0.0028, 1.0000, -0.8254],
                                                        [0.0000, 0.0000, 0.0000, 1.0000]]), atol=0.01, rtol=0.0001)
+
+
+def test_get_pose():
+    pose_zero = ku.get_pose(EXAMPLE_SCENE_PATH, 0)
+    assert np.allclose(pose_zero, torch.eye(4))
+    pose_five = ku.get_pose(EXAMPLE_SCENE_PATH, 5)
+    test_arr = torch.tensor([[9.99792635e-01, 1.81311052e-02, 9.26876627e-03, 9.47578682e-03],
+                             [-1.81172267e-02, 9.99834597e-01, -1.41100562e-03, 7.62027617e-03],
+                             [-9.29586589e-03, 1.41093857e-03, 9.99955773e-01, -3.05062038e+00],
+                             [0.00000000e+00, 0.00000000e+00, 0.00000000e+00, 1.00000000e+00]])
+    assert np.allclose(test_arr, pose_five)
