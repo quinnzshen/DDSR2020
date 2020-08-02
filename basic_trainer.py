@@ -12,7 +12,7 @@ from torchvision import transforms
 import yaml
 
 from collate import Collator
-from dataloader import KittiDataset
+from kitti_dataset import KittiDataset
 from loss import process_depth, calc_loss
 from third_party.monodepth2.ResnetEncoder import ResnetEncoder
 from third_party.monodepth2.DepthDecoder import DepthDecoder
