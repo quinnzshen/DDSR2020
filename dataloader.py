@@ -24,11 +24,10 @@ class KittiDataset(Dataset):
         self.root_dir = root_dir
         self.previous_frames = previous_frames
         self.next_frames = next_frames
-
         self.dataset_index = dataset_index[
             (dataset_index["frames_from_begin"] >= previous_frames) &
             (dataset_index["frames_from_end"] >= next_frames)
-            ]
+            ].reset_index(drop=True)
 
     @classmethod
     def init_from_config(cls, config_path):
@@ -71,7 +70,7 @@ class KittiDataset(Dataset):
 
         path_name = os.path.normpath(self.dataset_index["path"][idx])
         calib_dir = os.path.dirname(path_name)
-        idx = int(self.dataset_index.iloc[idx, 1])
+        idx = int(self.dataset_index["frames_from_begin"][idx])
 
         nearby_frames_data = get_nearby_frames_data(path_name, idx, self.previous_frames, self.next_frames)
         # Taking information from the directory and putting it into the sample dictionary
@@ -85,5 +84,4 @@ class KittiDataset(Dataset):
                                                                get_relative_rotation_stereo(calib_dir))},
             **{'pose': get_pose(path_name, idx)}
         }
-
         return sample

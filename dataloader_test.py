@@ -1,5 +1,6 @@
 import pytest
 import numpy as np
+import torch
 
 from dataloader import KittiDataset
 from kitti_utils import iso_string_to_nanoseconds
@@ -23,7 +24,7 @@ def test_get_item(dataset):
     assert dataset[16]["lidar_point_coord_velodyne"].shape[1] == 3
     assert dataset[2]["lidar_start_capture_time_nsec"].dtype == np.int64
     assert dataset[3]["lidar_end_capture_time_nsec"].dtype == np.int64
-    assert dataset[15]["lidar_point_reflectivity"].dtype == np.float32
+    assert dataset[15]["lidar_point_reflectivity"].dtype == torch.float
 
 
 def test_out_of_bounds(dataset):
