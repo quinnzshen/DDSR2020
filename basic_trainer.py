@@ -282,6 +282,7 @@ class Trainer:
         :param [int] dataset_length: The length of the training/validation dataset
         :param [String] name: Differentiates between training/validation/evaluation
         """
+        
         # Processing disparity map
         disp_np = disp.squeeze().cpu().detach().numpy()
         vmax = np.percentile(disp_np, 95)
@@ -299,27 +300,9 @@ class Trainer:
         
         imgs = torch.stack((final_img, final_disp))
         
-        
         # Add image and disparity map to tensorboard
         self.writer.add_images(name + " - " + f'Epoch: {self.epoch + 1}, ' + f'Image: {img_num}',
                               imgs,
-                              self.epoch * dataset_length + img_num)
-    
-    def add_image_to_tensorboard(self, img, img_num, dataset_length, name):
-        """
-        Adds output disparity map to tensorboard
-        :param [tensor] disp: The disparity map outputted by the network
-        :param [int] img_num: The index of the input image in the training/validation file
-        :param [int] dataset_length: The length of the training/validation dataset
-        :param [boolean] name: Differentiates between training/validation/evaluation
-        """
-        # Processing image
-        img_resized = F.interpolate(
-            img.unsqueeze(0), (self.height, self.width), mode="bilinear", align_corners=False)
-
-        # Add image to tensorboard
-        self.writer.add_image(name + " - " + f'Epoch: {self.epoch + 1}, ' + f'Image: {img_num}',
-                              img_resized,
                               self.epoch * dataset_length + img_num)
 
 def disp_to_depth(disp, min_depth, max_depth):
