@@ -6,20 +6,22 @@ from PIL import Image
 import os
 import pandas as pd
 from enum import Enum
+from compute_photometric_error_utils import calc_transformation_matrix, rel_pose_from_rotation_matrix_translation_vector
 
 
 class KITTICameraNames(str, Enum):
     stereo_left = "stereo_left"
     stereo_right = "stereo_right"
 
+
 CAMERA_NAME_TO_PATH_MAPPING = {
     KITTICameraNames.stereo_left: "image_02",
     KITTICameraNames.stereo_right: "image_03"
 }
 
-
 KITTI_TIMESTAMPS = ["/timestamps.txt", "velodyne_points/timestamps_start.txt", "velodyne_points/timestamps_end.txt"]
 EPOCH = np.datetime64("1970-01-01")
+VELO_INDICES = np.array([7, 6, 10])
 
 
 def load_lidar_points(filename):
@@ -84,9 +86,10 @@ def compute_image_from_velodyne_matrices(calibration_dir):
         P_rect = cam2cam[f"P_rect_{cam_num}"].reshape(3, 4)
         camera_image_from_velodyne = np.dot(np.dot(P_rect, R_cam2rect), velo2cam)
         camera_image_from_velodyne = np.vstack((camera_image_from_velodyne, np.array([[0, 0, 0, 1.0]])))
-        camera_image_from_velodyne_dict.update({KITTICameraNames(camera_name).name : camera_image_from_velodyne})
+        camera_image_from_velodyne_dict.update({KITTICameraNames(camera_name).name: camera_image_from_velodyne})
 
     return camera_image_from_velodyne_dict
+
 
 def iso_string_to_nanoseconds(time_string):
     """
@@ -112,24 +115,28 @@ def get_timestamp_nsec(sample_path, idx):
                 return iso_string_to_nanoseconds(line)
             count += 1
 
+
 def get_nearby_frames_data(path_name, idx, previous_frames, next_frames):
-        """
+    """
         Given a specific index, return a dictionary containing information about the frame n frames before and after the target index
         in the dataset.
         :param dataset_index [pd.DataFrame]: The dataframe containing the paths and indices of the data
         :param [int] previous_frames: Number of frames before the target frame that will be retrieved.
         :param [int] next_frames: Number of frames after the target frame that will be retrieved.
-        :return [dict]: Dictionary containing camera data of nearby frames, the key is the relative index and the value is the data.
-                        (e.g. -1 would be the previous image, 2 would be the next-next image).
+        :return [dict]: Dictionary containing camera data and pose of nearby frames, the key is the relative index and the value is the data (e.g. -1 would be the previous image, 2 would be the next-next image).
         """
-        nearby_frames = {}
-        for relative_idx in range(-previous_frames, next_frames + 1):
-            # We do not want to include the current frame in the nearby frames data.
-            if relative_idx == 0:
-                continue
-
-            nearby_frames[relative_idx] = get_camera_data(path_name, idx + relative_idx)
-        return nearby_frames
+    nearby_frames = {}
+    for relative_idx in range(-previous_frames, next_frames + 1):
+        # We do not want to include the current frame in the nearby frames data.
+        if relative_idx == 0:
+            continue
+        try:
+            nearby_frames[relative_idx] = {'camera_data': get_camera_data(path_name, idx + relative_idx),
+                                           'pose': get_pose(path_name, idx + relative_idx)}
+        except FileNotFoundError:
+            nearby_frames[relative_idx] = {"camera_data": {},
+                                           "pose": {}}
+    return nearby_frames
 
 
 def get_camera_data(path_name, idx):
@@ -144,7 +151,7 @@ def get_camera_data(path_name, idx):
 
     for camera_name in KITTICameraNames:
         camera_path = CAMERA_NAME_TO_PATH_MAPPING[camera_name]
-        
+
         # Check if required paths exist.
         # The f-string is following the format of KITTI, padding the frame number with 10 zeros.
         camera_image_path = os.path.join(path_name, f"{camera_path}/data/{idx:010}.png")
@@ -177,7 +184,7 @@ def get_lidar_data(path_name, idx):
         "lidar_end_capture_time_nsec": end_time
     }
 
-  
+
 def get_imu_data(scene_path, idx):
     """
     Get Intertial Measurement Unit (IMU) data. 
@@ -187,7 +194,7 @@ def get_imu_data(scene_path, idx):
     """
     imu_data_path = os.path.join(scene_path, f"oxts/data/{idx:010}.txt")
     imu_format_path = os.path.join(scene_path, "oxts/dataformat.txt")
-    
+
     with open(imu_format_path) as f:
         # The data is formatted as "name: description". We only care about the name here.
         imu_keys = [line.split(':')[0] for line in f.readlines()]
@@ -213,7 +220,8 @@ def get_imu_dataframe(scene_path):
 
     return pd.DataFrame(imu_values, columns=list(imu_data.keys()))
 
-def get_camera_intrinsic_dict(calibration_dir): 
+
+def get_camera_intrinsic_dict(calibration_dir):
     """
     This function gets the intrinsic matrix for each camera from the KITTI calibration file
     :param: [string] calibration_dir: directory where the KITTI calbration files are located
@@ -225,13 +233,13 @@ def get_camera_intrinsic_dict(calibration_dir):
     camera_intrinsic_dict = {}
     for camera_name in KITTICameraNames:
         camera_path = CAMERA_NAME_TO_PATH_MAPPING[camera_name]
-        
+
         # Get camera number by slicing last 2 characters off of camera_name string.
         cam_num = camera_path[-2:]
-        intrinsic_matrix = cam2cam[f"K_{cam_num}"].reshape(3,3)
-        camera_intrinsic_dict.update({KITTICameraNames(camera_name).name : intrinsic_matrix})
-    
+        intrinsic_matrix = cam2cam[f"K_{cam_num}"].reshape(3, 3)
+        camera_intrinsic_dict.update({KITTICameraNames(camera_name).name: intrinsic_matrix})
     return camera_intrinsic_dict
+
 
 def get_relative_rotation_stereo(calibration_dir):
     """
@@ -244,9 +252,10 @@ def get_relative_rotation_stereo(calibration_dir):
     cam2cam = read_calibration_file(os.path.join(calibration_dir, 'calib_cam_to_cam.txt'))
     # Compute relative rotation matrix.
     rotation_target = cam2cam['R_02'].reshape(3, 3)
-    rotation_source = cam2cam['R_03'].reshape(3,3)
+    rotation_source = cam2cam['R_03'].reshape(3, 3)
     rotation_source_to_target = np.linalg.inv(rotation_source) @ rotation_target
     return rotation_source_to_target
+
 
 def get_relative_translation_stereo(calibration_dir):
     """
@@ -255,10 +264,75 @@ def get_relative_translation_stereo(calibration_dir):
     :return: numpy.array of shape [3, 1], vector representing the relative translation between the camera that captured the source 
     image and the camera that captured the target image.
     """
-     # Read calibration file.
+    # Read calibration file.
     cam2cam = read_calibration_file(os.path.join(calibration_dir, 'calib_cam_to_cam.txt'))
     # Compute relative translation vector.
     translation_target = cam2cam['T_02'].reshape(3, 1)
     translation_source = cam2cam['T_03'].reshape(3, 1)
     translation_source_to_target = translation_source - translation_target
     return translation_source_to_target
+
+
+def get_relative_pose_between_consecutive_frames(scene_path, target, source):
+    """
+    Computes relative pose matrix [4x4] between the 2 given frames in a scene (frames must be consecutive).
+    By multiplying, transforms target coordinates into source coordinates.
+    :param [str] scene_path: Path name to the scene folder
+    :param [int] target : The target frame number
+    :param [int] source: The source frame number
+    :return [np.ndarray]: Shape of (4, 4) containing the values to transform between target frame to source frame
+    """
+    if target == source:
+        return np.eye(4, dtype=np.float32)
+    if source < 0:
+        return {}
+
+    with open(os.path.join(scene_path, f"oxts/data/{target:010}.txt")) as ft:
+        datat = np.array(ft.readline().split(), dtype=np.float)
+        with open(os.path.join(scene_path, f"oxts/data/{source:010}.txt")) as fs:
+            datas = np.array(fs.readline().split(), dtype=np.float)
+
+            # Calculates relative rotation and velocity
+            rot = np.array(datat[3:6], dtype=np.float) - np.array(datas[3:6], dtype=np.float)
+            velo = (datat[VELO_INDICES] + datas[VELO_INDICES]) / 2
+            yaw_rot_mat = np.array([[np.cos(-datat[5]), -np.sin(-datat[5])], [np.sin(-datat[5]), np.cos(-datat[5])]])
+            velo[:2] = velo[:2] @ yaw_rot_mat.T
+
+    # Determines the relative time passed between the 2 frames, as target - source
+    with open(os.path.join(scene_path, "oxts/timestamps.txt")) as time:
+        i = 0
+        target_time = 0
+        source_time = 0
+        for line in time:
+            if i == target:
+                target_time = iso_string_to_nanoseconds(line)
+                if source_time:
+                    break
+            elif i == source:
+                source_time = iso_string_to_nanoseconds(line)
+                if target_time:
+                    break
+            i += 1
+        delta_time_nsec = target_time - source_time
+
+    # Determines displacement by multiplying velocity by time
+    pos = velo * delta_time_nsec / 1E9
+    # Convert trnasformation from IMU frame to camera frame.
+    pos_cam = np.array([-1 * pos[1], -1 * pos[2], pos[0]])
+    rot_cam = np.array([-1 * rot[1], -1 * rot[2], rot[0]])
+    rel_pose = calc_transformation_matrix(rot_cam, pos_cam)
+    return rel_pose
+
+
+def get_pose(scene_path, frame):
+    """
+    This function gets the pose matrix with respect to the frame at index 0 for a given frame.
+    :param [str] scene_path: Path name to the scene folder
+    :param [int] frame: the index of the frame that pose is being calculated for.
+    :return: numpy.array of shape [4, 4] containing the pose of the image at index frame with respect to the the image at index 0.
+    """
+    rel_rot = get_relative_pose_between_consecutive_frames(scene_path, frame, 0)[:3, :3]
+    rel_translation = np.array([0., 0., 0.])
+    for idx in range(0, frame - 1):
+        rel_translation += get_relative_pose_between_consecutive_frames(scene_path, idx, idx + 1)[:3, 3]
+    return rel_pose_from_rotation_matrix_translation_vector(rel_translation.reshape(3, -1), rel_rot)
