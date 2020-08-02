@@ -192,7 +192,7 @@ class Trainer:
         # Add disparity map to tensorboard
         for i, disp_map in enumerate(disp):
             self.add_img_disparity_to_tensorboard(disp_map, inputs[i], self.img_num + i, dataset_length, name)
-            
+
         # Convert disparity to depth
         _, depths = disp_to_depth(disp, 0.1, 100)
         outputs[("depths", 0)] = depths
@@ -282,7 +282,7 @@ class Trainer:
         :param [int] dataset_length: The length of the training/validation dataset
         :param [String] name: Differentiates between training/validation/evaluation
         """
-        
+
         # Processing disparity map
         disp_np = disp.squeeze().cpu().detach().numpy()
         vmax = np.percentile(disp_np, 95)
@@ -290,20 +290,21 @@ class Trainer:
         mapper = cm.ScalarMappable(norm=normalizer, cmap='magma')
         colormapped_disp = (mapper.to_rgba(disp_np)[:, :, :3] * 255).astype(np.uint8)
         final_disp = transforms.ToTensor()(colormapped_disp)
-        
+
         # Processing image
         img_np = img.squeeze().cpu().detach().numpy()
         vmax = np.percentile(img_np, 95)
         normalizer = mpl.colors.Normalize(vmin=img_np.min(), vmax=vmax)
-        colormapped_img = (img_np).astype(np.uint8).transpose(1,2,0)
+        colormapped_img = (img_np).astype(np.uint8).transpose(1, 2, 0)
         final_img = transforms.ToTensor()(colormapped_img)
-        
+
         imgs = torch.stack((final_img, final_disp))
-        
+
         # Add image and disparity map to tensorboard
         self.writer.add_images(name + " - " + f'Epoch: {self.epoch + 1}, ' + f'Image: {img_num}',
-                              imgs,
-                              self.epoch * dataset_length + img_num)
+                               imgs,
+                               self.epoch * dataset_length + img_num)
+
 
 def disp_to_depth(disp, min_depth, max_depth):
     """
