@@ -70,20 +70,19 @@ class KittiDataset(Dataset):
                 f"Dataset index out of range. Given: {idx} (Less than 0 or greater than or equal to length)")
 
         path_name = os.path.normpath(self.dataset_index["path"][idx])
-        date_name = os.path.dirname(path_name)
+        calib_dir = os.path.dirname(path_name)
         idx = int(self.dataset_index.iloc[idx, 1])
 
         nearby_frames_data = get_nearby_frames_data(path_name, idx, self.previous_frames, self.next_frames)
-        calibration_dir = 'data/kitti_example/2011_09_26'
         # Taking information from the directory and putting it into the sample dictionary
         sample = {
             **get_camera_data(path_name, idx),
             **get_lidar_data(path_name, idx),
             **{'nearby_frames': nearby_frames_data},
-            **{'image_from_velodyne_matrices': compute_image_from_velodyne_matrices(calibration_dir)},
-            **{'intrinsics': get_camera_intrinsic_dict(calibration_dir)},
-            **{'rel_pose_stereo': compute_relative_pose_matrix(get_relative_translation_stereo(calibration_dir),
-                                                               get_relative_rotation_stereo(calibration_dir))},
+            **{'image_from_velodyne_matrices': compute_image_from_velodyne_matrices(calib_dir)},
+            **{'intrinsics': get_camera_intrinsic_dict(calib_dir)},
+            **{'rel_pose_stereo': compute_relative_pose_matrix(get_relative_translation_stereo(calib_dir),
+                                                               get_relative_rotation_stereo(calib_dir))},
             **{'pose': get_pose(path_name, idx)}
         }
 
