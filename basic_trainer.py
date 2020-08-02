@@ -33,7 +33,6 @@ class Trainer:
 
         # GPU/CPU setup
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        # self.device = "cpu"
 
         # Epoch and batch info
         self.num_epochs = self.config["num_epochs"]
@@ -107,7 +106,7 @@ class Trainer:
         for batch_idx, batch in enumerate(self.test_dataloader):
             with torch.no_grad():
                 count += 1
-                total_loss += self.process_batch(batch_idx, batch, len(self.test_dataset), False).item()
+                total_loss += self.process_batch(batch_idx, batch, len(self.test_dataset), "Testing", False).item()
         total_loss /= count
         self.writer.add_scalar("Testing" + ' Loss', total_loss, 0)
         print(f"Testing Loss: {total_loss}")
@@ -134,7 +133,7 @@ class Trainer:
         total_loss = count = 0
         for batch_idx, batch in enumerate(self.train_dataloader):
             count += 1
-            total_loss += self.process_batch(batch_idx, batch, len(self.train_dataset), True).item()
+            total_loss += self.process_batch(batch_idx, batch, len(self.train_dataset), "Training", True).item()
         total_loss /= count
 
         self.writer.add_scalars("Loss", {"Training": total_loss}, self.epoch)
@@ -160,7 +159,7 @@ class Trainer:
         for batch_idx, batch in enumerate(self.val_dataloader):
             with torch.no_grad():
                 count += 1
-                total_loss += self.process_batch(batch_idx, batch, len(self.val_dataset), False).item()
+                total_loss += self.process_batch(batch_idx, batch, len(self.val_dataset), "Validation", False).item()
         total_loss /= count
 
         self.writer.add_scalars("Loss", {"Validation": total_loss}, self.epoch)
@@ -170,14 +169,15 @@ class Trainer:
         print(f"Validation Loss: {total_loss}")
         print(f"Time spent: {val_end_time - val_start_time}\n")
 
-    def process_batch(self, batch_idx, batch, dataset_length, train):
+    def process_batch(self, batch_idx, batch, dataset_length, name, backprop):
         """
         Computes loss for a single batch
         :param [int] batch_idx: The batch index
         :param [dict] batch: The batch data
         :param [int] img_num: The index of the input image in the training/validation/testing file
         :param [int] dataset_length: The length of the training/validation/testing dataset
-        :param [boolean] train: Differentiates between training and evaluation
+        :param [String] name: Differentiates between training/validation/testing
+        :param [boolean] backprop: Determines whether or not to backpropogate loss
         :return [tensor] losses: A 0-dimensional tensor containing the loss of the batch
         """
 
@@ -191,8 +191,8 @@ class Trainer:
 
         # Add disparity map to tensorboard
         for i, disp_map in enumerate(disp):
-            self.add_disparity_map_to_tensorboard(disp_map, self.img_num + i, dataset_length, train)
-
+            self.add_img_disparity_to_tensorboard(disp_map, inputs[i], self.img_num + i, dataset_length, name)
+            
         # Convert disparity to depth
         _, depths = disp_to_depth(disp, 0.1, 100)
         outputs[("depths", 0)] = depths
@@ -246,7 +246,7 @@ class Trainer:
         losses = calc_loss(loss_inputs, loss_outputs)
 
         # Backpropogates if train is set to True
-        if train:
+        if backprop:
             self.optimizer.zero_grad()
             losses.backward()
             self.optimizer.step()
@@ -274,34 +274,53 @@ class Trainer:
         save_path = os.path.join(save_folder, "{}.pth".format("adam"))
         torch.save(self.optimizer.state_dict(), save_path)
 
-    def add_disparity_map_to_tensorboard(self, disp, img_num, dataset_length, train):
+    def add_img_disparity_to_tensorboard(self, disp, img, img_num, dataset_length, name):
         """
         Adds output disparity map to tensorboard
         :param [tensor] disp: The disparity map outputted by the network
         :param [int] img_num: The index of the input image in the training/validation file
         :param [int] dataset_length: The length of the training/validation dataset
-        :param [boolean] train: Differentiates between training and validation
+        :param [String] name: Differentiates between training/validation/evaluation
         """
         # Processing disparity map
-        disp_resized = torch.nn.functional.interpolate(
-            disp.unsqueeze(0), (self.height, self.width), mode="bilinear", align_corners=False)
-        disp_resized_np = disp_resized.squeeze().cpu().detach().numpy()
-        vmax = np.percentile(disp_resized_np, 95)
-        normalizer = mpl.colors.Normalize(vmin=disp_resized_np.min(), vmax=vmax)
+        disp_np = disp.squeeze().cpu().detach().numpy()
+        vmax = np.percentile(disp_np, 95)
+        normalizer = mpl.colors.Normalize(vmin=disp_np.min(), vmax=vmax)
         mapper = cm.ScalarMappable(norm=normalizer, cmap='magma')
-        colormapped_im = (mapper.to_rgba(disp_resized_np)[:, :, :3] * 255).astype(np.uint8)
-        im = transforms.ToTensor()(colormapped_im)
-
-        # Decides whether to add disparity map to the training or validation set
-        train_or_val = "Validation"
-        if train:
-            train_or_val = "Training"
+        colormapped_disp = (mapper.to_rgba(disp_np)[:, :, :3] * 255).astype(np.uint8)
+        final_disp = transforms.ToTensor()(colormapped_disp)
+        
+        # Processing image
+        img_np = img.squeeze().cpu().detach().numpy()
+        vmax = np.percentile(img_np, 95)
+        normalizer = mpl.colors.Normalize(vmin=img_np.min(), vmax=vmax)
+        colormapped_img = (img_np).astype(np.uint8).transpose(1,2,0)
+        final_img = transforms.ToTensor()(colormapped_img)
+        
+        imgs = torch.stack((final_img, final_disp))
+        
+        
+        # Add image and disparity map to tensorboard
+        self.writer.add_images(name + " - " + f'Epoch: {self.epoch + 1}, ' + f'Image: {img_num}',
+                              imgs,
+                              self.epoch * dataset_length + img_num)
+    
+    def add_image_to_tensorboard(self, img, img_num, dataset_length, name):
+        """
+        Adds output disparity map to tensorboard
+        :param [tensor] disp: The disparity map outputted by the network
+        :param [int] img_num: The index of the input image in the training/validation file
+        :param [int] dataset_length: The length of the training/validation dataset
+        :param [boolean] name: Differentiates between training/validation/evaluation
+        """
+        # Processing image
+        img_resized = F.interpolate(
+            img.unsqueeze(0), (self.height, self.width), mode="bilinear", align_corners=False)
 
         # Add image to tensorboard
-        self.writer.add_image(train_or_val + " - " + f'Epoch: {self.epoch + 1}, ' + f'Image: {img_num}',
-                              im,
+        self.writer.add_image(name + " - " + f'Epoch: {self.epoch + 1}, ' + f'Image: {img_num}',
+                              img_resized,
                               self.epoch * dataset_length + img_num)
-
 
 def disp_to_depth(disp, min_depth, max_depth):
     """
