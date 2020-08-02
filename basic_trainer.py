@@ -245,7 +245,7 @@ class Trainer:
                         }
         losses = calc_loss(loss_inputs, loss_outputs)
 
-        # Backpropogates if train is set to True
+        # Backpropogates if backprop is set to True
         if backprop:
             self.optimizer.zero_grad()
             losses.backward()
