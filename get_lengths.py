@@ -1,5 +1,5 @@
 import os
-root_dir = 'data/kitti_example'
+root_dir = 'data/kitti_data'
 directories = []
 lengths = []
 for folder in os.listdir(root_dir):
