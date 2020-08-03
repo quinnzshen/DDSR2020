@@ -153,7 +153,7 @@ def get_camera_data(path_name, idx):
 
     for camera_name in KITTICameraNames:
         camera_path = CAMERA_NAME_TO_PATH_MAPPING[camera_name]
-
+        print(camera_path)
         # Check if required paths exist.
         # The f-string is following the format of KITTI, padding the frame number with 10 zeros.
         camera_image_path = os.path.join(path_name, f"{camera_path}/data/{idx:010}.png")
@@ -165,7 +165,6 @@ def get_camera_data(path_name, idx):
             camera_data[f"{camera_name}_image"] = camera_image
             camera_data[f"{camera_name}_shape"] = camera_image.shape
             camera_data[f"{camera_name}_capture_time_nsec"] = timestamp
-    print(camera_data)
     return camera_data
 
 
