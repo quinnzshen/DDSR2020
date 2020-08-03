@@ -1,0 +1,5 @@
+root_directory: data/kitti_example
+dataset_paths:
+  - splits/eigen_full/test.txt
+previous_frames: 1
+next_frames: 1
