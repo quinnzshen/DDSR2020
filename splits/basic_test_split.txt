@@ -1,6 +1,6 @@
-data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/ 3 18
-data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/ 7 13
-data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/ 11 10
-data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/ 15 6
-data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/ 19 2
-data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/ 20 1
+2011_09_26/2011_09_26_drive_0048_sync/ 3 18
+2011_09_26/2011_09_26_drive_0048_sync/ 7 13
+2011_09_26/2011_09_26_drive_0048_sync/ 11 10
+2011_09_26/2011_09_26_drive_0048_sync/ 15 6
+2011_09_26/2011_09_26_drive_0048_sync/ 19 2
+2011_09_26/2011_09_26_drive_0048_sync/ 20 1

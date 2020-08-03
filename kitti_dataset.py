@@ -67,7 +67,7 @@ class KittiDataset(Dataset):
             raise IndexError(
                 f"Dataset index out of range. Given: {idx} (Less than 0 or greater than or equal to length)")
 
-        path_name = os.path.normpath(self.dataset_index["path"][idx])
+        path_name = os.path.join(self.root_dir, os.path.normpath(self.dataset_index["path"][idx]))
         calib_dir = os.path.dirname(path_name)
         idx = int(self.dataset_index["frames_from_begin"][idx])
 
