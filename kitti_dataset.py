@@ -21,7 +21,7 @@ class KittiDataset(Dataset):
         :param dataset_index [pd.DataFrame]: The dataframe containing the paths and indices of the data
         """
         self.root_dir = root_dir
-        print(os.path.islink(self.root_dir))
+        print(os.path.exists(self.root_dir))
         self.previous_frames = previous_frames
         self.next_frames = next_frames
         self.dataset_index = dataset_index[
