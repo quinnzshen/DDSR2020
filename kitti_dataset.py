@@ -70,7 +70,9 @@ class KittiDataset(Dataset):
         path_name = os.path.join(self.root_dir, os.path.normpath(self.dataset_index["path"][idx]))
         calib_dir = os.path.dirname(path_name)
         idx = int(self.dataset_index["frames_from_begin"][idx])
-
+        print("PATH_NAME:", path_name)
+        print("CALIB_DIR:", calib_dir)
+        print("INDEX:", idx)
         nearby_frames_data = get_nearby_frames_data(path_name, idx, self.previous_frames, self.next_frames)
         # Taking information from the directory and putting it into the sample dictionary
         sample = {
