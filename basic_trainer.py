@@ -133,8 +133,12 @@ class Trainer:
         total_loss = count = 0
         for batch_idx, batch in enumerate(self.train_dataloader):
             count += 1
-            total_loss += self.process_batch(batch_idx, batch, len(self.train_dataset), "Training", True).item()
+
+            inputs = F.interpolate(batch["stereo_left_image"].to(self.device).permute(0, 3, 1, 2).float(),
+                                   (self.height, self.width), mode="bilinear", align_corners=False)
+            # total_loss += self.process_batch(batch_idx, batch, len(self.train_dataset), "Training", True).item()
         total_loss /= count
+        print("BRUH")
 
         self.writer.add_scalars("Loss", {"Training": total_loss}, self.epoch)
 
