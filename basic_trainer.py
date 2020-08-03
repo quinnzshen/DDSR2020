@@ -186,7 +186,8 @@ class Trainer:
         :param [boolean] backprop: Determines whether or not to backpropogate loss
         :return [tensor] losses: A 0-dimensional tensor containing the loss of the batch
         """
-
+        print("batchidx", batch_idx)
+        print("batchkeys", batch.keys)
         # Predict disparity map
         inputs = F.interpolate(batch["stereo_left_image"].to(self.device).permute(0, 3, 1, 2).float(),
                                (self.height, self.width), mode="bilinear", align_corners=False)
