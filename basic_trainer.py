@@ -135,7 +135,7 @@ class Trainer:
         total_loss = count = 0
         for batch_idx, batch in enumerate(self.train_dataloader):
             count += 1
-
+            print(batch_idx)
             inputs = F.interpolate(batch["stereo_left_image"].to(self.device).permute(0, 3, 1, 2).float(),
                                    (self.height, self.width), mode="bilinear", align_corners=False)
             # total_loss += self.process_batch(batch_idx, batch, len(self.train_dataset), "Training", True).item()

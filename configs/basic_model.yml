@@ -8,6 +8,6 @@ weight_decay: 0.1
 width: 1280
 height: 384
 num_epochs: 50
-batch_size: 3
+batch_size: 2
 valid_config_path: configs/basic_validation_dataset.yml
 test_config_path: configs/basic_test_dataset.yml
