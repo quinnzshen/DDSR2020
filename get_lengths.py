@@ -1,5 +1,5 @@
 import os
-root_dir = 'data/kitti_data'
+root_dir = 'data/kitti_example'
 directories = []
 lengths = []
 for folder in os.listdir(root_dir):
@@ -19,7 +19,5 @@ for folder in os.listdir(root_dir):
                         lengths.append(count)
                         break
                     break
-                break
-            break
 for i, direc in enumerate(directories):
     print(direc + " " + str(lengths[i]))
