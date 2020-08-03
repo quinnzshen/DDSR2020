@@ -161,12 +161,11 @@ def get_camera_data(path_name, idx):
 
         if os.path.exists(camera_image_path) and os.path.exists(timestamp_path):
             camera_image = torch.from_numpy(np.asarray(Image.open(camera_image_path)))
-            print(camera_image.shape)
             timestamp = get_timestamp_nsec(timestamp_path, idx)
             camera_data[f"{camera_name}_image"] = camera_image
             camera_data[f"{camera_name}_shape"] = camera_image.shape
             camera_data[f"{camera_name}_capture_time_nsec"] = timestamp
-
+    print(camera_data)
     return camera_data
 
 
