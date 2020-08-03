@@ -19,5 +19,6 @@ for folder in os.listdir(root_dir):
                     break
                 break
             break
+        break
 for i, direc in enumerate(directories):
     print(direc + " " + str(lengths[i]))
