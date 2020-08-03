@@ -1,0 +1,5 @@
+root_directory: data/kitti_data
+dataset_paths:
+  - splits/eigen_full/train.txt
+previous_frames: 1
+next_frames: 1
