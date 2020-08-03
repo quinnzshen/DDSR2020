@@ -106,6 +106,8 @@ class Trainer:
         for batch_idx, batch in enumerate(self.test_dataloader):
             with torch.no_grad():
                 count += 1
+                print("batch_idx", batch_idx)
+                print("batch keys", batch.keys())
                 total_loss += self.process_batch(batch_idx, batch, len(self.test_dataset), "Testing", False).item()
         total_loss /= count
         self.writer.add_scalar("Testing" + ' Loss', total_loss, 0)
