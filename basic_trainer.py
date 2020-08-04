@@ -55,11 +55,6 @@ class Trainer:
         self.val_dataloader = DataLoader(self.val_dataset, batch_size=self.batch_size, shuffle=False,
                                          collate_fn=self.collate)
 
-        test_config_path = self.config["test_config_path"]
-        self.test_dataset = KittiDataset.init_from_config(test_config_path)
-        self.test_dataloader = DataLoader(self.test_dataset, batch_size=self.batch_size, shuffle=False,
-                                          collate_fn=self.collate)
-
         # Neighboring frames
         self.prev_frames = self.train_dataset.previous_frames
         self.next_frames = self.train_dataset.next_frames
@@ -89,28 +84,21 @@ class Trainer:
 
         # Writer for tensorboard
         self.writer = SummaryWriter()
+        
+        # Step size for tensorboard
+        self.tensorboard_step = self.config["tensorboard_step"]
 
     def train(self):
         """
         Runs the entire training pipeline
         Saves the model's weights at the end of training
         """
-
+        self.train_images_to_show = [i for i in range(1, len(self.train_dataset) + 1, self.tensorboard_step)]
+        self.val_images_to_show = [i for i in range(1, len(self.val_dataset) + 1, self.tensorboard_step)]
+        
         for self.epoch in range(self.num_epochs):
             self.run_epoch()
-
-        # Calculating loss on test data
-        self.img_num = 1
-
-        total_loss = count = 0
-        for batch_idx, batch in enumerate(self.test_dataloader):
-            with torch.no_grad():
-                count += 1
-                total_loss += self.process_batch(batch_idx, batch, len(self.test_dataset), "Testing", False).item()
-        total_loss /= count
-        self.writer.add_scalar("Testing" + ' Loss', total_loss, 0)
-        print(f"Testing Loss: {total_loss}")
-
+            
         self.writer.close()
         self.save_model()
         print('Model saved.')
@@ -133,12 +121,8 @@ class Trainer:
         total_loss = count = 0
         for batch_idx, batch in enumerate(self.train_dataloader):
             count += 1
-            # print("batchidx:", batch_idx)
-            # print("batch keys:", batch.keys())
-
-            total_loss += self.process_batch(batch_idx, batch, len(self.train_dataset), "Training", True).item()
+            total_loss += self.process_batch(batch_idx, batch, len(self.train_dataset), "Training", True, self.train_images_to_show).item()
         total_loss /= count
-        # print("BRUH")
 
         self.writer.add_scalars("Loss", {"Training": total_loss}, self.epoch)
 
@@ -163,7 +147,7 @@ class Trainer:
         for batch_idx, batch in enumerate(self.val_dataloader):
             with torch.no_grad():
                 count += 1
-                total_loss += self.process_batch(batch_idx, batch, len(self.val_dataset), "Validation", False).item()
+                total_loss += self.process_batch(batch_idx, batch, len(self.val_dataset), "Validation", False, self.val_images_to_show).item()
         total_loss /= count
 
         self.writer.add_scalars("Loss", {"Validation": total_loss}, self.epoch)
@@ -173,41 +157,36 @@ class Trainer:
         print(f"Validation Loss: {total_loss}")
         print(f"Time spent: {val_end_time - val_start_time}\n")
 
-    def process_batch(self, batch_idx, batch, dataset_length, name, backprop):
+    def process_batch(self, batch_idx, batch, dataset_length, name, backprop, images_to_show):
         """
         Computes loss for a single batch
         :param [int] batch_idx: The batch index
         :param [dict] batch: The batch data
-        :param [int] img_num: The index of the input image in the training/validation/testing file
-        :param [int] dataset_length: The length of the training/validation/testing dataset
-        :param [String] name: Differentiates between training/validation/testing
+        :param [int] img_num: The index of the input image in the training/validation file
+        :param [int] dataset_length: The length of the training/validation dataset
+        :param [String] name: Differentiates between training/validation
         :param [boolean] backprop: Determines whether or not to backpropogate loss
         :return [tensor] losses: A 0-dimensional tensor containing the loss of the batch
         """
-        # print("batchidx", batch_idx)
-        # print("batchkeys", batch.keys)
         # Predict disparity map
         inputs = batch["stereo_left_image"].to(self.device).float()
-        # F.interpolate(batch["stereo_left_image"].to(self.device).permute(0, 3, 1, 2).float(),
-        #                        (self.height, self.width), mode="bilinear", align_corners=False)
         features = self.models['resnet_encoder'](inputs)
         outputs = self.models['depth_decoder'](features)
         disp = outputs[("disp", 0)]
         disp = F.interpolate(disp, [self.height, self.width], mode="bilinear", align_corners=False)
 
-        # Add disparity map to tensorboard
+        # Add disparity map and loss to tensorboard
         for i, disp_map in enumerate(disp):
-            self.add_img_disparity_to_tensorboard(disp_map, inputs[i], self.img_num + i, dataset_length, name)
-
+            if self.img_num in images_to_show:
+                self.add_img_disparity_to_tensorboard(disp_map, inputs[i], self.img_num, dataset_length, name)
+            self.img_num += 1
+        
         # Convert disparity to depth
         _, depths = disp_to_depth(disp, 0.1, 100)
         outputs[("depths", 0)] = depths
 
         # Source image and pose data
-        # tgt_poses = batch["pose"].to(self.device)
         inputs = batch["stereo_left_image"].to(self.device).float()
-        # F.interpolate(batch["stereo_left_image"].to(self.device).permute(0, 3, 1, 2).float(),
-        #                        (self.height, self.width), mode="bilinear", align_corners=False)
         sources_list = [batch["stereo_right_image"].to(self.device).float()]
         poses_list = [batch["rel_pose_stereo"].to(self.device)]
 
@@ -257,9 +236,6 @@ class Trainer:
             self.optimizer.zero_grad()
             losses.backward()
             self.optimizer.step()
-
-        # Adjusts image number    
-        self.img_num += self.batch_size
 
         return losses
 
