@@ -196,10 +196,13 @@ class Trainer:
         src_intrinsics_stereo = batch["intrinsics"]["stereo_right"].to(self.device)
 
         # Adjust intrinsics based on input size
-        tgt_intrinsics[:, 0] = tgt_intrinsics[:, 0] * (self.width / 1242)
-        tgt_intrinsics[:, 1] = tgt_intrinsics[:, 1] * (self.height / 375)
-        src_intrinsics_stereo[:, 0] = src_intrinsics_stereo[:, 0] * (self.width / 1242)
-        src_intrinsics_stereo[:, 1] = src_intrinsics_stereo[:, 1] * (self.height / 375)
+        shapes = batch["shapes"].to(self.device).float()
+        out_shape = torch.tensor([self.height, self.width]).to(self.device)
+        shapes = out_shape / shapes
+        tgt_intrinsics[:, 0] = tgt_intrinsics[:, 0] * shapes[:, 1].reshape(-1, 1)
+        tgt_intrinsics[:, 1] = tgt_intrinsics[:, 1] * shapes[:, 0].reshape(-1, 1)
+        src_intrinsics_stereo[:, 0] = src_intrinsics_stereo[:, 0] * shapes[:, 1].reshape(-1, 1)
+        src_intrinsics_stereo[:, 1] = src_intrinsics_stereo[:, 1] * shapes[:, 0].reshape(-1, 1)
 
         intrinsics = [src_intrinsics_stereo]
         for i in range(len(poses_list) - 1):
