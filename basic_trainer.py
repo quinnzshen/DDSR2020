@@ -82,9 +82,6 @@ class Trainer:
         weight_decay = self.config["weight_decay"]
         self.lr_scheduler = optim.lr_scheduler.StepLR(self.optimizer, scheduler_step_size, weight_decay)
 
-        # Reading from JPEG
-        self.is_jpeg = self.config["read_jpeg"]
-
         # Writer for tensorboard
         self.writer = SummaryWriter()
         
@@ -96,8 +93,8 @@ class Trainer:
         Runs the entire training pipeline
         Saves the model's weights at the end of training
         """
-        self.train_images_to_show = [i for i in range(1, len(self.train_dataset) + 1, self.tensorboard_step)]
-        self.val_images_to_show = [i for i in range(1, len(self.val_dataset) + 1, self.tensorboard_step)]
+        self.train_tensorboard_steps = [i for i in range(1, len(self.train_dataset) + 1, self.tensorboard_step)]
+        self.val_tensorboard_steps = [i for i in range(1, len(self.val_dataset) + 1, self.tensorboard_step)]
         
         for self.epoch in range(self.num_epochs):
             self.run_epoch()
@@ -124,10 +121,8 @@ class Trainer:
         total_loss = count = 0
         for batch_idx, batch in enumerate(self.train_dataloader):
             count += 1
-            total_loss += self.process_batch(batch_idx, batch, len(self.train_dataset), "Training", True, self.train_images_to_show).item()
+            total_loss += self.process_batch(batch_idx, batch, len(self.train_dataset), "Training", True, self.train_tensorboard_steps).item()
         total_loss /= count
-
-        self.writer.add_scalars("Loss", {"Training": total_loss}, self.epoch)
 
         self.lr_scheduler.step()
 
@@ -150,17 +145,15 @@ class Trainer:
         for batch_idx, batch in enumerate(self.val_dataloader):
             with torch.no_grad():
                 count += 1
-                total_loss += self.process_batch(batch_idx, batch, len(self.val_dataset), "Validation", False, self.val_images_to_show).item()
+                total_loss += self.process_batch(batch_idx, batch, len(self.val_dataset), "Validation", False, self.val_tensorboard_steps).item()
         total_loss /= count
-
-        self.writer.add_scalars("Loss", {"Validation": total_loss}, self.epoch)
 
         val_end_time = time.time()
 
         print(f"Validation Loss: {total_loss}")
         print(f"Time spent: {val_end_time - val_start_time}\n")
 
-    def process_batch(self, batch_idx, batch, dataset_length, name, backprop, images_to_show):
+    def process_batch(self, batch_idx, batch, dataset_length, name, backprop, tensorboard_steps):
         """
         Computes loss for a single batch
         :param [int] batch_idx: The batch index
@@ -177,12 +170,6 @@ class Trainer:
         outputs = self.models['depth_decoder'](features)
         disp = outputs[("disp", 0)]
         disp = F.interpolate(disp, [self.height, self.width], mode="bilinear", align_corners=False)
-
-        # Add disparity map and loss to tensorboard
-        for i, disp_map in enumerate(disp):
-            if self.img_num in images_to_show:
-                self.add_img_disparity_to_tensorboard(disp_map, inputs[i], self.img_num, dataset_length, name)
-            self.img_num += 1
         
         # Convert disparity to depth
         _, depths = disp_to_depth(disp, 0.1, 100)
@@ -237,6 +224,13 @@ class Trainer:
             losses.backward()
             self.optimizer.step()
 
+        # Add disparity map and loss to tensorboard
+        for i, disp_map in enumerate(disp):
+            if self.img_num in tensorboard_steps:
+                self.add_img_disparity_to_tensorboard(disp_map, inputs[i], self.img_num, dataset_length, name)
+                self.writer.add_scalars("Loss", {name: losses.item()}, self.epoch * dataset_length + self.img_num)
+            self.img_num += 1
+            
         return losses
 
     def save_model(self):
