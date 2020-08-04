@@ -106,8 +106,6 @@ class Trainer:
         for batch_idx, batch in enumerate(self.test_dataloader):
             with torch.no_grad():
                 count += 1
-                print("batch_idx", batch_idx)
-                print("batch keys", batch.keys())
                 total_loss += self.process_batch(batch_idx, batch, len(self.test_dataset), "Testing", False).item()
         total_loss /= count
         self.writer.add_scalar("Testing" + ' Loss', total_loss, 0)
@@ -135,7 +133,8 @@ class Trainer:
         total_loss = count = 0
         for batch_idx, batch in enumerate(self.train_dataloader):
             count += 1
-            print(batch_idx)
+            print("batchidx:", batch_idx)
+            print("batch keys:", batch.keys())
             inputs = F.interpolate(batch["stereo_left_image"].to(self.device).permute(0, 3, 1, 2).float(),
                                    (self.height, self.width), mode="bilinear", align_corners=False)
             # total_loss += self.process_batch(batch_idx, batch, len(self.train_dataset), "Training", True).item()
