@@ -89,6 +89,9 @@ class Trainer:
 
         # Writer for tensorboard
         self.writer = SummaryWriter()
+        
+        # Step size for tensorboard
+        self.tensorboard_step = self.config["tensorboard_step"]
 
     def train(self):
         """
@@ -131,6 +134,7 @@ class Trainer:
         self.img_num = 1
 
         total_loss = count = 0
+        self.images_to_show = range(0, len(self.train_dataloader), self.tensorboard_step)
         for batch_idx, batch in enumerate(self.train_dataloader):
             count += 1
             # print("batchidx:", batch_idx)
@@ -328,5 +332,5 @@ def disp_to_depth(disp, min_depth, max_depth):
 
 
 if __name__ == "__main__":
-    test = Trainer("configs/full_model.yml")
+    test = Trainer("configs/basic_model.yml")
     test.train()
