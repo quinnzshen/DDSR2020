@@ -150,12 +150,16 @@ def get_camera_data(path_name, idx):
     :return [dict]: A dictionary containing camera data. If the camera data cannot be found, return an empty dictionary.
     """
     camera_data = dict()
-
+    hahaisjpeg = True
     for camera_name in KITTICameraNames:
         camera_path = CAMERA_NAME_TO_PATH_MAPPING[camera_name]
         # Check if required paths exist.
         # The f-string is following the format of KITTI, padding the frame number with 10 zeros.
-        camera_image_path = os.path.join(path_name, f"{camera_path}/data/{idx:010}.png")
+        if hahaisjpeg:
+            camera_image_path = os.path.join(path_name, f"{camera_path}/data/{idx:010}.jpg")
+        else:
+            camera_image_path = os.path.join(path_name, f"{camera_path}/data/{idx:010}.png")
+
         timestamp_path = os.path.join(path_name, f"{camera_path}/timestamps.txt")
         # if os.path.exists(camera_image_path) and os.path.exists(timestamp_path):
         camera_image = torch.from_numpy(np.asarray(Image.open(camera_image_path)))
