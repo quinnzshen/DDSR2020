@@ -118,13 +118,14 @@ def get_timestamp_nsec(sample_path, idx):
             count += 1
 
 
-def get_nearby_frames_data(path_name, idx, previous_frames, next_frames):
+def get_nearby_frames_data(path_name, idx, previous_frames, next_frames, is_jpeg):
     """
     Given a specific index, return a dictionary containing information about the frame n frames before and after the target index
     in the dataset.
     :param dataset_index [pd.DataFrame]: The dataframe containing the paths and indices of the data
     :param [int] previous_frames: Number of frames before the target frame that will be retrieved.
     :param [int] next_frames: Number of frames after the target frame that will be retrieved.
+    :param [bool] is_jpeg: Whether or not the read images are jpegs
     :return [dict]: Dictionary containing camera data and pose of nearby frames, the key is the relative index and the value is the data (e.g. -1 would be the previous image, 2 would be the next-next image).
     """
     nearby_frames = {}
@@ -133,7 +134,7 @@ def get_nearby_frames_data(path_name, idx, previous_frames, next_frames):
         if relative_idx == 0:
             continue
         try:
-            nearby_frames[relative_idx] = {'camera_data': get_camera_data(path_name, idx + relative_idx),
+            nearby_frames[relative_idx] = {'camera_data': get_camera_data(path_name, idx + relative_idx, is_jpeg),
                                            'pose': get_relative_pose_between_consecutive_frames(path_name, idx, idx+relative_idx)}
         except FileNotFoundError:
             nearby_frames[relative_idx] = {"camera_data": {},
@@ -141,21 +142,22 @@ def get_nearby_frames_data(path_name, idx, previous_frames, next_frames):
     return nearby_frames
 
 
-def get_camera_data(path_name, idx, jpeg = True):
+def get_camera_data(path_name, idx, is_jpeg=True):
     """
     Gets the basic camera information given the path name to the scene and the frame number within
     that scene.
     :param [str] path_name: A file path to a scene within the dataset
     :param [int] idx: The frame number in the scene
+    :param [bool] is_jpeg: Whether or not the read images are jpegs
     :return [dict]: A dictionary containing camera data. If the camera data cannot be found, return an empty dictionary.
     """
     camera_data = dict()
-    # CHANGE THIS FOR JPGE IIMAGES
+
     for camera_name in KITTICameraNames:
         camera_path = CAMERA_NAME_TO_PATH_MAPPING[camera_name]
         # Check if required paths exist.
         # The f-string is following the format of KITTI, padding the frame number with 10 zeros.
-        if jpeg:
+        if is_jpeg:
             camera_image_path = os.path.join(path_name, f"{camera_path}/data/{idx:010}.jpg")
         else:
             camera_image_path = os.path.join(path_name, f"{camera_path}/data/{idx:010}.png")
