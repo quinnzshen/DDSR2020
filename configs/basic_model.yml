@@ -1,6 +1,3 @@
-train_config_path: configs/basic_train_dataset.yml
-valid_config_path: configs/basic_validation_dataset.yml
-test_config_path: configs/basic_test_dataset.yml
 encoder_layers: 18
 pretrained: True
 num_scales: 1
@@ -12,3 +9,5 @@ height: 384
 num_epochs: 50
 batch_size: 2
 tensorboard_step: 3
+train_config_path: configs/basic_train_dataset.yml
+valid_config_path: configs/basic_validation_dataset.yml
