@@ -85,4 +85,5 @@ class KittiDataset(Dataset):
                 get_relative_translation_stereo(calib_dir), get_relative_rotation_stereo(calib_dir))},
             **{'pose': get_pose(path_name, idx)}
         }
+        print("bruh done\n")
         return sample
