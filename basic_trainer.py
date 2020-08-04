@@ -204,7 +204,7 @@ class Trainer:
         outputs[("depths", 0)] = depths
 
         # Source image and pose data
-        tgt_poses = batch["pose"].to(self.device)
+        # tgt_poses = batch["pose"].to(self.device)
         sources_list = [F.interpolate(batch["stereo_right_image"].to(self.device).permute(0, 3, 1, 2).float(),
                                       (self.height, self.width), mode="bilinear", align_corners=False)]
         poses_list = [batch["rel_pose_stereo"].to(self.device)]
@@ -217,8 +217,7 @@ class Trainer:
                 batch["nearby_frames"][i]["camera_data"]["stereo_left_image"].to(self.device).permute(0, 3, 1,
                                                                                                       2).float(),
                 (self.height, self.width), mode="bilinear", align_corners=False))
-            poses_list.append(
-                torch.matmul(torch.inverse(tgt_poses), batch["nearby_frames"][i]["pose"].to(self.device)))
+            poses_list.append(batch["nearby_frames"][i]["pose"].to(self.device))
 
         # Stacking sources and poses
         sources = torch.stack(sources_list, dim=0)

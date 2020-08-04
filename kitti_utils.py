@@ -134,7 +134,7 @@ def get_nearby_frames_data(path_name, idx, previous_frames, next_frames):
             continue
         try:
             nearby_frames[relative_idx] = {'camera_data': get_camera_data(path_name, idx + relative_idx),
-                                           'pose': get_pose(path_name, idx + relative_idx)}
+                                           'pose': get_relative_pose_between_consecutive_frames(path_name, idx, idx+relative_idx)}
         except FileNotFoundError:
             nearby_frames[relative_idx] = {"camera_data": {},
                                            "pose": {}}
