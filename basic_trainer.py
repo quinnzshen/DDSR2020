@@ -135,9 +135,8 @@ class Trainer:
             count += 1
             print("batchidx:", batch_idx)
             print("batch keys:", batch.keys())
-            inputs = F.interpolate(batch["stereo_left_image"].to(self.device).permute(0, 3, 1, 2).float(),
-                                   (self.height, self.width), mode="bilinear", align_corners=False)
-            # total_loss += self.process_batch(batch_idx, batch, len(self.train_dataset), "Training", True).item()
+
+            total_loss += self.process_batch(batch_idx, batch, len(self.train_dataset), "Training", True).item()
         total_loss /= count
         print("BRUH")
 
@@ -188,8 +187,9 @@ class Trainer:
         print("batchidx", batch_idx)
         print("batchkeys", batch.keys)
         # Predict disparity map
-        inputs = F.interpolate(batch["stereo_left_image"].to(self.device).permute(0, 3, 1, 2).float(),
-                               (self.height, self.width), mode="bilinear", align_corners=False)
+        inputs = batch["stereo_left_image"].to(self.device).float()
+        # F.interpolate(batch["stereo_left_image"].to(self.device).permute(0, 3, 1, 2).float(),
+        #                        (self.height, self.width), mode="bilinear", align_corners=False)
         features = self.models['resnet_encoder'](inputs)
         outputs = self.models['depth_decoder'](features)
         disp = outputs[("disp", 0)]
@@ -205,18 +205,17 @@ class Trainer:
 
         # Source image and pose data
         # tgt_poses = batch["pose"].to(self.device)
-        sources_list = [F.interpolate(batch["stereo_right_image"].to(self.device).permute(0, 3, 1, 2).float(),
-                                      (self.height, self.width), mode="bilinear", align_corners=False)]
+        inputs = batch["stereo_left_image"].to(self.device).float()
+        # F.interpolate(batch["stereo_left_image"].to(self.device).permute(0, 3, 1, 2).float(),
+        #                        (self.height, self.width), mode="bilinear", align_corners=False)
+        sources_list = [batch["stereo_right_image"].to(self.device).float()]
         poses_list = [batch["rel_pose_stereo"].to(self.device)]
 
         for i in range(-self.prev_frames, self.next_frames + 1):
             if i == 0:
                 continue
 
-            sources_list.append(F.interpolate(
-                batch["nearby_frames"][i]["camera_data"]["stereo_left_image"].to(self.device).permute(0, 3, 1,
-                                                                                                      2).float(),
-                (self.height, self.width), mode="bilinear", align_corners=False))
+            sources_list.append(batch["nearby_frames"][i]["camera_data"]["stereo_left_image"].to(self.device).float())
             poses_list.append(batch["nearby_frames"][i]["pose"].to(self.device))
 
         # Stacking sources and poses
