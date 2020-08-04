@@ -141,7 +141,7 @@ def get_nearby_frames_data(path_name, idx, previous_frames, next_frames):
     return nearby_frames
 
 
-def get_camera_data(path_name, idx):
+def get_camera_data(path_name, idx, jpeg = True):
     """
     Gets the basic camera information given the path name to the scene and the frame number within
     that scene.
@@ -151,28 +151,22 @@ def get_camera_data(path_name, idx):
     """
     camera_data = dict()
     # CHANGE THIS FOR JPGE IIMAGES
-    hahaisjpeg = True
     for camera_name in KITTICameraNames:
         camera_path = CAMERA_NAME_TO_PATH_MAPPING[camera_name]
         # Check if required paths exist.
         # The f-string is following the format of KITTI, padding the frame number with 10 zeros.
-        if hahaisjpeg:
+        if jpeg:
             camera_image_path = os.path.join(path_name, f"{camera_path}/data/{idx:010}.jpg")
         else:
             camera_image_path = os.path.join(path_name, f"{camera_path}/data/{idx:010}.png")
 
         timestamp_path = os.path.join(path_name, f"{camera_path}/timestamps.txt")
-        # if os.path.exists(camera_image_path) and os.path.exists(timestamp_path):
         camera_image = torch.from_numpy(np.asarray(Image.open(camera_image_path)))
         timestamp = get_timestamp_nsec(timestamp_path, idx)
         camera_data[f"{camera_name}_image"] = camera_image
         camera_data[f"{camera_name}_shape"] = camera_image.shape
-        # print("imageshapewowo", camera_image.shape)
-        # if camera_image.shape[0] != 375:
-        #     print("WONRG: path at", camera_image_path)
         camera_data[f"{camera_name}_capture_time_nsec"] = timestamp
-    # else:
-    #     print("YO HABLO ESPANOL")
+
     return camera_data
 
 
