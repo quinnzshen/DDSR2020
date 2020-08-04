@@ -133,12 +133,12 @@ class Trainer:
         total_loss = count = 0
         for batch_idx, batch in enumerate(self.train_dataloader):
             count += 1
-            print("batchidx:", batch_idx)
-            print("batch keys:", batch.keys())
+            # print("batchidx:", batch_idx)
+            # print("batch keys:", batch.keys())
 
             total_loss += self.process_batch(batch_idx, batch, len(self.train_dataset), "Training", True).item()
         total_loss /= count
-        print("BRUH")
+        # print("BRUH")
 
         self.writer.add_scalars("Loss", {"Training": total_loss}, self.epoch)
 
@@ -184,8 +184,8 @@ class Trainer:
         :param [boolean] backprop: Determines whether or not to backpropogate loss
         :return [tensor] losses: A 0-dimensional tensor containing the loss of the batch
         """
-        print("batchidx", batch_idx)
-        print("batchkeys", batch.keys)
+        # print("batchidx", batch_idx)
+        # print("batchkeys", batch.keys)
         # Predict disparity map
         inputs = batch["stereo_left_image"].to(self.device).float()
         # F.interpolate(batch["stereo_left_image"].to(self.device).permute(0, 3, 1, 2).float(),
