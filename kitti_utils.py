@@ -166,6 +166,9 @@ def get_camera_data(path_name, idx):
         timestamp = get_timestamp_nsec(timestamp_path, idx)
         camera_data[f"{camera_name}_image"] = camera_image
         camera_data[f"{camera_name}_shape"] = camera_image.shape
+        print("imageshapewowo", camera_image.shape)
+        if camera_image.shape[0] != 375:
+            print("WONRG: path at", camera_image_path)
         camera_data[f"{camera_name}_capture_time_nsec"] = timestamp
     # else:
     #     print("YO HABLO ESPANOL")
