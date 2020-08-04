@@ -98,9 +98,8 @@ class Trainer:
         
         for self.epoch in range(self.num_epochs):
             self.run_epoch()
-            
+            self.save_model()
         self.writer.close()
-        self.save_model()
         print('Model saved.')
 
     def run_epoch(self):
