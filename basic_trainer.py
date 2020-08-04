@@ -227,7 +227,7 @@ class Trainer:
             losses.backward()
             self.optimizer.step()
 
-        # Add disparity map and loss to tensorboard
+        # Add image, disparity map, and loss to tensorboard
         for i, disp_map in enumerate(disp):
             if self.img_num in tensorboard_steps:
                 self.add_img_disparity_to_tensorboard(disp_map, inputs[i], self.img_num, dataset_length, name)
@@ -304,5 +304,5 @@ def disp_to_depth(disp, min_depth, max_depth):
 
 
 if __name__ == "__main__":
-    test = Trainer("configs/basic_model.yml")
+    test = Trainer("configs/full_model.yml")
     test.train()
