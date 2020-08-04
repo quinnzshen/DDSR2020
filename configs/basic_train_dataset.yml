@@ -3,3 +3,4 @@ dataset_paths:
   - splits/basic_train_split.txt
 previous_frames: 1
 next_frames: 1
+is_jpeg: False

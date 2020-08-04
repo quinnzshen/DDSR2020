@@ -3,3 +3,4 @@ dataset_paths:
   - splits/eigen_full/validate.txt
 previous_frames: 1
 next_frames: 1
+is_jpeg: True

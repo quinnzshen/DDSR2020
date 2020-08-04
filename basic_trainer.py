@@ -87,6 +87,9 @@ class Trainer:
         weight_decay = self.config["weight_decay"]
         self.lr_scheduler = optim.lr_scheduler.StepLR(self.optimizer, scheduler_step_size, weight_decay)
 
+        # Reading from JPEG
+        self.is_jpeg = self.config["read_jpeg"]
+
         # Writer for tensorboard
         self.writer = SummaryWriter()
         
