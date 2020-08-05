@@ -32,7 +32,8 @@ class Trainer:
             
         # GPU/CPU setup
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
+        torch.cuda.empty_cache()
+        
         # Epoch and batch info
         self.num_epochs = self.config["num_epochs"]
         self.batch_size = self.config["batch_size"]

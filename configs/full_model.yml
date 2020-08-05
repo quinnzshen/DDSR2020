@@ -7,7 +7,7 @@ weight_decay: 0.1
 width: 1280
 height: 384
 num_epochs: 20
-batch_size: 12
+batch_size: 8
 tensorboard_step: 1000
 train_config_path: configs/full_train_dataset.yml
 valid_config_path: configs/full_validation_dataset.yml
