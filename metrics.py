@@ -13,7 +13,7 @@ def compute_l1_error(depth, lidar):
     This function computes the metrics of the loss and allows an understanding of how well the model is
     predicting depth compared to the "true" groundtruth LiDAR depth while also returning an array of the L1 loss
     at each LiDAR point
-    :param [numpy.array] depth: a one dimensional array where each value within the array represents the 
+    :param [numpy.array] depth: a two dimensional array where each value within the array represents the 
     predicted depth of a pixel within the image
     :param [numpy.array] lidar: an [N, 4] array containing # of LiDAR points within the image,
     x position, y position, LiDAR depth, and reflectivity
