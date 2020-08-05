@@ -17,7 +17,6 @@ from loss import process_depth, calc_loss
 from third_party.monodepth2.ResnetEncoder import ResnetEncoder
 from third_party.monodepth2.DepthDecoder import DepthDecoder
 
-
 class Trainer:
     def __init__(self, config_path):
         """
@@ -26,11 +25,11 @@ class Trainer:
         :param [str] config_path: The path to the config file
         :return [Trainer]: Object instance of the trainer
         """
-
+        
         # Load data from config
         with open(config_path) as file:
             self.config = yaml.load(file, Loader=yaml.Loader)
-
+            
         # GPU/CPU setup
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -41,10 +40,10 @@ class Trainer:
         # Image dimensions
         self.width = self.config["width"]
         self.height = self.config["height"]
-
+        
         # Dataloader Setup
         self.collate = Collator(self.height, self.width)
-
+        
         train_config_path = self.config["train_config_path"]
         self.train_dataset = KittiDataset.init_from_config(train_config_path)
         self.train_dataloader = DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=False,
@@ -54,11 +53,11 @@ class Trainer:
         self.val_dataset = KittiDataset.init_from_config(val_config_path)
         self.val_dataloader = DataLoader(self.val_dataset, batch_size=self.batch_size, shuffle=False,
                                          collate_fn=self.collate)
-
+        
         # Neighboring frames
         self.prev_frames = self.train_dataset.previous_frames
         self.next_frames = self.train_dataset.next_frames
-
+        
         # Model setup
         self.models = {}
         self.pretrained = self.config["pretrained"]
@@ -81,7 +80,7 @@ class Trainer:
         scheduler_step_size = self.config["scheduler_step_size"]
         weight_decay = self.config["weight_decay"]
         self.lr_scheduler = optim.lr_scheduler.StepLR(self.optimizer, scheduler_step_size, weight_decay)
-
+        
         # Writer for tensorboard
         self.writer = SummaryWriter()
         
@@ -106,7 +105,7 @@ class Trainer:
         """
         Runs a single epoch of training and validation
         """
-
+        
         # Training
         train_start_time = time.time()
 
@@ -163,6 +162,10 @@ class Trainer:
         :param [boolean] backprop: Determines whether or not to backpropogate loss
         :return [tensor] losses: A 0-dimensional tensor containing the loss of the batch
         """
+        
+        #TEMP - DEBUG
+        self.TIME = time.time()
+        
         # Predict disparity map
         inputs = batch["stereo_left_image"].to(self.device).float()
         features = self.models['resnet_encoder'](inputs)
@@ -170,10 +173,16 @@ class Trainer:
         disp = outputs[("disp", 0)]
         disp = F.interpolate(disp, [self.height, self.width], mode="bilinear", align_corners=False)
         
+        print("Time for predicting disparity: " + str(time.time()-self.TIME))
+        self.TIME = time.time()
+        
         # Convert disparity to depth
         _, depths = disp_to_depth(disp, 0.1, 100)
         outputs[("depths", 0)] = depths
 
+        print("Time for converting disparity to depth: " + str(time.time()-self.TIME))
+        self.TIME = time.time()
+        
         # Source image and pose data
         inputs = batch["stereo_left_image"].to(self.device).float()
         sources_list = [batch["stereo_right_image"].to(self.device).float()]
@@ -189,6 +198,9 @@ class Trainer:
         # Stacking sources and poses
         sources = torch.stack(sources_list, dim=0)
         poses = torch.stack(poses_list, dim=0)
+        
+        print("Time for source image and pose data: " + str(time.time()-self.TIME))
+        self.TIME = time.time()
 
         # Intrinsics
         tgt_intrinsics = batch["intrinsics"]["stereo_left"].to(self.device)
@@ -207,9 +219,16 @@ class Trainer:
         for i in range(len(poses_list) - 1):
             intrinsics.append(tgt_intrinsics)
         src_intrinsics = torch.stack(intrinsics)
+        
+        print("Time for intrinsics: " + str(time.time()-self.TIME))
+        self.TIME = time.time()
 
         reprojected, mask = process_depth(sources, depths, poses, tgt_intrinsics, src_intrinsics,
                                           (self.height, self.width))
+        
+        print("Time for reprojection: " + str(time.time()-self.TIME))
+        self.TIME = time.time()
+        
         # Compute Losses
         loss_inputs = {"targets": inputs,
                        "sources": sources
@@ -219,13 +238,18 @@ class Trainer:
                         "initial_masks": mask
                         }
         losses = calc_loss(loss_inputs, loss_outputs)
-
+        print("Time for losses: " + str(time.time()-self.TIME))
+        self.TIME = time.time()
+        
         # Backpropogates if backprop is set to True
         if backprop:
             self.optimizer.zero_grad()
             losses.backward()
             self.optimizer.step()
-
+            
+        print("Time for backprop: " + str(time.time()-self.TIME))
+        self.TIME = time.time()
+        
         # Add image, disparity map, and loss to tensorboard
         for i, disp_map in enumerate(disp):
             if self.img_num in tensorboard_steps:
@@ -233,6 +257,8 @@ class Trainer:
                 self.writer.add_scalars("Loss", {name: losses.item()}, self.epoch * dataset_length + self.img_num)
             self.img_num += 1
             
+        print("Time for tensorbaord: " + str(time.time()-self.TIME))
+        self.TIME = time.time()
         return losses
 
     def save_model(self):
@@ -303,5 +329,5 @@ def disp_to_depth(disp, min_depth, max_depth):
 
 
 if __name__ == "__main__":
-    test = Trainer("configs/full_model.yml")
+    test = Trainer("configs/basic_model.yml")
     test.train()
