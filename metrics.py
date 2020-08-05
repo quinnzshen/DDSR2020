@@ -6,6 +6,8 @@ import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import cv2
 
+import metrics as m
+
 def compute_l1_error(depth, lidar):
     """
     This function computes the metrics of the loss and allows an understanding of how well the model is
@@ -19,8 +21,8 @@ def compute_l1_error(depth, lidar):
     y position, and abs difference between predicted and LiDAR depth
     """
     metrics = []
-    for x, y, z in lidar[:, :3]:
-        difference = abs(depth[y, x] - z)
+    for x, y, d in lidar[:, :3]:
+        difference = abs(depth[y][x] - d)
         metrics.append([x, y, difference])
     l1_error = np.array(metrics)
     return l1_error
