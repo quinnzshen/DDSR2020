@@ -161,4 +161,5 @@ def test_depth_model(image_path, model_name, **kwargs):
                 f, axarr = plt.subplots(2,1)
                 axarr[0].imshow(mpimg.imread(image_path))
                 axarr[1].imshow(colormapped_im)
+
     print('-> Done!')
