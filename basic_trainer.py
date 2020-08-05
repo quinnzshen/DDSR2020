@@ -163,9 +163,6 @@ class Trainer:
         :return [tensor] losses: A 0-dimensional tensor containing the loss of the batch
         """
         
-        #TEMP - DEBUG
-        self.TIME = time.time()
-        
         # Predict disparity map
         inputs = batch["stereo_left_image"].to(self.device).float()
         features = self.models['resnet_encoder'](inputs)
@@ -173,15 +170,9 @@ class Trainer:
         disp = outputs[("disp", 0)]
         disp = F.interpolate(disp, [self.height, self.width], mode="bilinear", align_corners=False)
         
-        print("Time for predicting disparity: " + str(time.time()-self.TIME))
-        self.TIME = time.time()
-        
         # Convert disparity to depth
         _, depths = disp_to_depth(disp, 0.1, 100)
         outputs[("depths", 0)] = depths
-
-        print("Time for converting disparity to depth: " + str(time.time()-self.TIME))
-        self.TIME = time.time()
         
         # Source image and pose data
         inputs = batch["stereo_left_image"].to(self.device).float()
@@ -198,10 +189,7 @@ class Trainer:
         # Stacking sources and poses
         sources = torch.stack(sources_list, dim=0)
         poses = torch.stack(poses_list, dim=0)
-        
-        print("Time for source image and pose data: " + str(time.time()-self.TIME))
-        self.TIME = time.time()
-
+    
         # Intrinsics
         tgt_intrinsics = batch["intrinsics"]["stereo_left"].to(self.device)
         src_intrinsics_stereo = batch["intrinsics"]["stereo_right"].to(self.device)
@@ -219,15 +207,9 @@ class Trainer:
         for i in range(len(poses_list) - 1):
             intrinsics.append(tgt_intrinsics)
         src_intrinsics = torch.stack(intrinsics)
-        
-        print("Time for intrinsics: " + str(time.time()-self.TIME))
-        self.TIME = time.time()
 
         reprojected, mask = process_depth(sources, depths, poses, tgt_intrinsics, src_intrinsics,
                                           (self.height, self.width))
-        
-        print("Time for reprojection: " + str(time.time()-self.TIME))
-        self.TIME = time.time()
         
         # Compute Losses
         loss_inputs = {"targets": inputs,
@@ -238,17 +220,12 @@ class Trainer:
                         "initial_masks": mask
                         }
         losses = calc_loss(loss_inputs, loss_outputs)
-        print("Time for losses: " + str(time.time()-self.TIME))
-        self.TIME = time.time()
-        
+
         # Backpropogates if backprop is set to True
         if backprop:
             self.optimizer.zero_grad()
             losses.backward()
             self.optimizer.step()
-            
-        print("Time for backprop: " + str(time.time()-self.TIME))
-        self.TIME = time.time()
         
         # Add image, disparity map, and loss to tensorboard
         for i, disp_map in enumerate(disp):
@@ -256,9 +233,7 @@ class Trainer:
                 self.add_img_disparity_to_tensorboard(disp_map, inputs[i], self.img_num, dataset_length, name)
                 self.writer.add_scalars("Loss", {name: losses.item()}, self.epoch * dataset_length + self.img_num)
             self.img_num += 1
-            
-        print("Time for tensorbaord: " + str(time.time()-self.TIME))
-        self.TIME = time.time()
+
         return losses
 
     def save_model(self):
