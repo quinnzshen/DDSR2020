@@ -44,16 +44,16 @@ class Trainer:
         
         # Dataloader Setup
         self.collate = Collator(self.height, self.width)
-        
+        self.num_workers = self.config["num_workers"]
         train_config_path = self.config["train_config_path"]
         self.train_dataset = KittiDataset.init_from_config(train_config_path)
         self.train_dataloader = DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True,
-                                           collate_fn=self.collate, num_workers=12)
+                                           collate_fn=self.collate, num_workers=self.num_workers)
 
         val_config_path = self.config["valid_config_path"]
         self.val_dataset = KittiDataset.init_from_config(val_config_path)
         self.val_dataloader = DataLoader(self.val_dataset, batch_size=self.batch_size, shuffle=True,
-                                         collate_fn=self.collate, num_workers=12)
+                                         collate_fn=self.collate, num_workers=self.num_workers)
         
         # Neighboring frames
         self.prev_frames = self.train_dataset.previous_frames
@@ -173,7 +173,6 @@ class Trainer:
         
         # Convert disparity to depth
         _, depths = disp_to_depth(disp, 0.1, 100)
-        outputs[("depths", 0)] = depths
         
         # Source image and pose data
         inputs = batch["stereo_left_image"].to(self.device).float()
@@ -282,9 +281,12 @@ class Trainer:
         imgs = torch.stack((final_img, final_disp))
 
         # Add image and disparity map to tensorboard
-        self.writer.add_images(name + " - " + f'Epoch: {self.epoch + 1}, ' + f'Image: {img_num}',
-                               imgs,
+        self.writer.add_image(name + " - " + f'Epoch: {self.epoch + 1}, ' + f'Image: {img_num}' + ' (Original)',
+                               final_img,
                                self.epoch * dataset_length + img_num)
+        self.writer.add_image(name + " - " + f'Epoch: {self.epoch + 1}, ' + f'Image: {img_num}' + ' (Disparity)',
+                       final_disp,
+                       self.epoch * dataset_length + img_num)
 
 
 def disp_to_depth(disp, min_depth, max_depth):
@@ -305,5 +307,5 @@ def disp_to_depth(disp, min_depth, max_depth):
 
 
 if __name__ == "__main__":
-    test = Trainer("configs/full_model.yml")
+    test = Trainer("configs/basic_model.yml")
     test.train()

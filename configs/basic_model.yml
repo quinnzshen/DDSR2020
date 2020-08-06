@@ -9,5 +9,6 @@ height: 384
 num_epochs: 50
 batch_size: 2
 tensorboard_step: 3
+num_workers: 0
 train_config_path: configs/basic_train_dataset.yml
 valid_config_path: configs/basic_validation_dataset.yml
