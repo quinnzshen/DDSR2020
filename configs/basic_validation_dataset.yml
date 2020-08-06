@@ -1,6 +1,6 @@
 root_directory: data/kitti_example
 dataset_paths:
-  - splits/basic_validation_split.txt
+  - splits/basic_val_split.txt
 previous_frames: 1
 next_frames: 1
 is_jpeg: False

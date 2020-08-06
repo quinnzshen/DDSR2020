@@ -175,7 +175,6 @@ class Trainer:
         _, depths = disp_to_depth(disp, 0.1, 100)
         
         # Source image and pose data
-        inputs = batch["stereo_left_image"].to(self.device).float()
         sources_list = [batch["stereo_right_image"].to(self.device).float()]
         poses_list = [batch["rel_pose_stereo"].to(self.device)]
 
@@ -198,10 +197,10 @@ class Trainer:
         shapes = batch["shapes"].to(self.device).float()
         out_shape = torch.tensor([self.height, self.width]).to(self.device)
         shapes = out_shape / shapes
-        tgt_intrinsics[:, 0] = tgt_intrinsics[:, 0] * shapes[:, 1].reshape(-1, 1)
-        tgt_intrinsics[:, 1] = tgt_intrinsics[:, 1] * shapes[:, 0].reshape(-1, 1)
-        src_intrinsics_stereo[:, 0] = src_intrinsics_stereo[:, 0] * shapes[:, 1].reshape(-1, 1)
-        src_intrinsics_stereo[:, 1] = src_intrinsics_stereo[:, 1] * shapes[:, 0].reshape(-1, 1)
+        tgt_intrinsics[0, :] = tgt_intrinsics[0, :] * shapes[:, 1].reshape(-1, 1)
+        tgt_intrinsics[1, :] = tgt_intrinsics[1, :] * shapes[:, 0].reshape(-1, 1)
+        src_intrinsics_stereo[0, :] = src_intrinsics_stereo[0, :] * shapes[:, 1].reshape(-1, 1)
+        src_intrinsics_stereo[1, :] = src_intrinsics_stereo[1, :] * shapes[:, 0].reshape(-1, 1)
 
         intrinsics = [src_intrinsics_stereo]
         for i in range(len(poses_list) - 1):
@@ -277,8 +276,6 @@ class Trainer:
         normalizer = mpl.colors.Normalize(vmin=img_np.min(), vmax=vmax)
         colormapped_img = (img_np).astype(np.uint8).transpose(1, 2, 0)
         final_img = transforms.ToTensor()(colormapped_img)
-
-        imgs = torch.stack((final_img, final_disp))
 
         # Add image and disparity map to tensorboard
         self.writer.add_image(name + " - " + f'Epoch: {self.epoch + 1}, ' + f'Image: {img_num}' + ' (Original)',
