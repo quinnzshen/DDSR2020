@@ -230,7 +230,7 @@ class Trainer:
         for i, disp_map in enumerate(disp):
             if self.img_num in tensorboard_steps:
                 self.add_img_disparity_to_tensorboard(disp_map, inputs[i], automask[i].unsqueeze(0), self.img_num, dataset_length, name)
-                self.writer.add_scalars("Loss", {name: losses.item()}, self.epoch * dataset_length + self.img_num)
+                self.writer.add_scalar(name + " Loss", losses.item(), self.epoch * dataset_length + self.img_num)
             self.img_num += 1
 
         return losses
