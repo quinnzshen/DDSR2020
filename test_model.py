@@ -16,7 +16,7 @@ def test_depth_model(path_to_weights, test_config_path, encoder_layers, num_scal
     
     # Loading weights on encoder/decoder
     encoder_path = os.path.join(path_to_weights, "encoder.pth")
-    decoder_path = os.path.join(path_to_weights, "encoder.pth")
+    decoder_path = os.path.join(path_to_weights, "decoder.pth")
     
     encoder = ResnetEncoder(encoder_layers, False)
     loaded_dict_enc = torch.load(encoder_path, map_location = device)
@@ -35,14 +35,21 @@ def test_depth_model(path_to_weights, test_config_path, encoder_layers, num_scal
     depth_decoder.to(device)
     depth_decoder.eval()    
     
-    test_dataset = KittiDataset.init_from_config(test_config_path)    
+    dataset = KittiDataset.init_from_config(test_config_path)    
     
     # Predict depth across all test images
-    inputs = torch.cat([F.interpolate((torch.tensor(test_dataset[i]["stereo_left_image"].transpose(2,0,1), device=device, dtype=torch.float32).unsqueeze(0)), [feed_height, feed_width], mode = "bilinear", align_corners = False) for i in range(0, len(test_dataset))])
+    inputs = torch.cat([F.interpolate((torch.tensor(dataset[i]["stereo_left_image"].transpose(2,0,1), device=device, dtype=torch.float32).unsqueeze(0)), [feed_height, feed_width], mode = "bilinear", align_corners = False) for i in range(0, len(dataset))])
     features = encoder(inputs)
     outputs = depth_decoder(features)
     disp = outputs[("disp", 0)]
     disp = F.interpolate(disp, [feed_height, feed_width], mode="bilinear", align_corners=False)
     _, depths = disp_to_depth(disp, 0.1, 100)
+
+    stereo_images = torch.cat([F.interpolate((torch.tensor(self.dataset[i]["stereo_right_image"].transpose(2,0,1), device=self.device, dtype=torch.float32).unsqueeze(0)), [feed_height, feed_width], mode = "bilinear", align_corners = False) for i in range(0, len(test_dataset))])
+    temporal_forward_images = torch.cat([F.interpolate((torch.tensor(self.dataset[i]["nearby_frames"][1]["camera_data"]["stereo_left_image"].transpose(2,0,1), device=self.device, dtype=torch.float32).unsqueeze(0)), [self.width, self.height], mode = "bilinear", align_corners = False) for i in range(start_tracker, end_tracker)])
+    temporal_backward_images = torch.cat([F.interpolate((torch.tensor(self.dataset[i]["nearby_frames"][-1]["camera_data"]["stereo_left_image"].transpose(2,0,1), device=self.device, dtype=torch.float32).unsqueeze(0)), [self.width, self.height], mode = "bilinear", align_corners = False) for i in range(start_tracker, end_tracker)])
+    sources = torch.stack((stereo_images, temporal_forward_images, temporal_backward_images))
+    
+    # Compute Losses
     
     # Compute errors
