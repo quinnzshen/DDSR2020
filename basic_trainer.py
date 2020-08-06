@@ -47,12 +47,12 @@ class Trainer:
         
         train_config_path = self.config["train_config_path"]
         self.train_dataset = KittiDataset.init_from_config(train_config_path)
-        self.train_dataloader = DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=False,
+        self.train_dataloader = DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True,
                                            collate_fn=self.collate, num_workers=12)
 
         val_config_path = self.config["valid_config_path"]
         self.val_dataset = KittiDataset.init_from_config(val_config_path)
-        self.val_dataloader = DataLoader(self.val_dataset, batch_size=self.batch_size, shuffle=False,
+        self.val_dataloader = DataLoader(self.val_dataset, batch_size=self.batch_size, shuffle=True,
                                          collate_fn=self.collate, num_workers=12)
         
         # Neighboring frames
