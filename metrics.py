@@ -20,11 +20,9 @@ def compute_l1_error(depth, lidar):
     :return [numpy.array] l1_error: an [N, 3] array containing # of LiDAR points within the image, x position,
     y position, and abs difference between predicted and LiDAR depth
     """
-    metrics = []
-    for x, y, d in lidar[:, :3]:
-        difference = abs(depth[y][x] - d)
-        metrics.append([x, y, difference])
-    l1_error = np.array(metrics)
+    l1_error = lidar[:, :3]
+    difference = np.abs(depth[l1_error[:, 1], l1_error[:, 0]] - l1_error[:, 2])
+    l1_error[:, 2] = difference
     return l1_error
 
 def plot_depth_error(error_array, image, fig_h=20, fig_w=20, alpha=.6, s=15):
@@ -46,3 +44,4 @@ def plot_depth_error(error_array, image, fig_h=20, fig_w=20, alpha=.6, s=15):
     plt.figure(figsize=(fig_h, fig_w))
     plt.imshow(grayscale_array, cmap='gray', alpha=alpha)
     plt.scatter(sorted_error_array[:, 0], sorted_error_array[:, 1], c=sorted_error_array[:, 2], cmap='plasma', s=s, marker='x')
+    plt.show() 
