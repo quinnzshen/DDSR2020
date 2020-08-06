@@ -218,7 +218,7 @@ class Trainer:
                         "disparities": disp,
                         "initial_masks": mask
                         }
-        losses = calc_loss(loss_inputs, loss_outputs)
+        losses, automask = calc_loss(loss_inputs, loss_outputs)
 
         # Backpropogates if backprop is set to True
         if backprop:
@@ -229,7 +229,7 @@ class Trainer:
         # Add image, disparity map, and loss to tensorboard
         for i, disp_map in enumerate(disp):
             if self.img_num in tensorboard_steps:
-                self.add_img_disparity_to_tensorboard(disp_map, inputs[i], self.img_num, dataset_length, name)
+                self.add_img_disparity_to_tensorboard(disp_map, inputs[i], automask[i].unsqueeze(0), self.img_num, dataset_length, name)
                 self.writer.add_scalars("Loss", {name: losses.item()}, self.epoch * dataset_length + self.img_num)
             self.img_num += 1
 
@@ -253,15 +253,14 @@ class Trainer:
         save_path = os.path.join(save_folder, "{}.pth".format("adam"))
         torch.save(self.optimizer.state_dict(), save_path)
 
-    def add_img_disparity_to_tensorboard(self, disp, img, img_num, dataset_length, name):
+    def add_img_disparity_to_tensorboard(self, disp, img, mask, img_num, dataset_length, name):
         """
-        Adds output disparity map to tensorboard
+        Adds image disparity map, and automask to tensorboard
         :param [tensor] disp: The disparity map outputted by the network
         :param [int] img_num: The index of the input image in the training/validation file
         :param [int] dataset_length: The length of the training/validation dataset
         :param [String] name: Differentiates between training/validation/evaluation
         """
-
         # Processing disparity map
         disp_np = disp.squeeze().cpu().detach().numpy()
         vmax = np.percentile(disp_np, 95)
@@ -276,7 +275,7 @@ class Trainer:
         normalizer = mpl.colors.Normalize(vmin=img_np.min(), vmax=vmax)
         colormapped_img = (img_np).astype(np.uint8).transpose(1, 2, 0)
         final_img = transforms.ToTensor()(colormapped_img)
-
+                
         # Add image and disparity map to tensorboard
         self.writer.add_image(name + " - " + f'Epoch: {self.epoch + 1}, ' + f'Image: {img_num}' + ' (Original)',
                                final_img,
@@ -284,7 +283,9 @@ class Trainer:
         self.writer.add_image(name + " - " + f'Epoch: {self.epoch + 1}, ' + f'Image: {img_num}' + ' (Disparity)',
                        final_disp,
                        self.epoch * dataset_length + img_num)
-
+        self.writer.add_image(name + " - " + f'Epoch: {self.epoch + 1}, ' + f'Image: {img_num}' + ' (Automask)',
+                       mask,
+                       self.epoch * dataset_length + img_num)
 
 def disp_to_depth(disp, min_depth, max_depth):
     """
