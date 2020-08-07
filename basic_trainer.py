@@ -101,12 +101,10 @@ class Trainer:
         Runs the entire training pipeline
         Saves the model's weights at the end of training
         """
-        # self.train_tensorboard_steps = [i for i in range(1, len(self.train_dataset) + 1, self.tensorboard_step)]
-        # self.val_tensorboard_steps = [i for i in range(1, len(self.val_dataset) + 1, self.tensorboard_step)]
-
         for self.epoch in range(self.num_epochs):
             self.run_epoch()
             self.save_model()
+
         self.writer.close()
         print('Model saved.')
 
@@ -125,8 +123,7 @@ class Trainer:
         self.steps_until_write = total_loss = count = 0
         for batch_idx, batch in enumerate(self.train_dataloader):
             count += 1
-            total_loss += self.process_batch(batch_idx, batch, len(self.train_dataset), "Training", True,
-                                             self.train_tensorboard_steps).item()
+            total_loss += self.process_batch(batch_idx, batch, len(self.train_dataset), "Training", True).item()
         total_loss /= count
 
         self.lr_scheduler.step()
@@ -147,8 +144,7 @@ class Trainer:
         for batch_idx, batch in enumerate(self.val_dataloader):
             with torch.no_grad():
                 count += 1
-                total_loss += self.process_batch(batch_idx, batch, len(self.val_dataset), "Validation", False,
-                                                 self.val_tensorboard_steps).item()
+                total_loss += self.process_batch(batch_idx, batch, len(self.val_dataset), "Validation", False).item()
         total_loss /= count
 
         val_end_time = time.time()
@@ -156,7 +152,7 @@ class Trainer:
         print(f"Validation Loss: {total_loss}")
         print(f"Time spent: {val_end_time - val_start_time}\n")
 
-    def process_batch(self, batch_idx, batch, dataset_length, name, backprop, tensorboard_steps):
+    def process_batch(self, batch_idx, batch, dataset_length, name, backprop):
         """
         Computes loss for a single batch
         :param [int] batch_idx: The batch index
@@ -164,7 +160,6 @@ class Trainer:
         :param [int] dataset_length: The length of the training/validation dataset
         :param [String] name: Differentiates between training/validation
         :param [boolean] backprop: Determines whether or not to backpropogate loss
-        :param [list] tensorboard_steps: list of image indicies added to tensorboard
         :return [tensor] losses: A 0-dimensional tensor containing the loss of the batch
         """
         # Predict disparity map
