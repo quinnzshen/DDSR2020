@@ -315,5 +315,5 @@ def disp_to_depth(disp, min_depth, max_depth):
 
 
 if __name__ == "__main__":
-    test = Trainer("configs/basic_model.yml")
+    test = Trainer("configs/full_model.yml")
     test.train()
