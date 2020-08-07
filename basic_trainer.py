@@ -59,6 +59,9 @@ class Trainer:
         self.prev_frames = self.train_dataset.previous_frames
         self.next_frames = self.train_dataset.next_frames
         
+        # Stereo
+        self.use_stereo = self.config["use_stereo"]
+        
         # Model setup
         self.models = {}
         self.pretrained = self.config["pretrained"]
@@ -175,8 +178,12 @@ class Trainer:
         _, depths = disp_to_depth(disp, 0.1, 100)
         
         # Source image and pose data
-        sources_list = [batch["stereo_right_image"].to(self.device).float()]
-        poses_list = [batch["rel_pose_stereo"].to(self.device)]
+        if self.use_stereo:
+            sources_list = [batch["stereo_right_image"].to(self.device).float()]
+            poses_list = [batch["rel_pose_stereo"].to(self.device)]
+        else:
+            sources_list = []
+            poses_list = []
 
         for i in range(-self.prev_frames, self.next_frames + 1):
             if i == 0:
@@ -189,20 +196,23 @@ class Trainer:
         sources = torch.stack(sources_list, dim=0)
         poses = torch.stack(poses_list, dim=0)
     
-        # Intrinsics
-        tgt_intrinsics = batch["intrinsics"]["stereo_left"].to(self.device)
-        src_intrinsics_stereo = batch["intrinsics"]["stereo_right"].to(self.device)
+        # Intrinsics and scaling
 
-        # Adjust intrinsics based on input size
         shapes = batch["shapes"].to(self.device).float()
         out_shape = torch.tensor([self.height, self.width]).to(self.device)
         shapes = out_shape / shapes
+        tgt_intrinsics = batch["intrinsics"]["stereo_left"].to(self.device)
         tgt_intrinsics[:, 0] = tgt_intrinsics[:, 0] * shapes[:, 1].reshape(-1, 1)
         tgt_intrinsics[:, 1] = tgt_intrinsics[:, 1] * shapes[:, 0].reshape(-1, 1)
-        src_intrinsics_stereo[:, 0] = src_intrinsics_stereo[:, 0] * shapes[:, 1].reshape(-1, 1)
-        src_intrinsics_stereo[:, 1] = src_intrinsics_stereo[:, 1] * shapes[:, 0].reshape(-1, 1)
-
-        intrinsics = [src_intrinsics_stereo]
+        
+        if self.use_stereo:
+            src_intrinsics_stereo = batch["intrinsics"]["stereo_right"].to(self.device)
+            src_intrinsics_stereo[:, 0] = src_intrinsics_stereo[:, 0] * shapes[:, 1].reshape(-1, 1)
+            src_intrinsics_stereo[:, 1] = src_intrinsics_stereo[:, 1] * shapes[:, 0].reshape(-1, 1)
+            intrinsics = [src_intrinsics_stereo]
+        else:
+            intrinsics = [tgt_intrinsics]
+            
         for i in range(len(poses_list) - 1):
             intrinsics.append(tgt_intrinsics)
         src_intrinsics = torch.stack(intrinsics)
@@ -305,5 +315,5 @@ def disp_to_depth(disp, min_depth, max_depth):
 
 
 if __name__ == "__main__":
-    test = Trainer("configs/full_model.yml")
+    test = Trainer("configs/basic_model.yml")
     test.train()
