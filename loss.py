@@ -134,17 +134,18 @@ def calc_loss(inputs, outputs, smooth_term=0.001):
     min_errors, _ = torch.min(reproj_errors, dim=0)
 
     # Auto-masking
-    min_errors[~get_mask(targets, sources, min_errors)] = torch.finfo(torch.float).max
+    mask = get_mask(targets, sources, min_errors)
+    min_errors[~mask] = torch.finfo(torch.float).max
 
     disp = outputs["disparities"]
     normalized_disp = disp / disp.mean(2, True).mean(3, True)
 
     loss = loss + torch.mean(min_errors[min_errors < torch.finfo(torch.float).max])
     if torch.isnan(loss):
-        loss = 1
+        loss = 10
     loss = loss + smooth_term * calc_smooth_loss(normalized_disp, targets)
 
-    return loss
+    return loss, mask
 
 
 def process_depth(src_images, depths, poses, tgt_intr, src_intr, img_shape):
@@ -221,5 +222,4 @@ def process_depth(src_images, depths, poses, tgt_intr, src_intr, img_shape):
                 reprojected[i, j, :, rounded_coords[:, 4], rounded_coords[:, 3]] = src_img[:, rounded_coords[:, 1], rounded_coords[:, 0]].float()
 
             masks[i, j, 0, src_coords[:, 4].long(), src_coords[:, 3].long()] = 1
-
     return reprojected, masks

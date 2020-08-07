@@ -1,5 +1,6 @@
 import numpy as np
 from matplotlib import pyplot as plt
+import torch
 
 
 SURROUNDING_LIDAR_COLOR = np.array([[.75, .75, .75]])
@@ -8,15 +9,16 @@ SURROUNDING_LIDAR_COLOR = np.array([[.75, .75, .75]])
 def rel_pose_from_rotation_matrix_translation_vector(relative_translation, relative_rotation):
     """
     This function computes the relative pose matrix that relates the positions of the target and source cameras.
-    :param [numpy.array] relative_translation: [3, 1] vector representing the relative translation between the camera that 
+    :param [torch.Tensor] relative_translation: [3, 1] vector representing the relative translation between the camera that
     captured the source image and the camera that captured the target image.
-    :param [numpy.array] relative_rotation: [3, 3] matrix representing the relative rotation between the camera that 
+    :param [torch.Tensor] relative_rotation: [3, 3] matrix representing the relative rotation between the camera that
     captured the source image and the camera that captured the target image.
-    :return: numpy.array of shape [4, 4] that relates the positions of the target and source cameras.
+    :return: torch.Tensor of shape [4, 4] that relates the positions of the target and source cameras.
     """
-    relative_pose = np.hstack((relative_rotation, relative_translation))
-    relative_pose = np.vstack((relative_pose, np.array([[0., 0., 0., 1.]])))
-    return relative_pose
+    pose = torch.eye(4)
+    pose[:3, :3] = relative_rotation
+    pose[:3, 3] = relative_translation
+    return pose
 
 
 def reproject_source_to_target(tgt_intrinsic, src_intrinsic, lidar_point_coord_camera_image_tgt, relative_pose):

@@ -3,6 +3,7 @@ import math
 import numpy as np
 import pandas as pd
 import pytest
+import torch
 
 from kitti_dataset import KittiDataset
 import kitti_utils as ku
@@ -54,7 +55,7 @@ def test_get_timestamp_nsec():
 def test_get_camera_data():
     cam_data = ku.get_camera_data("data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync", 3)
     assert type(cam_data) == dict
-    assert cam_data["stereo_left_image"].dtype == np.uint8
+    assert cam_data["stereo_left_image"].dtype == torch.uint8
     assert cam_data["stereo_left_image"].shape == (375, 1242, 3)
     assert cam_data["stereo_right_capture_time_nsec"] == 1317046451221580544
 
@@ -63,7 +64,7 @@ def test_get_lidar_data():
     lidar_data = ku.get_lidar_data("data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync", 6)
     assert type(lidar_data) == dict
     assert lidar_data["lidar_point_coord_velodyne"].shape == (114395, 3)
-    assert lidar_data["lidar_point_reflectivity"].dtype == np.float32
+    assert lidar_data["lidar_point_reflectivity"].dtype == torch.float32
     assert lidar_data["lidar_start_capture_time_nsec"].dtype == np.int64
     assert lidar_data["lidar_end_capture_time_nsec"] == 1317046451573549201
 
@@ -172,41 +173,39 @@ def test_get_nearby_frames(kitti_root_directory, kitti_dataset_index):
 def test_get_camera_intrinsic_dict():
     sample_cam_intrinsic_dict = ku.get_camera_intrinsic_dict(EXAMPLE_CALIBRATION_DIR)
     assert len(sample_cam_intrinsic_dict) == 2
-    test_arr = np.array([[959.791, 0., 696.0217], [0., 956.9251, 224.1806], [0., 0., 1.]])
-    assert np.allclose(test_arr, sample_cam_intrinsic_dict.get('stereo_left'))
+    test_arr = torch.tensor([[959.791, 0., 696.0217], [0., 956.9251, 224.1806], [0., 0., 1.]])
+    torch.testing.assert_allclose(sample_cam_intrinsic_dict["stereo_left"], test_arr)
 
 
 def test_get_relative_rotation_stereo():
     rel_rotation_sample = ku.get_relative_rotation_stereo(EXAMPLE_CALIBRATION_DIR)
-    test_arr = np.array(
+    test_arr = torch.tensor(
         [[.9995572, -.02222673, .01978616], [.02225614, .99975152, -.00126738], [-.01975307, .00170718, .99980338]])
-    assert np.allclose(test_arr, rel_rotation_sample)
+    torch.testing.assert_allclose(rel_rotation_sample, test_arr)
 
 
 def test_get_relative_translation_stereo():
     rel_translation_sample = ku.get_relative_translation_stereo(EXAMPLE_CALIBRATION_DIR)
-    test_arr = np.array([[-0.53267121], [0.00526146], [-0.00782809]])
-    assert np.allclose(test_arr, rel_translation_sample)
+    test_arr = torch.tensor([-0.53267121, 0.00526146, -0.00782809])
+    torch.testing.assert_allclose(rel_translation_sample, test_arr)
 
 
 def test_get_relative_pose():
-    pose1 = ku.get_relative_pose(EXAMPLE_SCENE_PATH, 0, 0)
-    np.testing.assert_allclose(pose1, np.eye(4))
-    pose2 = ku.get_relative_pose(EXAMPLE_SCENE_PATH, 3, 4)
-    np.testing.assert_allclose(pose2, np.array([
-        [0.999993, -0.002484, 0.002805, 0.004526],
-        [0.002504, 0.999971, -0.007216, -0.003038],
-        [-0.002787, 0.007216, 0.99997, -0.82535],
-        [0., 0., 0., 1.]
-    ], dtype=np.float32), rtol=1e-4)
+    pose1 = ku.get_relative_pose_between_consecutive_frames(EXAMPLE_SCENE_PATH, 0, 0)
+    torch.testing.assert_allclose(pose1, torch.eye(4))
+    pose2 = ku.get_relative_pose_between_consecutive_frames(EXAMPLE_SCENE_PATH, 3, 4)
+    torch.testing.assert_allclose(pose2, torch.tensor([[1.0000, -0.0072, -0.0025, 0.0045],
+                                                       [0.0072, 1.0000, 0.0028, -0.0030],
+                                                       [0.0025, -0.0028, 1.0000, -0.8254],
+                                                       [0.0000, 0.0000, 0.0000, 1.0000]]), atol=0.01, rtol=0.0001)
 
 
 def test_get_pose():
     pose_zero = ku.get_pose(EXAMPLE_SCENE_PATH, 0)
-    assert np.allclose(pose_zero, np.eye(4))
+    assert np.allclose(pose_zero, torch.eye(4))
     pose_five = ku.get_pose(EXAMPLE_SCENE_PATH, 5)
-    test_arr = np.array([[9.99792635e-01, 1.81311052e-02, 9.26876627e-03, 9.47578682e-03],
-                         [-1.81172267e-02, 9.99834597e-01, -1.41100562e-03, 7.62027617e-03],
-                         [-9.29586589e-03, 1.41093857e-03, 9.99955773e-01, -3.05062038e+00],
-                         [0.00000000e+00, 0.00000000e+00, 0.00000000e+00, 1.00000000e+00]])
+    test_arr = torch.tensor([[9.99792635e-01, 1.81311052e-02, 9.26876627e-03, 9.47578682e-03],
+                             [-1.81172267e-02, 9.99834597e-01, -1.41100562e-03, 7.62027617e-03],
+                             [-9.29586589e-03, 1.41093857e-03, 9.99955773e-01, -3.05062038e+00],
+                             [0.00000000e+00, 0.00000000e+00, 0.00000000e+00, 1.00000000e+00]])
     assert np.allclose(test_arr, pose_five)

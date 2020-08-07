@@ -1,13 +1,14 @@
 import compute_photometric_error_utils as cpeu
 import pytest
 import numpy as np
+import torch
 
 
 def test_compute_relative_pose_matrix():
-    sample_rotation = np.eye(3)
-    sample_translation = np.array([[0], [0], [0]])
+    sample_rotation = torch.eye(3)
+    sample_translation = torch.zeros(3)
     rel_pose = cpeu.compute_relative_pose_matrix(sample_translation, sample_rotation)
-    assert np.allclose(np.eye(4), rel_pose)
+    torch.testing.assert_allclose(torch.eye(4), rel_pose)
 
 
 def test_reproject_source_to_target():
