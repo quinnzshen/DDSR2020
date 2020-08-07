@@ -160,10 +160,10 @@ class Trainer:
         Computes loss for a single batch
         :param [int] batch_idx: The batch index
         :param [dict] batch: The batch data
-        :param [int] img_num: The index of the input image in the training/validation file
         :param [int] dataset_length: The length of the training/validation dataset
         :param [String] name: Differentiates between training/validation
         :param [boolean] backprop: Determines whether or not to backpropogate loss
+        :param [list] tensorboard_steps: list of image indicies added to tensorboard
         :return [tensor] losses: A 0-dimensional tensor containing the loss of the batch
         """
         
@@ -197,7 +197,6 @@ class Trainer:
         poses = torch.stack(poses_list, dim=0)
     
         # Intrinsics and scaling
-
         shapes = batch["shapes"].to(self.device).float()
         out_shape = torch.tensor([self.height, self.width]).to(self.device)
         shapes = out_shape / shapes
@@ -216,7 +215,8 @@ class Trainer:
         for i in range(len(poses_list) - 1):
             intrinsics.append(tgt_intrinsics)
         src_intrinsics = torch.stack(intrinsics)
-
+        
+        # Reprojection
         reprojected, mask = process_depth(sources, depths, poses, tgt_intrinsics, src_intrinsics,
                                           (self.height, self.width))
         
@@ -266,11 +266,14 @@ class Trainer:
     def add_img_disparity_to_tensorboard(self, disp, img, mask, img_num, dataset_length, name):
         """
         Adds image disparity map, and automask to tensorboard
-        :param [tensor] disp: The disparity map outputted by the network
+        :param [tensor] disp: Disparity map outputted by the network
+        :param [tensor] img: Original image
+        :param [tensor] mask: Automask
         :param [int] img_num: The index of the input image in the training/validation file
         :param [int] dataset_length: The length of the training/validation dataset
         :param [String] name: Differentiates between training/validation/evaluation
         """
+        
         # Processing disparity map
         disp_np = disp.squeeze().cpu().detach().numpy()
         vmax = np.percentile(disp_np, 95)
