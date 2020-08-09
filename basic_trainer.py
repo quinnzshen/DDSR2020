@@ -267,7 +267,7 @@ class Trainer:
         save_path = os.path.join(save_folder, "{}.pth".format("adam"))
         torch.save(self.optimizer.state_dict(), save_path)
 
-    def add_img_disparity_to_tensorboard(self, disp, img, mask, img_num, dataset_length, name):
+    def add_img_disparity_to_tensorboard(self, disp, img, automask, img_num, dataset_length, name):
         """
         Adds image disparity map, and automask to tensorboard
         :param [tensor] disp: Disparity map outputted by the network
@@ -294,14 +294,14 @@ class Trainer:
         final_img = transforms.ToTensor()(colormapped_img)
 
         # Add image and disparity map to tensorboard
-        self.writer.add_image(name + " - " + f'Epoch: {self.epoch + 1}, ' + f'Image: {img_num}' + ' (Original)',
+        self.writer.add_image(name + " Images/" + f'Epoch: {self.epoch + 1}/',
                               final_img,
                               self.epoch * dataset_length + img_num)
-        self.writer.add_image(name + " - " + f'Epoch: {self.epoch + 1}, ' + f'Image: {img_num}' + ' (Disparity)',
+        self.writer.add_image(name + " Disparity Map/" + f'Epoch: {self.epoch + 1}/',
                               final_disp,
                               self.epoch * dataset_length + img_num)
-        self.writer.add_image(name + " - " + f'Epoch: {self.epoch + 1}, ' + f'Image: {img_num}' + ' (Automask)',
-                              mask,
+        self.writer.add_image(name + " Automask/" + f'Epoch: {self.epoch + 1}/',
+                              automask,
                               self.epoch * dataset_length + img_num)
 
 
@@ -323,5 +323,5 @@ def disp_to_depth(disp, min_depth, max_depth):
 
 
 if __name__ == "__main__":
-    test = Trainer("configs/full_model.yml")
+    test = Trainer("configs/basic_model.yml")
     test.train()
