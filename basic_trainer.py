@@ -294,13 +294,13 @@ class Trainer:
         final_img = transforms.ToTensor()(colormapped_img)
 
         # Add image and disparity map to tensorboard
-        self.writer.add_image(name + " Images/" + f'Epoch: {self.epoch + 1}/',
+        self.writer.add_image(f"{name} Images/Epoch: {self.epoch + 1}",
                               final_img,
                               self.epoch * dataset_length + img_num)
-        self.writer.add_image(name + " Disparity Map/" + f'Epoch: {self.epoch + 1}/',
+        self.writer.add_image(f"{name} Disparity Maps/Epoch: {self.epoch + 1}",
                               final_disp,
                               self.epoch * dataset_length + img_num)
-        self.writer.add_image(name + " Automask/" + f'Epoch: {self.epoch + 1}/',
+        self.writer.add_image(f"{name} Automasks/Epoch: {self.epoch + 1}",
                               automask,
                               self.epoch * dataset_length + img_num)
 
