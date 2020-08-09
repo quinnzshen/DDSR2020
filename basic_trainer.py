@@ -304,6 +304,7 @@ class Trainer:
         self.writer.add_image(name + " - " + f'Epoch: {self.epoch + 1}, ' + f'Image: {img_num}' + ' (Automask)',
                               automask,
                               self.epoch * dataset_length + img_num)
+        """
         self.writer.add_image("Out-of-frame Mask Test: Stereo, " + f'Epoch: {self.epoch + 1}, ' +  f'Image: {img_num}',
                               out_of_frame_mask[0][0],
                               self.epoch * dataset_length + img_num)
@@ -313,7 +314,7 @@ class Trainer:
         self.writer.add_image("Out-of-frame Mask Test: Temporal Backward" + f'Epoch: {self.epoch + 1}, ' +  f'Image: {img_num}',
                       out_of_frame_mask[2][0],
                               self.epoch * dataset_length + img_num)
-        
+        """
 def disp_to_depth(disp, min_depth, max_depth):
     """
     Converts network's sigmoid output into depth prediction (from monodepth 2 repo)
