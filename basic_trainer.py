@@ -272,7 +272,7 @@ class Trainer:
         Adds image disparity map, and automask to tensorboard
         :param [tensor] disp: Disparity map outputted by the network
         :param [tensor] img: Original image
-        :param [tensor] mask: Automask
+        :param [tensor] automask: Automask
         :param [int] img_num: The index of the input image in the training/validation file
         :param [int] dataset_length: The length of the training/validation dataset
         :param [String] name: Differentiates between training/validation/evaluation
