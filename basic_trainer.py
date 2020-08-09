@@ -235,7 +235,6 @@ class Trainer:
         while curr_idx < local_batch_size:
             curr_idx += self.steps_until_write
             if curr_idx < local_batch_size:
-                print(depths)
                 self.add_img_disparity_to_tensorboard(
                     disp[curr_idx], inputs[curr_idx], automask[curr_idx].unsqueeze(0),
                     self.batch_size * batch_idx + curr_idx + 1, dataset_length, name, mask
