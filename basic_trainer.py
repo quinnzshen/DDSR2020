@@ -237,7 +237,7 @@ class Trainer:
             if curr_idx < local_batch_size:
                 self.add_img_disparity_to_tensorboard(
                     disp[curr_idx], inputs[curr_idx], automask[curr_idx].unsqueeze(0),
-                    self.batch_size * batch_idx + curr_idx + 1, dataset_length, name
+                    self.batch_size * batch_idx + curr_idx + 1, name
                 )
                 self.writer.add_scalar(
                     name + " Loss", losses.item(),
@@ -267,12 +267,12 @@ class Trainer:
         save_path = os.path.join(save_folder, "{}.pth".format("adam"))
         torch.save(self.optimizer.state_dict(), save_path)
 
-    def add_img_disparity_to_tensorboard(self, disp, img, mask, img_num, dataset_length, name):
+    def add_img_disparity_to_tensorboard(self, disp, img, automask, img_num, name):
         """
         Adds image disparity map, and automask to tensorboard
         :param [tensor] disp: Disparity map outputted by the network
         :param [tensor] img: Original image
-        :param [tensor] mask: Automask
+        :param [tensor] automask: Automask
         :param [int] img_num: The index of the input image in the training/validation file
         :param [int] dataset_length: The length of the training/validation dataset
         :param [String] name: Differentiates between training/validation/evaluation
@@ -294,15 +294,15 @@ class Trainer:
         final_img = transforms.ToTensor()(colormapped_img)
 
         # Add image and disparity map to tensorboard
-        self.writer.add_image(name + " - " + f'Epoch: {self.epoch + 1}, ' + f'Image: {img_num}' + ' (Original)',
+        self.writer.add_image(f"{name} Images/Epoch: {self.epoch + 1}",
                               final_img,
-                              self.epoch * dataset_length + img_num)
-        self.writer.add_image(name + " - " + f'Epoch: {self.epoch + 1}, ' + f'Image: {img_num}' + ' (Disparity)',
+                              img_num)
+        self.writer.add_image(f"{name} Disparity Maps/Epoch: {self.epoch + 1}",
                               final_disp,
-                              self.epoch * dataset_length + img_num)
-        self.writer.add_image(name + " - " + f'Epoch: {self.epoch + 1}, ' + f'Image: {img_num}' + ' (Automask)',
-                              mask,
-                              self.epoch * dataset_length + img_num)
+                              img_num)
+        self.writer.add_image(f"{name} Automasks/Epoch: {self.epoch + 1}",
+                              automask,
+                              img_num)
 
 
 def disp_to_depth(disp, min_depth, max_depth):
