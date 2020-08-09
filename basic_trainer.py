@@ -237,7 +237,7 @@ class Trainer:
             if curr_idx < local_batch_size:
                 self.add_img_disparity_to_tensorboard(
                     disp[curr_idx], inputs[curr_idx], automask[curr_idx].unsqueeze(0),
-                    self.batch_size * batch_idx + curr_idx + 1, dataset_length, name
+                    self.batch_size * batch_idx + curr_idx + 1, name
                 )
                 self.writer.add_scalar(
                     name + " Loss", losses.item(),
@@ -267,7 +267,7 @@ class Trainer:
         save_path = os.path.join(save_folder, "{}.pth".format("adam"))
         torch.save(self.optimizer.state_dict(), save_path)
 
-    def add_img_disparity_to_tensorboard(self, disp, img, automask, img_num, dataset_length, name):
+    def add_img_disparity_to_tensorboard(self, disp, img, automask, img_num, name):
         """
         Adds image disparity map, and automask to tensorboard
         :param [tensor] disp: Disparity map outputted by the network
@@ -296,13 +296,13 @@ class Trainer:
         # Add image and disparity map to tensorboard
         self.writer.add_image(f"{name} Images/Epoch: {self.epoch + 1}",
                               final_img,
-                              self.epoch * dataset_length + img_num)
+                              img_num)
         self.writer.add_image(f"{name} Disparity Maps/Epoch: {self.epoch + 1}",
                               final_disp,
-                              self.epoch * dataset_length + img_num)
+                              img_num)
         self.writer.add_image(f"{name} Automasks/Epoch: {self.epoch + 1}",
                               automask,
-                              self.epoch * dataset_length + img_num)
+                              img_num)
 
 
 def disp_to_depth(disp, min_depth, max_depth):
