@@ -53,7 +53,7 @@ class Trainer:
 
         val_config_path = self.config["valid_config_path"]
         self.val_dataset = KittiDataset.init_from_config(val_config_path)
-        self.val_dataloader = DataLoader(self.val_dataset, batch_size=self.batch_size, shuffle=True,
+        self.val_dataloader = DataLoader(self.val_dataset, batch_size=self.batch_size, shuffle=False,
                                          collate_fn=self.collate, num_workers=self.num_workers)
 
         # Neighboring frames
@@ -222,7 +222,7 @@ class Trainer:
         loss_outputs = {"reproj": reprojected,
                         "disparities": disp,
                         "initial_masks": mask}
-        losses, automask = calc_loss(loss_inputs, loss_outputs)
+        losses, automask, min_losses = calc_loss(loss_inputs, loss_outputs)
 
         # Backpropagation
         if backprop:
@@ -235,8 +235,10 @@ class Trainer:
         while curr_idx < local_batch_size:
             curr_idx += self.steps_until_write
             if curr_idx < local_batch_size:
+                print(automask[curr_idx].unsqueeze(0).shape)
+                print(min_losses[curr_idx].shape)
                 self.add_img_disparity_to_tensorboard(
-                    disp[curr_idx], inputs[curr_idx], automask[curr_idx].unsqueeze(0),
+                    disp[curr_idx], inputs[curr_idx], automask[curr_idx].unsqueeze(0), min_losses[curr_idx].unsqueeze(0),
                     self.batch_size * batch_idx + curr_idx + 1, name
                 )
                 self.writer.add_scalar(
@@ -267,7 +269,7 @@ class Trainer:
         save_path = os.path.join(save_folder, "{}.pth".format("adam"))
         torch.save(self.optimizer.state_dict(), save_path)
 
-    def add_img_disparity_to_tensorboard(self, disp, img, automask, img_num, name):
+    def add_img_disparity_to_tensorboard(self, disp, img, automask, loss, img_num, name):
         """
         Adds image disparity map, and automask to tensorboard
         :param [tensor] disp: Disparity map outputted by the network
@@ -303,6 +305,9 @@ class Trainer:
         self.writer.add_image(f"{name} Automasks/Epoch: {self.epoch + 1}",
                               automask,
                               img_num)
+        self.writer.add_image(f"{name} Losses/Epoch: {self.epoch + 1}",
+                              loss,
+                              img_num)
 
 
 def disp_to_depth(disp, min_depth, max_depth):
@@ -323,5 +328,5 @@ def disp_to_depth(disp, min_depth, max_depth):
 
 
 if __name__ == "__main__":
-    test = Trainer("configs/full_model.yml")
+    test = Trainer("configs/basic_model.yml")
     test.train()

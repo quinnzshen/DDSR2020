@@ -134,6 +134,7 @@ def calc_loss(inputs, outputs, smooth_term=0.001):
     min_errors, _ = torch.min(reproj_errors, dim=0)
 
     # Auto-masking
+    min_error_vis = min_errors.detach()
     mask = get_mask(targets, sources, min_errors)
     min_errors[~mask] = torch.finfo(torch.float).max
 
@@ -145,7 +146,7 @@ def calc_loss(inputs, outputs, smooth_term=0.001):
         loss = 10
     loss = loss + smooth_term * calc_smooth_loss(normalized_disp, targets)
 
-    return loss, mask
+    return loss, mask, min_error_vis
 
 
 def process_depth(src_images, depths, poses, tgt_intr, src_intr, img_shape):
