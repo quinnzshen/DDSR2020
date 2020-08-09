@@ -237,7 +237,7 @@ class Trainer:
             if curr_idx < local_batch_size:
                 self.add_img_disparity_to_tensorboard(
                     disp[curr_idx], inputs[curr_idx], automask[curr_idx].unsqueeze(0),
-                    self.batch_size * batch_idx + curr_idx + 1, dataset_length, name
+                    self.batch_size * batch_idx + curr_idx + 1, dataset_length, name, mask
                 )
                 self.writer.add_scalar(
                     name + " Loss", losses.item(),
@@ -267,7 +267,7 @@ class Trainer:
         save_path = os.path.join(save_folder, "{}.pth".format("adam"))
         torch.save(self.optimizer.state_dict(), save_path)
 
-    def add_img_disparity_to_tensorboard(self, disp, img, mask, img_num, dataset_length, name):
+    def add_img_disparity_to_tensorboard(self, disp, img, automask, img_num, dataset_length, name, out_of_frame_mask):
         """
         Adds image disparity map, and automask to tensorboard
         :param [tensor] disp: Disparity map outputted by the network
@@ -277,7 +277,7 @@ class Trainer:
         :param [int] dataset_length: The length of the training/validation dataset
         :param [String] name: Differentiates between training/validation/evaluation
         """
-
+        """
         # Processing disparity map
         disp_np = disp.squeeze().cpu().detach().numpy()
         vmax = np.percentile(disp_np, 95)
@@ -292,6 +292,7 @@ class Trainer:
         normalizer = mpl.colors.Normalize(vmin=img_np.min(), vmax=vmax)
         colormapped_img = img_np.astype(np.uint8).transpose(1, 2, 0)
         final_img = transforms.ToTensor()(colormapped_img)
+        
 
         # Add image and disparity map to tensorboard
         self.writer.add_image(name + " - " + f'Epoch: {self.epoch + 1}, ' + f'Image: {img_num}' + ' (Original)',
@@ -303,7 +304,16 @@ class Trainer:
         self.writer.add_image(name + " - " + f'Epoch: {self.epoch + 1}, ' + f'Image: {img_num}' + ' (Automask)',
                               mask,
                               self.epoch * dataset_length + img_num)
-
+        """
+        self.writer.add_image("Out-of-frame Mask Test: Stereo, " + f'Epoch: {self.epoch + 1}, ' +  f'Image: {img_num}',
+                              out_of_frame_mask[0][0],
+                              self.epoch * dataset_length + img_num)
+        self.writer.add_image("Out-of-frame Mask Test: Temporal Forward, " + f'Epoch: {self.epoch + 1}, ' +  f'Image: {img_num}',
+                      out_of_frame_mask[1][0],
+                      self.epoch * dataset_length + img_num)
+        self.writer.add_image("Out-of-frame Mask Test: Temporal Backward" + f'Epoch: {self.epoch + 1}, ' +  f'Image: {img_num}',
+                      out_of_frame_mask[2][0],
+                              self.epoch * dataset_length + img_num)
 
 def disp_to_depth(disp, min_depth, max_depth):
     """
