@@ -124,7 +124,8 @@ def calc_loss(inputs, outputs, smooth_term=0.001):
     targets = inputs["targets"]
     sources = inputs["sources"]
     reprojections = outputs["reproj"]
-    reproj_masks = outputs["initial_masks"]
+    # reproj_masks = outputs["initial_masks"]
+    # disp = outputs["disparities"]
 
     loss = 0
 
@@ -136,15 +137,15 @@ def calc_loss(inputs, outputs, smooth_term=0.001):
     # Auto-masking
     min_error_vis = min_errors.detach().clone()
     mask = get_mask(targets, sources, min_errors)
-    min_errors[~mask] = torch.finfo(torch.float).max
+    # min_errors[~mask] = torch.finfo(torch.float).max
 
-    disp = outputs["disparities"]
-    normalized_disp = disp / (disp.mean(2, True).mean(3, True) + 1e-7)
+    # normalized_disp = disp / (disp.mean(2, True).mean(3, True) + 1e-7)
 
-    loss = loss + torch.mean(min_errors[min_errors < torch.finfo(torch.float).max])
+    loss = loss + torch.mean(min_errors)
     if torch.isnan(loss):
         loss = 10
-    loss = loss + smooth_term * calc_smooth_loss(normalized_disp, targets)
+        print("what the")
+    # loss = loss + smooth_term * calc_smooth_loss(normalized_disp, targets)
 
     return loss, mask, min_error_vis
 
