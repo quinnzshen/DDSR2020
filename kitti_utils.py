@@ -321,7 +321,7 @@ def get_relative_pose_between_consecutive_frames(scene_path, target, source):
     pos = velo * delta_time_nsec / 1E9
     # Convert trnasformation from IMU frame to camera frame.
     pos_cam = np.array([-pos[1], -pos[2], pos[0]])
-    rot_cam = np.array([-rot[1], -rot[2], rot[0]])
+    rot_cam = np.array([rot[2], -rot[0], -rot[1]])
     rel_pose = calc_transformation_matrix(rot_cam, pos_cam)
     return torch.from_numpy(rel_pose)
 

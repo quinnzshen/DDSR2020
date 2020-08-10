@@ -21,12 +21,12 @@ from compute_photometric_error_utils import (
 
 # Set target and source for display
 target = 17
-source = 16
+source = 0
 # poses_list.append(
 #     torch.matmul(torch.inverse(tgt_poses), batch["nearby_frames"][i]["pose"].to(self.device)))
 # Path names
-calib_path = "data/kitti_example/2011_09_26"
-scene_path = os.path.join(calib_path, "2011_09_26_drive_0001_sync")
+calib_path = "data/kitti_example/2011_09_28"
+scene_path = os.path.join(calib_path, "2011_09_28_drive_0001_sync")
 
 RGB_MAX_DIST = np.sqrt(3) * 255
 
@@ -36,7 +36,6 @@ rel_pose = get_relative_pose_between_consecutive_frames(scene_path, target, sour
 poset = get_pose(scene_path, target)
 poses = get_pose(scene_path, source)
 rel_pose = (poset.inverse() @ poses).numpy()
-
 
 
 tgt_intrinsic = get_camera_intrinsic_dict(calib_path)["stereo_left"].numpy()
