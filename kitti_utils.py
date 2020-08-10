@@ -299,7 +299,8 @@ def get_relative_pose_between_consecutive_frames(scene_path, target, source):
             # Calculates relative rotation and velocity
             rot = np.array(datat[3:6], dtype=np.float) - np.array(datas[3:6], dtype=np.float)
             velo = (datat[VELO_INDICES] + datas[VELO_INDICES]) / 2
-            yaw_rot_mat = np.array([[np.cos(-datat[5]), -np.sin(-datat[5])], [np.sin(-datat[5]), np.cos(-datat[5])]])
+            yaw = -datat[5]
+            yaw_rot_mat = np.array([[np.cos(yaw), -np.sin(yaw)], [np.sin(yaw), np.cos(yaw)]])
             velo[:2] = velo[:2] @ yaw_rot_mat.T
 
     # Determines the relative time passed between the 2 frames, as target - source
@@ -321,7 +322,7 @@ def get_relative_pose_between_consecutive_frames(scene_path, target, source):
     pos = velo * delta_time_nsec / 1E9
     # Convert trnasformation from IMU frame to camera frame.
     pos_cam = np.array([-pos[1], -pos[2], pos[0]])
-    rot_cam = np.array([rot[2], -rot[0], -rot[1]])
+    rot_cam = np.array([-rot[1], -rot[2], rot[0]])
     rel_pose = calc_transformation_matrix(rot_cam, pos_cam)
     return torch.from_numpy(rel_pose)
 
