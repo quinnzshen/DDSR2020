@@ -12,7 +12,6 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from torchvision import transforms
 import yaml
-from PIL import Image
 from tensorflow.image import decode_jpeg
 
 from collate import Collator
