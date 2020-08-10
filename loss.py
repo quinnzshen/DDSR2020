@@ -134,7 +134,7 @@ def calc_loss(inputs, outputs, smooth_term=0.001):
     min_errors, _ = torch.min(reproj_errors, dim=0)
 
     # Auto-masking
-    min_error_vis = min_errors.detach()
+    min_error_vis = min_errors.detach().clone()
     mask = get_mask(targets, sources, min_errors)
     min_errors[~mask] = torch.finfo(torch.float).max
 

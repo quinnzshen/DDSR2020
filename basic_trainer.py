@@ -1,6 +1,8 @@
 import matplotlib as mpl
+import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import numpy as np
+import io
 import os
 import time
 import torch
@@ -10,6 +12,8 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from torchvision import transforms
 import yaml
+from PIL import Image
+from tensorflow.image import decode_jpeg
 
 from collate import Collator
 from kitti_dataset import KittiDataset
@@ -236,7 +240,7 @@ class Trainer:
             curr_idx += self.steps_until_write
             if curr_idx < local_batch_size:
                 self.add_img_disparity_to_tensorboard(
-                    disp[curr_idx], inputs[curr_idx], automask[curr_idx].unsqueeze(0), min_losses[curr_idx].unsqueeze(0),
+                    disp[curr_idx], inputs[curr_idx], automask[curr_idx].unsqueeze(0), min_losses[curr_idx],
                     self.batch_size * batch_idx + curr_idx + 1, name
                 )
                 self.writer.add_scalar(
@@ -293,6 +297,18 @@ class Trainer:
         colormapped_img = img_np.astype(np.uint8).transpose(1, 2, 0)
         final_img = transforms.ToTensor()(colormapped_img)
 
+        loss_mean = loss.mean()
+        figure = plt.figure(figsize=(10, 4))
+        plt.imshow(loss.cpu(), cmap="cividis")
+        plt.ylabel(f"Estim. Loss: {loss_mean:.3f}")
+        plt.colorbar(orientation="horizontal")
+        buf = io.BytesIO()
+        plt.savefig(buf, format="jpg")
+        plt.close(figure)
+        buf.seek(0)
+        loss = torch.from_numpy(decode_jpeg(buf.getvalue()).numpy())
+        loss = loss.permute(2, 0, 1)
+
         # Add image and disparity map to tensorboard
         self.writer.add_image(f"{name} Images/Epoch: {self.epoch + 1}",
                               final_img,
@@ -326,5 +342,5 @@ def disp_to_depth(disp, min_depth, max_depth):
 
 
 if __name__ == "__main__":
-    test = Trainer("configs/full_model.yml")
+    test = Trainer("configs/basic_model.yml")
     test.train()
