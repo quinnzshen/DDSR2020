@@ -235,8 +235,6 @@ class Trainer:
         while curr_idx < local_batch_size:
             curr_idx += self.steps_until_write
             if curr_idx < local_batch_size:
-                print(automask[curr_idx].unsqueeze(0).shape)
-                print(min_losses[curr_idx].shape)
                 self.add_img_disparity_to_tensorboard(
                     disp[curr_idx], inputs[curr_idx], automask[curr_idx].unsqueeze(0), min_losses[curr_idx].unsqueeze(0),
                     self.batch_size * batch_idx + curr_idx + 1, name
@@ -328,5 +326,5 @@ def disp_to_depth(disp, min_depth, max_depth):
 
 
 if __name__ == "__main__":
-    test = Trainer("configs/basic_model.yml")
+    test = Trainer("configs/full_model.yml")
     test.train()
