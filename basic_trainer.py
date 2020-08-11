@@ -68,9 +68,9 @@ class Trainer:
         self.pretrained = self.config["pretrained"]
         self.models['resnet_encoder'] = ResnetEncoder(self.config["encoder_layers"], pretrained=self.pretrained).to(
             self.device)
-        self.scales = range(self.config["num_scales"])
+        self.num_scales = self.config["num_scales"]
         self.models['depth_decoder'] = DepthDecoder(num_ch_enc=self.models['resnet_encoder'].num_ch_enc,
-                                                    scales=self.scales).to(self.device)
+                                                    scales=range(self.num_scales)).to(self.device)
 
         # Parameters
         parameters_to_train = []
@@ -166,89 +166,104 @@ class Trainer:
         inputs = batch["stereo_left_image"].to(self.device).float()
         features = self.models['resnet_encoder'](inputs)
         outputs = self.models['depth_decoder'](features)
-        disp = outputs[("disp", 0)]
-        disp = F.interpolate(disp, [self.height, self.width], mode="bilinear", align_corners=False)
-
-        local_batch_size = len(inputs)
-
-        # Convert disparity to depth
-        _, depths = disp_to_depth(disp, 0.1, 100)
-
-        # Source image and pose data
-        sources_list = []
-        poses_list = []
-        if self.use_stereo:
-            sources_list.append(batch["stereo_right_image"].to(self.device).float())
-            poses_list.append(batch["rel_pose_stereo"].to(self.device))
-
-        for i in range(-self.prev_frames, self.next_frames + 1):
-            if i == 0:
-                continue
-
-            sources_list.append(batch["nearby_frames"][i]["camera_data"]["stereo_left_image"].to(self.device).float())
-            poses_list.append(batch["nearby_frames"][i]["pose"].to(self.device))
-
-        # Stacking sources and poses
-        sources = torch.stack(sources_list, dim=0)
-        poses = torch.stack(poses_list, dim=0)
-
-        # Intrinsics and scaling
-        shapes = batch["shapes"].to(self.device).float()
-        out_shape = torch.tensor([self.height, self.width]).to(self.device)
-        shapes = out_shape / shapes
-        tgt_intrinsics = batch["intrinsics"]["stereo_left"].to(self.device)
-        tgt_intrinsics[:, 0] = tgt_intrinsics[:, 0] * shapes[:, 1].reshape(-1, 1)
-        tgt_intrinsics[:, 1] = tgt_intrinsics[:, 1] * shapes[:, 0].reshape(-1, 1)
-
-        if self.use_stereo:
-            src_intrinsics_stereo = batch["intrinsics"]["stereo_right"].to(self.device)
-            src_intrinsics_stereo[:, 0] = src_intrinsics_stereo[:, 0] * shapes[:, 1].reshape(-1, 1)
-            src_intrinsics_stereo[:, 1] = src_intrinsics_stereo[:, 1] * shapes[:, 0].reshape(-1, 1)
-            intrinsics_list = [src_intrinsics_stereo]
-        else:
-            intrinsics_list = [tgt_intrinsics]
-
-        for i in range(len(poses_list) - 1):
-            intrinsics_list.append(tgt_intrinsics)
-        src_intrinsics = torch.stack(intrinsics_list)
-
-        # Reprojection
-        reprojected, mask = process_depth(sources, depths, poses, tgt_intrinsics, src_intrinsics,
-                                          (self.height, self.width))
-
-        # Compute Losses
-        loss_inputs = {"targets": inputs,
-                       "sources": sources}
-        loss_outputs = {"reproj": reprojected,
-                        "disparities": disp,
-                        "initial_masks": mask}
-        losses, automask = calc_loss(loss_inputs, loss_outputs)
-
+        
+        losses = {}
+        automasks = {}
+        total_loss = 0
+        for scale in range(self.num_scales):
+            h = int(self.height / (2 ** scale))
+            w = int(self.width / (2 ** scale))
+            
+            # Convert disparity to depth
+            disp = outputs[("disp", scale)]    
+            _, depths = disp_to_depth(disp, 0.1, 100)
+            
+            # Input scaling
+            inputs_scale = F.interpolate(inputs, [h, w], mode="bilinear", align_corners=False).to(self.device)
+            
+            # Source image and pose data
+            sources_list = []
+            poses_list = []
+            if self.use_stereo:
+                sources_list.append(F.interpolate(
+                            batch["stereo_right_image"].float(),
+                            [h, w], mode="bilinear", align_corners=False).to(self.device))
+                poses_list.append(batch["rel_pose_stereo"].to(self.device))
+    
+            for i in range(-self.prev_frames, self.next_frames + 1):
+                if i == 0:
+                    continue
+    
+                sources_list.append(F.interpolate(batch["nearby_frames"][i]["camera_data"]["stereo_left_image"].float(), [h, w], mode="bilinear", align_corners=False).to(self.device))
+                poses_list.append(batch["nearby_frames"][i]["pose"].to(self.device))
+                
+            # Stacking sources and poses
+            sources = torch.stack(sources_list, dim=0)
+            poses = torch.stack(poses_list, dim=0)
+    
+            # Intrinsics and scaling
+            shapes = batch["shapes"].to(self.device).float()
+            out_shape = torch.tensor([h, w]).to(self.device)
+            shapes = out_shape / shapes
+            tgt_intrinsics = batch["intrinsics"]["stereo_left"].to(self.device)
+            tgt_intrinsics[:, 0] = tgt_intrinsics[:, 0] * shapes[:, 1].reshape(-1, 1)
+            tgt_intrinsics[:, 1] = tgt_intrinsics[:, 1] * shapes[:, 0].reshape(-1, 1)
+    
+            if self.use_stereo:
+                src_intrinsics_stereo = batch["intrinsics"]["stereo_right"].to(self.device)
+                src_intrinsics_stereo[:, 0] = src_intrinsics_stereo[:, 0] * shapes[:, 1].reshape(-1, 1)
+                src_intrinsics_stereo[:, 1] = src_intrinsics_stereo[:, 1] * shapes[:, 0].reshape(-1, 1)
+                intrinsics_list = [src_intrinsics_stereo]
+            else:
+                intrinsics_list = [tgt_intrinsics]
+    
+            for i in range(len(poses_list) - 1):
+                intrinsics_list.append(tgt_intrinsics)
+            src_intrinsics = torch.stack(intrinsics_list)
+    
+            # Reprojection
+            reprojected, mask = process_depth(sources, depths, poses, tgt_intrinsics, src_intrinsics,
+                                              (h, w))
+    
+            # Compute Losses            
+            loss_inputs = {"targets": inputs_scale,
+                           "sources": sources}
+            loss_outputs = {"reproj": reprojected,
+                            "disparities": disp,
+                            "initial_masks": mask}
+            
+            losses[f"loss_{scale}"], automasks[f"loss_{scale}"] = calc_loss(loss_inputs, loss_outputs)
+            
+            total_loss += losses[f"loss_{scale}"] / (2 ** scale)
+        
+        total_loss /= self.num_scales
+        
         # Backpropagation
         if backprop:
             self.optimizer.zero_grad()
-            losses.backward()
+            total_loss.backward()
             self.optimizer.step()
-
+        
+        local_batch_size = len(inputs)
+        
         # Add image, disparity map, and loss to tensorboard
         curr_idx = 0
         while curr_idx < local_batch_size:
             curr_idx += self.steps_until_write
             if curr_idx < local_batch_size:
                 self.add_img_disparity_to_tensorboard(
-                    disp[curr_idx], inputs[curr_idx], automask[curr_idx].unsqueeze(0),
+                    outputs[("disp", 0)][curr_idx], inputs[curr_idx], automasks["loss_0"][curr_idx].unsqueeze(0),
                     self.batch_size * batch_idx + curr_idx + 1, name
                 )
                 self.writer.add_scalar(
-                    name + " Loss", losses.item(),
+                    name + " Loss", total_loss.item(),
                     self.epoch * dataset_length + self.batch_size * batch_idx + curr_idx + 1
                 )
 
                 self.steps_until_write = self.tensorboard_step
             else:
                 self.steps_until_write -= local_batch_size - curr_idx + self.steps_until_write
-
-        return losses
+        return total_loss
 
     def save_model(self):
         """
@@ -323,5 +338,5 @@ def disp_to_depth(disp, min_depth, max_depth):
 
 
 if __name__ == "__main__":
-    test = Trainer("configs/full_model.yml")
+    test = Trainer("configs/basic_model.yml")
     test.train()
