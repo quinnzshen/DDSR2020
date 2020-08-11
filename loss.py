@@ -7,6 +7,7 @@ class SSIM(nn.Module):
     """
     Based off SSIM in Monodepth2 repo
     """
+
     def __init__(self):
         """
         Sets up the layers/pooling to run the forward method which actually does the SSIM computation, measuring how
@@ -61,7 +62,7 @@ def calc_pe(predict, target, alpha=0.85):
     ssim_val = torch.mean(torch.clamp((1 - ssim(predict, target)) / 2, 0, 1), dim=1, keepdim=True)
     l1 = torch.mean(torch.abs(predict - target), dim=1, keepdim=True)
 
-    return alpha * ssim_val + (1-alpha) * l1
+    return alpha * ssim_val + (1 - alpha) * l1
 
 
 def calc_smooth_loss(disp, image):
@@ -119,7 +120,9 @@ def calc_loss(inputs, outputs, smooth_term=0.001):
     [num_reprojected_imgs, batch_size, 3, H, W], [batch_size, 1, H, W], and [num_src_imgs, batch_size, 1, H, W]
     (dtype=torch.bool) respectively
     :param [float] smooth_term: Constant that controls how much the smoothing term is considered in the loss
-    :return [torch.float]: A float representing the calculated loss
+    :return [tuple]: Returns a 3 element tuple containing: a float representing the calculated loss, a torch.Tensor
+    with dimensions [batch_size, H, W] representing the auto-mask, and a torch.Tensor of dimensions [batch_size, H,
+    W] representing the minimum photometric error calculated
     """
     targets = inputs["targets"]
     sources = inputs["sources"]
@@ -130,11 +133,13 @@ def calc_loss(inputs, outputs, smooth_term=0.001):
 
     reproj_errors = torch.stack([calc_pe(reprojections[i], targets).squeeze(1) for i in range(len(reprojections))])
 
-    # reproj_errors[~reproj_masks.squeeze(2)] = torch.finfo(torch.float).max
+    reproj_errors[~reproj_masks.squeeze(2)] = torch.finfo(torch.float).max
     min_errors, _ = torch.min(reproj_errors, dim=0)
 
     # Auto-masking
     min_error_vis = min_errors.detach().clone()
+    min_error_vis[min_error_vis == torch.finfo(torch.float).max] = 0
+
     mask = get_mask(targets, sources, min_errors)
     min_errors[~mask] = torch.finfo(torch.float).max
 
@@ -168,8 +173,10 @@ def process_depth(src_images, depths, poses, tgt_intr, src_intr, img_shape):
     [num_source_imgs, batch_size, 3, H, W], and the second containing binary masks recording which pixels were able to
     be reprojected back onto target, in format [num_source_imgs, 1, batch_size, H, W]
     """
-    reprojected = torch.full((len(src_images), len(depths), 3, img_shape[0], img_shape[1]), 127, dtype=torch.float, device=poses.device)
-    masks = torch.zeros((len(src_images), len(depths), 1, img_shape[0], img_shape[1]), dtype=torch.bool, device=poses.device)
+    reprojected = torch.full((len(src_images), len(depths), 3, img_shape[0], img_shape[1]), 127, dtype=torch.float,
+                             device=poses.device)
+    masks = torch.zeros((len(src_images), len(depths), 1, img_shape[0], img_shape[1]), dtype=torch.bool,
+                        device=poses.device)
 
     # Creates an array of all image coordinates: [0, 0], [1, 0], [2, 0], etc.
     img_ones = torch.ones((img_shape[0] * img_shape[1], 1), device=poses.device)
@@ -220,7 +227,8 @@ def process_depth(src_images, depths, poses, tgt_intr, src_intr, img_shape):
             int_coords = (x12[0] == x12[1]) | (y12[0] == y12[1])
             if int_coords.any():
                 rounded_coords = src_coords[int_coords].round().long()
-                reprojected[i, j, :, rounded_coords[:, 4], rounded_coords[:, 3]] = src_img[:, rounded_coords[:, 1], rounded_coords[:, 0]].float()
+                reprojected[i, j, :, rounded_coords[:, 4], rounded_coords[:, 3]] = src_img[:, rounded_coords[:, 1],
+                                                                                   rounded_coords[:, 0]].float()
 
             masks[i, j, 0, src_coords[:, 4].long(), src_coords[:, 3].long()] = 1
     return reprojected, masks

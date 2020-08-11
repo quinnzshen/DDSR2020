@@ -21,6 +21,9 @@ from third_party.monodepth2.ResnetEncoder import ResnetEncoder
 from third_party.monodepth2.DepthDecoder import DepthDecoder
 
 
+LOSS_VIS_SIZE = (10, 4)
+LOSS_VIS_CMAP = "cividis"
+
 class Trainer:
     def __init__(self, config_path):
         """
@@ -276,11 +279,11 @@ class Trainer:
         :param [tensor] disp: Disparity map outputted by the network
         :param [tensor] img: Original image
         :param [tensor] automask: Automask
+        :param [torch.Tensor] loss: Minimum photometric error as calculated in loss functions
         :param [int] img_num: The index of the input image in the training/validation file
         :param [int] dataset_length: The length of the training/validation dataset
         :param [String] name: Differentiates between training/validation/evaluation
         """
-
         # Processing disparity map
         disp_np = disp.squeeze().cpu().detach().numpy()
         vmax = np.percentile(disp_np, 95)
@@ -297,8 +300,8 @@ class Trainer:
         final_img = transforms.ToTensor()(colormapped_img)
 
         loss_mean = loss.mean()
-        figure = plt.figure(figsize=(10, 4))
-        plt.imshow(loss.cpu(), cmap="cividis")
+        figure = plt.figure(figsize=LOSS_VIS_SIZE)
+        plt.imshow(loss.cpu(), cmap=LOSS_VIS_CMAP)
         plt.ylabel(f"Estim. Loss: {loss_mean:.3f}")
         plt.colorbar(orientation="horizontal")
         buf = io.BytesIO()
@@ -341,5 +344,5 @@ def disp_to_depth(disp, min_depth, max_depth):
 
 
 if __name__ == "__main__":
-    test = Trainer("configs/basic_model.yml")
+    test = Trainer("configs/full_model.yml")
     test.train()
