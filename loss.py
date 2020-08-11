@@ -141,7 +141,7 @@ def calc_loss(inputs, outputs, smooth_term=0.001):
 
     # normalized_disp = disp / (disp.mean(2, True).mean(3, True) + 1e-7)
 
-    loss = loss + torch.mean(min_errors)
+    loss = loss + torch.mean(min_errors[min_errors < torch.finfo(torch.float).max])
     if torch.isnan(loss):
         loss = 10
         print("what the")
