@@ -175,6 +175,7 @@ class Trainer:
         
         losses = {}
         automasks = {}
+        min_losses = {}
         total_loss = 0
         
         for scale in range(self.num_scales):
@@ -239,7 +240,7 @@ class Trainer:
                             "disparities": disp,
                             "initial_masks": mask}
             
-            losses[f"loss_{scale}"], automasks[f"loss_{scale}"] = calc_loss(loss_inputs, loss_outputs)
+            losses[f"loss_{scale}"], automasks[f"loss_{scale}"], min_losses[f"loss_{scale}"]  = calc_loss(loss_inputs, loss_outputs)
             
             total_loss += losses[f"loss_{scale}"] / (2 ** scale)
         
@@ -259,7 +260,7 @@ class Trainer:
             curr_idx += self.steps_until_write
             if curr_idx < local_batch_size:
                 self.add_img_disparity_loss_to_tensorboard(
-                    outputs[("disp", 0)][curr_idx], inputs[curr_idx], automasks["loss_0"][curr_idx].unsqueeze(0),
+                    outputs[("disp", 0)][curr_idx], inputs[curr_idx], automasks["loss_0"][curr_idx].unsqueeze(0), min_losses["loss_0"][0],
                     self.batch_size * batch_idx + curr_idx + 1, name
                 )
                 self.writer.add_scalar(
