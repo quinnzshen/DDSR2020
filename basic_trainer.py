@@ -1,6 +1,8 @@
 import matplotlib as mpl
+import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import numpy as np
+import io
 import os
 import time
 import torch
@@ -10,6 +12,7 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from torchvision import transforms
 import yaml
+from tensorflow.image import decode_jpeg
 
 from collate import Collator
 from kitti_dataset import KittiDataset
@@ -17,6 +20,9 @@ from loss import process_depth, calc_loss
 from third_party.monodepth2.ResnetEncoder import ResnetEncoder
 from third_party.monodepth2.DepthDecoder import DepthDecoder
 
+
+LOSS_VIS_SIZE = (10, 4)
+LOSS_VIS_CMAP = "cividis"
 
 class Trainer:
     def __init__(self, config_path):
@@ -53,7 +59,7 @@ class Trainer:
 
         val_config_path = self.config["valid_config_path"]
         self.val_dataset = KittiDataset.init_from_config(val_config_path)
-        self.val_dataloader = DataLoader(self.val_dataset, batch_size=self.batch_size, shuffle=True,
+        self.val_dataloader = DataLoader(self.val_dataset, batch_size=self.batch_size, shuffle=False,
                                          collate_fn=self.collate, num_workers=self.num_workers)
 
         # Neighboring frames
@@ -222,7 +228,7 @@ class Trainer:
         loss_outputs = {"reproj": reprojected,
                         "disparities": disp,
                         "initial_masks": mask}
-        losses, automask = calc_loss(loss_inputs, loss_outputs)
+        losses, automask, min_losses = calc_loss(loss_inputs, loss_outputs)
 
         # Backpropagation
         if backprop:
@@ -236,7 +242,7 @@ class Trainer:
             curr_idx += self.steps_until_write
             if curr_idx < local_batch_size:
                 self.add_img_disparity_to_tensorboard(
-                    disp[curr_idx], inputs[curr_idx], automask[curr_idx].unsqueeze(0),
+                    disp[curr_idx], inputs[curr_idx], automask[curr_idx].unsqueeze(0), min_losses[curr_idx],
                     self.batch_size * batch_idx + curr_idx + 1, name
                 )
                 self.writer.add_scalar(
@@ -267,17 +273,17 @@ class Trainer:
         save_path = os.path.join(save_folder, "{}.pth".format("adam"))
         torch.save(self.optimizer.state_dict(), save_path)
 
-    def add_img_disparity_to_tensorboard(self, disp, img, automask, img_num, name):
+    def add_img_disparity_to_tensorboard(self, disp, img, automask, loss, img_num, name):
         """
         Adds image disparity map, and automask to tensorboard
         :param [tensor] disp: Disparity map outputted by the network
         :param [tensor] img: Original image
         :param [tensor] automask: Automask
+        :param [torch.Tensor] loss: Minimum photometric error as calculated in loss functions
         :param [int] img_num: The index of the input image in the training/validation file
         :param [int] dataset_length: The length of the training/validation dataset
         :param [String] name: Differentiates between training/validation/evaluation
         """
-
         # Processing disparity map
         disp_np = disp.squeeze().cpu().detach().numpy()
         vmax = np.percentile(disp_np, 95)
@@ -293,6 +299,18 @@ class Trainer:
         colormapped_img = img_np.astype(np.uint8).transpose(1, 2, 0)
         final_img = transforms.ToTensor()(colormapped_img)
 
+        loss_mean = loss.mean()
+        figure = plt.figure(figsize=LOSS_VIS_SIZE)
+        plt.imshow(loss.cpu(), cmap=LOSS_VIS_CMAP)
+        plt.ylabel(f"Estim. Loss: {loss_mean:.3f}")
+        plt.colorbar(orientation="horizontal")
+        buf = io.BytesIO()
+        plt.savefig(buf, format="jpg")
+        plt.close(figure)
+        buf.seek(0)
+        loss = torch.from_numpy(decode_jpeg(buf.getvalue()).numpy())
+        loss = loss.permute(2, 0, 1)
+
         # Add image and disparity map to tensorboard
         self.writer.add_image(f"{name} Images/Epoch: {self.epoch + 1}",
                               final_img,
@@ -302,6 +320,9 @@ class Trainer:
                               img_num)
         self.writer.add_image(f"{name} Automasks/Epoch: {self.epoch + 1}",
                               automask,
+                              img_num)
+        self.writer.add_image(f"{name} Losses/Epoch: {self.epoch + 1}",
+                              loss,
                               img_num)
 
 
