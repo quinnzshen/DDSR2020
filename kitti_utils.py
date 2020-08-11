@@ -290,8 +290,6 @@ def get_relative_pose_between_consecutive_frames(scene_path, target, source):
     """
     if target == source:
         return np.eye(4, dtype=np.float32)
-    if source < 0:
-        return {}
 
     with open(os.path.join(scene_path, f"oxts/data/{target:010}.txt")) as ft:
         datat = np.array(ft.readline().split(), dtype=np.float)
@@ -301,14 +299,13 @@ def get_relative_pose_between_consecutive_frames(scene_path, target, source):
             # Calculates relative rotation and velocity
             rot = np.array(datat[3:6], dtype=np.float) - np.array(datas[3:6], dtype=np.float)
             velo = (datat[VELO_INDICES] + datas[VELO_INDICES]) / 2
-            yaw_rot_mat = np.array([[np.cos(-datat[5]), -np.sin(-datat[5])], [np.sin(-datat[5]), np.cos(-datat[5])]])
+            yaw = -datat[5]
+            yaw_rot_mat = np.array([[np.cos(yaw), -np.sin(yaw)], [np.sin(yaw), np.cos(yaw)]])
             velo[:2] = velo[:2] @ yaw_rot_mat.T
 
     # Determines the relative time passed between the 2 frames, as target - source
     with open(os.path.join(scene_path, "oxts/timestamps.txt")) as time:
-        i = 0
-        target_time = 0
-        source_time = 0
+        i = target_time = source_time = 0
         for line in time:
             if i == target:
                 target_time = iso_string_to_nanoseconds(line)
@@ -324,8 +321,8 @@ def get_relative_pose_between_consecutive_frames(scene_path, target, source):
     # Determines displacement by multiplying velocity by time
     pos = velo * delta_time_nsec / 1E9
     # Convert trnasformation from IMU frame to camera frame.
-    pos_cam = np.array([-1 * pos[1], -1 * pos[2], pos[0]])
-    rot_cam = np.array([-1 * rot[1], -1 * rot[2], rot[0]])
+    pos_cam = np.array([-pos[1], -pos[2], pos[0]])
+    rot_cam = np.array([-rot[1], -rot[2], rot[0]])
     rel_pose = calc_transformation_matrix(rot_cam, pos_cam)
     return torch.from_numpy(rel_pose)
 
