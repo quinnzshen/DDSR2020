@@ -202,8 +202,8 @@ class Trainer:
         total_loss = 0
         
         for scale in range(self.num_scales):
-            h = int(self.height / (2 ** scale))
-            w = int(self.width / (2 ** scale))
+            h = self.height // (2 ** scale)
+            w = self.width // (2 ** scale)
             
             # Convert disparity to depth
             disp = outputs[("disp", scale)]    
@@ -255,7 +255,7 @@ class Trainer:
             automasks.append(automask)
             min_losses.append(min_loss)
            
-            total_loss += losses[scale] / (2 ** scale)
+            total_loss += losses[scale]
         
         total_loss /= self.num_scales
 
