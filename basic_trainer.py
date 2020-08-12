@@ -249,7 +249,7 @@ class Trainer:
                             "disparities": disp,
                             "initial_masks": mask}
             
-            loss, automask, min_loss  = calc_loss(loss_inputs, loss_outputs)
+            loss, automask, min_loss  = calc_loss(loss_inputs, loss_outputs, scale)
             
             losses.append(loss)
             automasks.append(automask)
