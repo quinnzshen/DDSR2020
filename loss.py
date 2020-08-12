@@ -110,7 +110,7 @@ def get_mask(targets, sources, min_reproject_errors):
     return min_reproject_errors < min_source_errors
 
 
-def calc_loss(inputs, outputs, smooth_term=0.001):
+def calc_loss(inputs, outputs, scale=0, smooth_term=0.001):
     """
     Takes in the inputs and outputs from the neural network to calulate a numeric loss value based on the Monodepth2
     paper.
@@ -142,14 +142,15 @@ def calc_loss(inputs, outputs, smooth_term=0.001):
 
     mask = get_mask(targets, sources, min_errors)
     min_errors[~mask] = torch.finfo(torch.float).max
+    min_errors[min_errors == torch.finfo(torch.float).max] = 0
 
     disp = outputs["disparities"]
     normalized_disp = disp / (disp.mean(2, True).mean(3, True) + 1e-7)
 
-    loss = loss + torch.mean(min_errors[min_errors < torch.finfo(torch.float).max])
+    loss = loss + torch.mean(min_errors)
     if torch.isnan(loss):
         loss = 10
-    loss = loss + smooth_term * calc_smooth_loss(normalized_disp, targets)
+    loss = loss + smooth_term * calc_smooth_loss(normalized_disp, targets) / (2 ** scale)
 
     return loss, mask, min_error_vis
 
