@@ -20,7 +20,6 @@ from loss import process_depth, calc_loss
 from third_party.monodepth2.ResnetEncoder import ResnetEncoder
 from third_party.monodepth2.DepthDecoder import DepthDecoder
 
-
 LOSS_VIS_SIZE = (10, 4)
 LOSS_VIS_CMAP = "cividis"
 
@@ -254,7 +253,7 @@ class Trainer:
             automasks.append(automask)
             min_losses.append(min_loss)
            
-            total_loss += losses[scale]
+            total_loss += loss
         
         total_loss /= self.num_scales
 
@@ -351,8 +350,8 @@ class Trainer:
                               automask,
                               img_num)
         self.writer.add_image(f"{name} Losses/Epoch: {self.epoch + 1}",
-                              loss,
-                              img_num)
+                            loss,
+                            img_num)
 
 
 def disp_to_depth(disp, min_depth, max_depth):

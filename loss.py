@@ -130,20 +130,20 @@ def calc_loss(inputs, outputs, scale=0, smooth_term=0.001):
     loss = 0
 
     reproj_errors = torch.stack([calc_pe(reprojections[i], targets).squeeze(1) for i in range(len(reprojections))])
+    min_errors_reproj, _ = torch.min(reproj_errors, dim=0)
+    mask = get_mask(targets, sources, min_errors_reproj)
 
-    min_errors, _ = torch.min(reproj_errors, dim=0)
-
-    # Auto-masking
+    # Source errors
+    source_errors = torch.stack([calc_pe(source, targets).squeeze(1) for source in sources])
+    combined_errors = torch.cat((reproj_errors, source_errors), dim=0)
+    min_errors, _ = torch.min(combined_errors, dim=0)
     min_error_vis = min_errors.detach().clone()
-
-    mask = get_mask(targets, sources, min_errors)
-    min_errors[~mask] = torch.finfo(torch.float).max
-    min_errors[min_errors == torch.finfo(torch.float).max] = 0
+    
 
     disp = outputs["disparities"]
     normalized_disp = disp / (disp.mean(2, True).mean(3, True) + 1e-7)
 
-    loss = loss + torch.mean(min_errors)
+    loss = loss + min_errors.mean()
     loss = loss + smooth_term * calc_smooth_loss(normalized_disp, targets) / (2 ** scale)
 
     return loss, mask, min_error_vis
@@ -226,6 +226,6 @@ def process_depth(src_images, depths, poses, tgt_intr, src_intr, img_shape):
             # Using F.grid_sample
             pic_coords = torch.empty((1, img_shape[0], img_shape[1], 2), device=poses.device)
             pic_coords[0, src_coords[:, 4].long(), src_coords[:, 3].long()] = 2 * src_coords[:, :2] / torch.tensor([img_shape[1], img_shape[0]], device=poses.device) - 1
-            reprojected[i, j] = F.grid_sample(src_images[i, j].unsqueeze(0), pic_coords, padding_mode="border", align_corners=True)            
+            reprojected[i, j] = F.grid_sample(src_images[i, j].unsqueeze(0), pic_coords, padding_mode="border", align_corners=False)            
     
     return reprojected
