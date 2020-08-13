@@ -239,15 +239,14 @@ class Trainer:
             src_intrinsics_scale = torch.stack(intrinsics_list)
             
             # Reprojection
-            reprojected, mask = process_depth(sources_scale, depths, poses, tgt_intrinsics_scale, src_intrinsics_scale,
+            reprojected = process_depth(sources_scale, depths, poses, tgt_intrinsics_scale, src_intrinsics_scale,
                                               (h, w))
     
             # Compute Losses            
             loss_inputs = {"targets": inputs_scale,
                            "sources": sources_scale}
             loss_outputs = {"reproj": reprojected,
-                            "disparities": disp,
-                            "initial_masks": mask}
+                            "disparities": disp}
             
             loss, automask, min_loss  = calc_loss(loss_inputs, loss_outputs, scale)
             

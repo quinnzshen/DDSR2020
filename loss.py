@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import numpy as np
-
+import torch.nn.functional as F
 
 class SSIM(nn.Module):
     """
@@ -106,7 +106,6 @@ def get_mask(targets, sources, min_reproject_errors):
 
     source_error = torch.cat(source_error, dim=1)
     min_source_errors, _ = torch.min(source_error, dim=1)
-
     return min_reproject_errors < min_source_errors
 
 
@@ -127,18 +126,15 @@ def calc_loss(inputs, outputs, scale=0, smooth_term=0.001):
     targets = inputs["targets"]
     sources = inputs["sources"]
     reprojections = outputs["reproj"]
-    reproj_masks = outputs["initial_masks"]
 
     loss = 0
 
     reproj_errors = torch.stack([calc_pe(reprojections[i], targets).squeeze(1) for i in range(len(reprojections))])
 
-    reproj_errors[~reproj_masks.squeeze(2)] = torch.finfo(torch.float).max
     min_errors, _ = torch.min(reproj_errors, dim=0)
 
     # Auto-masking
     min_error_vis = min_errors.detach().clone()
-    min_error_vis[min_error_vis == torch.finfo(torch.float).max] = 0
 
     mask = get_mask(targets, sources, min_errors)
     min_errors[~mask] = torch.finfo(torch.float).max
@@ -148,8 +144,6 @@ def calc_loss(inputs, outputs, scale=0, smooth_term=0.001):
     normalized_disp = disp / (disp.mean(2, True).mean(3, True) + 1e-7)
 
     loss = loss + torch.mean(min_errors)
-    if torch.isnan(loss):
-        loss = 10
     loss = loss + smooth_term * calc_smooth_loss(normalized_disp, targets) / (2 ** scale)
 
     return loss, mask, min_error_vis
@@ -176,8 +170,6 @@ def process_depth(src_images, depths, poses, tgt_intr, src_intr, img_shape):
     """
     reprojected = torch.full((len(src_images), len(depths), 3, img_shape[0], img_shape[1]), 127, dtype=torch.float,
                              device=poses.device)
-    masks = torch.zeros((len(src_images), len(depths), 1, img_shape[0], img_shape[1]), dtype=torch.bool,
-                        device=poses.device)
 
     # Creates an array of all image coordinates: [0, 0], [1, 0], [2, 0], etc.
     img_ones = torch.ones((img_shape[0] * img_shape[1], 1), device=poses.device)
@@ -198,6 +190,7 @@ def process_depth(src_images, depths, poses, tgt_intr, src_intr, img_shape):
     for i in range(len(src_images)):
         # Iterates through all images in batch
         for j in range(len(depths)):
+
             world_coords = torch.cat((img_indices @ tgt_intr_inv_torch_T[j] * depths[j, 0].view(-1, 1),
                                       torch.ones(img_indices.shape[0], 1, device=poses.device)), dim=1)
 
@@ -210,7 +203,7 @@ def process_depth(src_images, depths, poses, tgt_intr, src_intr, img_shape):
             src_coords = src_coords[
                 (src_coords[:, 1] >= 0) & (src_coords[:, 1] <= img_shape[0] - 1) & (src_coords[:, 0] >= 0) & (
                         src_coords[:, 0] <= img_shape[1] - 1)]
-
+            """
             # Bilinear sampling
             x = src_coords[:, 0]
             y = src_coords[:, 1]
@@ -228,8 +221,11 @@ def process_depth(src_images, depths, poses, tgt_intr, src_intr, img_shape):
             int_coords = (x12[0] == x12[1]) | (y12[0] == y12[1])
             if int_coords.any():
                 rounded_coords = src_coords[int_coords].round().long()
-                reprojected[i, j, :, rounded_coords[:, 4], rounded_coords[:, 3]] = src_img[:, rounded_coords[:, 1],
-                                                                                   rounded_coords[:, 0]].float()
-
-            masks[i, j, 0, src_coords[:, 4].long(), src_coords[:, 3].long()] = 1
-    return reprojected, masks
+                reprojected[i, j, :, rounded_coords[:, 4], rounded_coords[:, 3]] = src_img[:, rounded_coords[:, 1], rounded_coords[:, 0]].float()
+            """
+            # Using F.grid_sample
+            pic_coords = torch.empty((1, img_shape[0], img_shape[1], 2), device=poses.device)
+            pic_coords[0, src_coords[:, 4].long(), src_coords[:, 3].long()] = 2 * src_coords[:, :2] / torch.tensor([img_shape[1], img_shape[0]], device=poses.device) - 1
+            reprojected[i, j] = F.grid_sample(src_images[i, j].unsqueeze(0), pic_coords, padding_mode="border", align_corners=True)            
+    
+    return reprojected
