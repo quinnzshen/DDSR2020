@@ -228,5 +228,5 @@ def process_depth(src_images, depths, poses, tgt_intr, src_intr, img_shape):
             pic_coords = torch.empty((1, img_shape[0], img_shape[1], 2), device=poses.device)
             pic_coords[0, src_coords[:, 4].long(), src_coords[:, 3].long()] = 2 * src_coords[:, :2] / torch.tensor([img_shape[1], img_shape[0]], device=poses.device) - 1
             reprojected[i, j] = F.grid_sample(src_images[i, j].unsqueeze(0), pic_coords, padding_mode="border", align_corners=False)            
-    
+
     return reprojected

@@ -75,7 +75,7 @@ class KittiDataset(Dataset):
         # Taking information from the directory and putting it into the sample dictionary
         sample = {
             **get_camera_data(path_name, idx, self.is_jpeg),
-            # **get_lidar_data(path_name, idx),
+            **get_lidar_data(path_name, idx),
             **{'nearby_frames': nearby_frames_data},
             # **{'image_from_velodyne_matrices': compute_image_from_velodyne_matrices(calib_dir)},
             **{'intrinsics': get_camera_intrinsic_dict(calib_dir)},
