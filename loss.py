@@ -134,8 +134,9 @@ def calc_loss(inputs, outputs, scale=0, smooth_term=0.001):
     mask = get_mask(targets, sources, min_errors_reproj)
 
     # Source errors
-    source_errors = torch.stack([calc_pe(source, targets).squeeze(1) for source in sources])
-    combined_errors = torch.cat((reproj_errors, source_errors), dim=0)
+    source_errors = torch.stack([calc_pe(sources[i], targets).squeeze(1) for i in range(len(sources))])
+    combined_errors = torch.cat((source_errors, reproj_errors), dim=0)
+    
     min_errors, _ = torch.min(combined_errors, dim=0)
     min_error_vis = min_errors.detach().clone()
     

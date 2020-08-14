@@ -282,6 +282,7 @@ class Trainer:
                 self.steps_until_write = self.tensorboard_step
             else:
                 self.steps_until_write -= local_batch_size - curr_idx + self.steps_until_write
+        
         return total_loss
 
     def save_model(self):
