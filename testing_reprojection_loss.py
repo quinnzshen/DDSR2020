@@ -67,10 +67,10 @@ right_intrinsic = dataset[1]["intrinsics"]["stereo_right"].unsqueeze(0).to(devic
 shape = dataset[1]["stereo_left_image"].shape
 
 # Remember to scale intrinsic matrices by the image dimension (by default they are calibrated to 1242x375)
-left_intrinsic[:, 0] = left_intrinsic[:, 0] * (shape[1]/ 1280)
-left_intrinsic[:, 1] = left_intrinsic[:, 1] * (shape[0] / 384)
-right_intrinsic[:, 0] = right_intrinsic[:, 0] * (shape[1] / 1280)
-right_intrinsic[:, 1] = right_intrinsic[:, 1] * (shape[0] / 384)
+left_intrinsic[:, 0] = left_intrinsic[:, 0] * (1280 / shape[1])
+left_intrinsic[:, 1] = left_intrinsic[:, 1] * (384 / shape[0])
+right_intrinsic[:, 0] = right_intrinsic[:, 0] * (1280 / shape[1])
+right_intrinsic[:, 1] = right_intrinsic[:, 1] * (384 / shape[0])
 
 src_intrinsics = []
 src_intrinsics.append(right_intrinsic)
@@ -83,17 +83,17 @@ plt.figure()
 plt.show()
 out_imgs = process_depth(sources, depth, poses, left_intrinsic, src_intrinsics, (384, 1280))
 plt.imshow(target[0].permute(1, 2, 0) / 255)
-plt.figure()
+plt.show()
 
 #plt.imshow(sources[0][0].permute(1, 2, 0) / 255)
 plt.figure()
 plt.imshow(out_imgs[0, 0].permute(1, 2, 0) / 255)
-plt.figure()
+plt.show()
 
 #plt.imshow(sources[1][0].permute(1, 2, 0) / 255)
 plt.figure()
 plt.imshow(out_imgs[1, 0].permute(1, 2, 0) / 255)
-plt.figure()
+plt.show()
 
 #plt.imshow(sources[2][0].permute(1, 2, 0) / 255)
 plt.figure()
