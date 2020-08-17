@@ -31,15 +31,15 @@ dataset = KittiDataset.init_from_config(TEST_CONFIG_PATH)
 h = 384
 w = 1280
 
-disp = np.load("data/disp_example/0000000000_disp.npy")
+disp = np.load("data/disp_example/0000000002_disp.npy")
 disp = torch.from_numpy(disp)
 disp = F.interpolate(disp, [h, w], mode="bilinear", align_corners=False)
 
-target = F.interpolate(dataset[2]["stereo_left_image"].permute(2, 0, 1).unsqueeze(0).float(), [h, w], mode="bilinear", align_corners=False)
+target = F.interpolate(dataset[1]["stereo_left_image"].permute(2, 0, 1).unsqueeze(0).float(), [h, w], mode="bilinear", align_corners=False)
 
-tmp_forward = dataset[2]["nearby_frames"][1]["camera_data"]["stereo_left_image"].permute(2, 0, 1).unsqueeze(0).float().to(device)
-tmp_backward = dataset[2]["nearby_frames"][-1]["camera_data"]["stereo_left_image"].permute(2, 0, 1).unsqueeze(0).float().to(device)
-stereo = dataset[2]["stereo_right_image"].permute(2, 0, 1).unsqueeze(0).float().to(device)
+tmp_forward = dataset[1]["nearby_frames"][1]["camera_data"]["stereo_left_image"].permute(2, 0, 1).unsqueeze(0).float().to(device)
+tmp_backward = dataset[1]["nearby_frames"][-1]["camera_data"]["stereo_left_image"].permute(2, 0, 1).unsqueeze(0).float().to(device)
+stereo = dataset[1]["stereo_right_image"].permute(2, 0, 1).unsqueeze(0).float().to(device)
 
 sources = []
 sources.append(F.interpolate(stereo, [h, w], mode="bilinear", align_corners=False))
@@ -47,9 +47,9 @@ sources.append(F.interpolate(tmp_forward, [h, w], mode="bilinear", align_corners
 sources.append(F.interpolate(tmp_backward, [h, w], mode="bilinear", align_corners=False))
 sources = torch.stack(sources, dim=0)
 
-rel_pose_stereo = dataset[2]["rel_pose_stereo"].unsqueeze(0).to(device)
-rel_pose_forward = dataset[2]["nearby_frames"][1]["pose"].unsqueeze(0).to(device)
-rel_pose_backward = dataset[2]["nearby_frames"][-1]["pose"].unsqueeze(0).to(device)
+rel_pose_stereo = dataset[1]["rel_pose_stereo"].unsqueeze(0).to(device)
+rel_pose_forward = dataset[1]["nearby_frames"][1]["pose"].unsqueeze(0).to(device)
+rel_pose_backward = dataset[1]["nearby_frames"][-1]["pose"].unsqueeze(0).to(device)
 
 poses = []
 poses.append(rel_pose_stereo)
@@ -57,12 +57,14 @@ poses.append(rel_pose_forward)
 poses.append(rel_pose_backward)
 poses = torch.stack(poses, dim=0)
 
-depth = torch.from_numpy(create_depth_map_from_nearest_lidar_point(dataset[2]["lidar_point_coord_velodyne"].numpy(), 384, 1280)).unsqueeze(0).unsqueeze(0).float().to(device)
+depth = torch.from_numpy(create_depth_map_from_nearest_lidar_point(dataset[1]["lidar_point_coord_velodyne"].numpy(), 384, 1280)).unsqueeze(0).unsqueeze(0).float().to(device)
+#_, depth = disp_to_depth(disp, 0.1, 100)
+#depth = 31 * depth
 
-left_intrinsic = dataset[2]["intrinsics"]["stereo_left"].unsqueeze(0).to(device)
-right_intrinsic = dataset[2]["intrinsics"]["stereo_right"].unsqueeze(0).to(device)
+left_intrinsic = dataset[1]["intrinsics"]["stereo_left"].unsqueeze(0).to(device)
+right_intrinsic = dataset[1]["intrinsics"]["stereo_right"].unsqueeze(0).to(device)
 
-shape = dataset[2]["stereo_left_image"].shape
+shape = dataset[1]["stereo_left_image"].shape
 
 # Remember to scale intrinsic matrices by the image dimension (by default they are calibrated to 1242x375)
 left_intrinsic[:, 0] = left_intrinsic[:, 0] * (shape[1]/ 1280)
@@ -76,23 +78,24 @@ src_intrinsics.append(left_intrinsic)
 src_intrinsics.append(left_intrinsic)
 src_intrinsics = torch.stack(src_intrinsics)
 
-plt.imshow(disp[0][0])
+plt.imshow(depth[0][0])
+plt.figure()
 plt.show()
 out_imgs = process_depth(sources, depth, poses, left_intrinsic, src_intrinsics, (384, 1280))
 plt.imshow(target[0].permute(1, 2, 0) / 255)
 plt.figure()
 
-plt.imshow(sources[0][0].permute(1, 2, 0) / 255)
+#plt.imshow(sources[0][0].permute(1, 2, 0) / 255)
 plt.figure()
 plt.imshow(out_imgs[0, 0].permute(1, 2, 0) / 255)
 plt.figure()
 
-plt.imshow(sources[1][0].permute(1, 2, 0) / 255)
+#plt.imshow(sources[1][0].permute(1, 2, 0) / 255)
 plt.figure()
 plt.imshow(out_imgs[1, 0].permute(1, 2, 0) / 255)
 plt.figure()
 
-plt.imshow(sources[2][0].permute(1, 2, 0) / 255)
+#plt.imshow(sources[2][0].permute(1, 2, 0) / 255)
 plt.figure()
 plt.imshow(out_imgs[2, 0].permute(1, 2, 0) / 255)
 plt.show()
