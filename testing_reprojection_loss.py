@@ -57,7 +57,13 @@ poses.append(rel_pose_forward)
 poses.append(rel_pose_backward)
 poses = torch.stack(poses, dim=0)
 
-depth = torch.from_numpy(create_depth_map_from_nearest_lidar_point(dataset[2]["lidar_point_coord_velodyne"].numpy(), 384, 1280)).unsqueeze(0).unsqueeze(0).float().to(device)
+# depth = torch.from_numpy(create_depth_map_from_nearest_lidar_point(dataset[2]["lidar_point_coord_velodyne"].numpy(), 384, 1280)).unsqueeze(0).unsqueeze(0).float().to(device)
+# plt.imshow(depth)
+# plt.show()
+_, depth = disp_to_depth(disp, 0.1, 100)
+depth = 31.257 * depth
+plt.imshow(depth[0][0])
+plt.show()
 
 left_intrinsic = dataset[2]["intrinsics"]["stereo_left"].unsqueeze(0).to(device)
 right_intrinsic = dataset[2]["intrinsics"]["stereo_right"].unsqueeze(0).to(device)
@@ -65,10 +71,10 @@ right_intrinsic = dataset[2]["intrinsics"]["stereo_right"].unsqueeze(0).to(devic
 shape = dataset[2]["stereo_left_image"].shape
 
 # Remember to scale intrinsic matrices by the image dimension (by default they are calibrated to 1242x375)
-left_intrinsic[:, 0] = left_intrinsic[:, 0] * (shape[1]/ 1280)
-left_intrinsic[:, 1] = left_intrinsic[:, 1] * (shape[0] / 384)
-right_intrinsic[:, 0] = right_intrinsic[:, 0] * (shape[1] / 1280)
-right_intrinsic[:, 1] = right_intrinsic[:, 1] * (shape[0] / 384)
+left_intrinsic[:, 0] = left_intrinsic[:, 0] * (1280 / shape[1])
+left_intrinsic[:, 1] = left_intrinsic[:, 1] * (384 / shape[0])
+right_intrinsic[:, 0] = right_intrinsic[:, 0] * (1280 / shape[1])
+right_intrinsic[:, 1] = right_intrinsic[:, 1] * (384 / shape[0])
 
 src_intrinsics = []
 src_intrinsics.append(right_intrinsic)
@@ -80,19 +86,19 @@ plt.imshow(disp[0][0])
 plt.show()
 out_imgs = process_depth(sources, depth, poses, left_intrinsic, src_intrinsics, (384, 1280))
 plt.imshow(target[0].permute(1, 2, 0) / 255)
-plt.figure()
+plt.show()
 
 plt.imshow(sources[0][0].permute(1, 2, 0) / 255)
-plt.figure()
+plt.show()
 plt.imshow(out_imgs[0, 0].permute(1, 2, 0) / 255)
-plt.figure()
+plt.show()
 
 plt.imshow(sources[1][0].permute(1, 2, 0) / 255)
-plt.figure()
+plt.show()
 plt.imshow(out_imgs[1, 0].permute(1, 2, 0) / 255)
-plt.figure()
+plt.show()
 
 plt.imshow(sources[2][0].permute(1, 2, 0) / 255)
-plt.figure()
+plt.show()
 plt.imshow(out_imgs[2, 0].permute(1, 2, 0) / 255)
 plt.show()

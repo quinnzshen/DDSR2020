@@ -204,7 +204,6 @@ def process_depth(src_images, depths, poses, tgt_intr, src_intr, img_shape):
             src_coords = src_coords[
                 (src_coords[:, 1] >= 0) & (src_coords[:, 1] <= img_shape[0] - 1) & (src_coords[:, 0] >= 0) & (
                         src_coords[:, 0] <= img_shape[1] - 1)]
-            """
             # Bilinear sampling
             x = src_coords[:, 0]
             y = src_coords[:, 1]
@@ -223,10 +222,10 @@ def process_depth(src_images, depths, poses, tgt_intr, src_intr, img_shape):
             if int_coords.any():
                 rounded_coords = src_coords[int_coords].round().long()
                 reprojected[i, j, :, rounded_coords[:, 4], rounded_coords[:, 3]] = src_img[:, rounded_coords[:, 1], rounded_coords[:, 0]].float()
-            """
+
             # Using F.grid_sample
-            pic_coords = torch.empty((1, img_shape[0], img_shape[1], 2), device=poses.device)
-            pic_coords[0, src_coords[:, 4].long(), src_coords[:, 3].long()] = 2 * src_coords[:, :2] / torch.tensor([img_shape[1], img_shape[0]], device=poses.device) - 1
-            reprojected[i, j] = F.grid_sample(src_images[i, j].unsqueeze(0), pic_coords, padding_mode="border", align_corners=False)            
+            # pic_coords = torch.empty((1, img_shape[0], img_shape[1], 2), device=poses.device)
+            # pic_coords[0, src_coords[:, 4].long(), src_coords[:, 3].long()] = 2 * src_coords[:, :2] / torch.tensor([img_shape[1], img_shape[0]], device=poses.device) - 1
+            # reprojected[i, j] = F.grid_sample(src_images[i, j].unsqueeze(0), pic_coords, padding_mode="border", align_corners=False)
 
     return reprojected
