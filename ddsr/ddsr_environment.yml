@@ -1,0 +1,19 @@
+name: ddsr
+channels:
+  - defaults
+dependencies:
+  - python=3.8
+  - matplotlib
+  - plotly
+  - jupyter
+  - numpy
+  - scipy
+  - ipykernel
+  - pytest
+  - pandas
+  - pillow
+  - pyyaml
+  - pip
+  - pip:
+    - tensorflow
+prefix: /Users/quinn/anaconda3/envs/ddsr

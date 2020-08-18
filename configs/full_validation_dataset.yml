@@ -1,6 +1,0 @@
-root_directory: data/kitti_data
-dataset_paths:
-  - splits/eigen_zhou/val.txt
-previous_frames: 1
-next_frames: 1
-is_jpeg: True
