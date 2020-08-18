@@ -210,6 +210,7 @@ class Trainer:
         losses = []
         automasks = []
         min_losses = []
+        reprojections = []
         total_loss = 0
 
         for scale in range(self.num_scales):
@@ -277,6 +278,7 @@ class Trainer:
             losses.append(loss)
             automasks.append(automask)
             min_losses.append(min_loss)
+            reprojections.append(reprojected)
 
             total_loss += losses[scale]
 
@@ -295,7 +297,7 @@ class Trainer:
             if curr_idx < local_batch_size:
                 self.add_img_disparity_loss_to_tensorboard(
                     outputs[("disp", 0)][curr_idx], inputs[curr_idx], automasks[0][curr_idx].unsqueeze(0),
-                    min_losses[0][0],
+                    min_losses[0][curr_idx], reprojections[0][:, curr_idx],
                     self.batch_size * batch_idx + curr_idx + 1, name
                 )
                 self.writer.add_scalar(
@@ -325,7 +327,7 @@ class Trainer:
         save_path = os.path.join(save_folder, "{}.pth".format("adam"))
         torch.save(self.optimizer.state_dict(), save_path)
 
-    def add_img_disparity_loss_to_tensorboard(self, disp, img, automask, loss, img_num, name):
+    def add_img_disparity_loss_to_tensorboard(self, disp, img, automask, loss, reproj, img_num, name):
         """
         Adds image disparity map, and automask to tensorboard
         :param [tensor] disp: Disparity map outputted by the network
@@ -346,10 +348,9 @@ class Trainer:
 
         # Processing image
         img_np = img.squeeze().cpu().detach().numpy()
-        vmax = np.percentile(img_np, 95)
-        normalizer = mpl.colors.Normalize(vmin=img_np.min(), vmax=vmax)
         colormapped_img = img_np.astype(np.uint8).transpose(1, 2, 0)
         final_img = transforms.ToTensor()(colormapped_img)
+
 
         loss_mean = loss.mean()
         figure = plt.figure(figsize=LOSS_VIS_SIZE)
@@ -362,6 +363,11 @@ class Trainer:
         buf.seek(0)
         loss = torch.from_numpy(decode_jpeg(buf.getvalue()).numpy())
         loss = loss.permute(2, 0, 1)
+
+        # reproj = transforms.ToTensor()(reproj.cpu().detach().numpy().astype(np.uint8).transpose(0, 2, 3, 1)[0])
+        reproj /= 255
+        # print(reproj.shape)
+        # reproj = reproj.permute(0, 2, 3, 1).cpu().detach()
 
         # Add image and disparity map to tensorboard
         self.writer.add_image(f"{name} Images/Epoch: {self.epoch + 1}",
@@ -376,6 +382,10 @@ class Trainer:
         self.writer.add_image(f"{name} Losses/Epoch: {self.epoch + 1}",
                             loss,
                             img_num)
+        self.writer.add_image(f"{name} Backward Reprojection/Epoch: {self.epoch + 1}",
+                              reproj[0], img_num)
+        self.writer.add_image(f"{name} Forward Reprojection/Epoch: {self.epoch + 1}",
+                              reproj[1], img_num)
 
 
 def disp_to_depth(disp, min_depth, max_depth):
@@ -396,5 +406,5 @@ def disp_to_depth(disp, min_depth, max_depth):
 
 
 if __name__ == "__main__":
-    test = Trainer("configs/full_model.yml")
+    test = Trainer("configs/basic_model.yml")
     test.train()

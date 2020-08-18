@@ -183,7 +183,11 @@ class Project3D(nn.Module):
         P = torch.matmul(K, T)[:, :3, :]
 
         cam_points = torch.matmul(P, points)
-
+        # cam_points = cam_points[(cam_points[:, 2, :] > 0).repeat(1, 3, 1)]
+        # d = cam_points[:, 2, :] > 0
+        # print(d.shape)
+        # cam_points = cam_points[d[0], :, d[1]]
+        # print(cam_points.shape)
         pix_coords = cam_points[:, :2, :] / (cam_points[:, 2, :].unsqueeze(1) + self.eps)
         pix_coords = pix_coords.view(local_batch_size, 2, self.height, self.width)
         pix_coords = pix_coords.permute(0, 2, 3, 1)
