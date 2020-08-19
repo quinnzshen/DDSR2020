@@ -59,10 +59,6 @@ class Trainer:
         self.models['encoder'] = networks.ResnetEncoder(self.opt.num_layers, self.opt.weights_init == "pretrained")
         self.models['encoder'].to(self.device)
 
-<<<<<<< HEAD
-        self.models['dense_network'] = networks.DenseNetwork(self.opt)
-        self.models['dense_network'].to(self.device)
-=======
         self.models["encoder"] = networks.ResnetEncoder(
             self.opt.num_layers, self.opt.weights_init == "pretrained")
         self.models["encoder"].to(self.device)
@@ -80,7 +76,6 @@ class Trainer:
         
         self.models["depth"].to(self.device)
         self.parameters_to_train += list(self.models["depth"].parameters())
->>>>>>> parent of c40fee1... Added DenseNetwork class
 
         if self.use_pose_net:
             if self.opt.pose_model_type == "separate_resnet":
@@ -268,12 +263,6 @@ class Trainer:
             outputs = self.models["depth"](features[0])
         else:
             # Otherwise, we only feed the image with frame_id 0 through the depth encoder
-<<<<<<< HEAD
-
-            # Output of ResNet needed for predicting pose
-            features = self.models['encoder'](inputs["color_aug", 0, 0])
-            outputs = self.models['dense_network'](inputs["color_aug", 0, 0])
-=======
             features = self.models["encoder"](inputs["color_aug", 0, 0])
 
             if(self.opt.use_fpn):
@@ -281,7 +270,6 @@ class Trainer:
                 outputs = self.models["depth"](pyramid)
             else:
                 outputs = self.models["depth"](features)
->>>>>>> parent of c40fee1... Added DenseNetwork class
 
         if self.opt.predictive_mask:
             outputs["predictive_mask"] = self.models["predictive_mask"](features)
