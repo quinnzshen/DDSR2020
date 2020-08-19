@@ -82,6 +82,9 @@ class MonodepthOptions:
                                  type=int,
                                  help="frames to load",
                                  default=[0, -1, 1])
+        self.parser.add_argument("--use_fpn",
+                                 help="Use feature pyramid network in training",
+                                 action="store_true")
         # DEPTH HINT options
         self.parser.add_argument("--use_depth_hints",
                                  help="if set, apply depth hints during training",

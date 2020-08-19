@@ -56,14 +56,24 @@ class Trainer:
             assert 's' in self.opt.frame_ids, "Can't use depth hints without training from stereo" \
                                               "images - either add --use_stereo or remove " \
                                               "--use_depth_hints."
+        self.models['encoder'] = networks.ResnetEncoder(self.opt.num_layers, self.opt.weights_init == "pretrained")
+        self.models['encoder'].to(self.device)
 
         self.models["encoder"] = networks.ResnetEncoder(
             self.opt.num_layers, self.opt.weights_init == "pretrained")
         self.models["encoder"].to(self.device)
         self.parameters_to_train += list(self.models["encoder"].parameters())
 
-        self.models["depth"] = networks.DepthDecoder(
-            self.models["encoder"].num_ch_enc, self.opt.scales)
+        if(self.opt.use_fpn):
+            self.models["fpn"] = networks.FPN(np.append(self.models["encoder"].num_ch_enc[1:], self.models["encoder"].num_ch_enc[-1]), self.device)
+            self.parameters_to_train += list(self.models["fpn"].parameters())
+            self.models["depth"] = networks.DepthDecoder(
+                self.models["fpn"].num_ch_pyramid, self.opt.scales)
+
+        else:
+            self.models["depth"] = networks.DepthDecoder(
+                self.models["encoder"].num_ch_enc, self.opt.scales)
+        
         self.models["depth"].to(self.device)
         self.parameters_to_train += list(self.models["depth"].parameters())
 
@@ -254,7 +264,12 @@ class Trainer:
         else:
             # Otherwise, we only feed the image with frame_id 0 through the depth encoder
             features = self.models["encoder"](inputs["color_aug", 0, 0])
-            outputs = self.models["depth"](features)
+
+            if(self.opt.use_fpn):
+                pyramid = self.models["fpn"](features)
+                outputs = self.models["depth"](pyramid)
+            else:
+                outputs = self.models["depth"](features)
 
         if self.opt.predictive_mask:
             outputs["predictive_mask"] = self.models["predictive_mask"](features)
