@@ -1,17 +1,22 @@
-from resnet_encoder import ResnetEncoder
-from fpn import FPN
-from depth_decoder import DepthDecoder
+from networks import ResnetEncoder
+from networks import FPN
+from networks import DepthDecoder
 import torch
+import torch.nn as nn
+import numpy as np
 
-class DenseNetwork(options):
-    def __init__(options):
+class DenseNetwork(nn.Module):
+    def __init__(self, options):
         """
         Initializes a dense network for predicting depth. This includes a ResNet Encoder, a Feature Pyramid Network if desired, and a Depth Decoder.
         :param [dict] options: Dictionary where the keys are the various options the user has and the values are their choices for each option.
         """
+        super(DenseNetwork, self).__init__()
+
         self.opt = options
         self.device = torch.device("cpu" if self.opt.no_cuda else "cuda")
-
+        self.models = {}
+        self.parameters_to_train = []
         self.models["encoder"] = ResnetEncoder(self.opt.num_layers, self.opt.weights_init == "pretrained")
         self.models["encoder"].to(self.device)
         self.parameters_to_train += list(self.models["encoder"].parameters())
