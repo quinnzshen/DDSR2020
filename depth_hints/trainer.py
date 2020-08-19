@@ -57,24 +57,8 @@ class Trainer:
                                               "images - either add --use_stereo or remove " \
                                               "--use_depth_hints."
 
-        self.models["encoder"] = networks.ResnetEncoder(
-            self.opt.num_layers, self.opt.weights_init == "pretrained")
-        self.models["encoder"].to(self.device)
-        self.parameters_to_train += list(self.models["encoder"].parameters())
-
-        if(self.opt.use_fpn):
-            self.models["fpn"] = networks.FPN(np.append(self.models["encoder"].num_ch_enc[1:], self.models["encoder"].num_ch_enc[-1]), self.device)
-            self.parameters_to_train += list(self.models["fpn"].parameters())
-            self.models["depth"] = networks.DepthDecoder(
-                self.models["fpn"].num_ch_pyramid, self.opt.scales)
-
-        else:
-            self.models["depth"] = networks.DepthDecoder(
-                self.models["encoder"].num_ch_enc, self.opt.scales)
+        self.models['dense_network'] = networks.DenseNetwork(self.opt)
         
-        self.models["depth"].to(self.device)
-        self.parameters_to_train += list(self.models["depth"].parameters())
-
         if self.use_pose_net:
             if self.opt.pose_model_type == "separate_resnet":
                 self.models["pose_encoder"] = networks.ResnetEncoder(
@@ -261,13 +245,7 @@ class Trainer:
             outputs = self.models["depth"](features[0])
         else:
             # Otherwise, we only feed the image with frame_id 0 through the depth encoder
-            features = self.models["encoder"](inputs["color_aug", 0, 0])
-
-            if(self.opt.use_fpn):
-                pyramid = self.models["fpn"](features)
-                outputs = self.models["depth"](pyramid)
-            else:
-                outputs = self.models["depth"](features)
+            outputs = self.models['dense_network'](inputs["color_aug", 0, 0])
 
         if self.opt.predictive_mask:
             outputs["predictive_mask"] = self.models["predictive_mask"](features)
