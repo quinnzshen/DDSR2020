@@ -6,12 +6,12 @@ from networks.fpn import FPN
 import numpy as np
 
 
-def run_inference(model_path, image, use_fpn=False):
+def load_model(model_path, use_fpn=False):
     """
-    This function does a forward pass on an image given a model and outputs a disparity map.
-    :param [string] model_path: Path to a pretrained model that user wants to use to predict disparity.
-    :param [torch.Tensor] image: [1, 3, H, W], Image that disparity is being predicted for.
-    :return [torch.Tensor] disp: [1, 1, H, W], Disparity map for inputted image.
+    Loads a pretrained model from a specified model path.
+    :param model_path [string]: path to pretrained model's weights folder.
+    :param use_fpn [boolean]: indicates whether an FPN was used when training the specified model.
+    :return models [tuple]: tuple containing the loaded pretrained models - either (encoder, decoder) or (encoder, fpn, decoder)
     """
     device = torch.device("cuda")
     encoder_path = os.path.join(model_path, "encoder.pth")
@@ -36,14 +36,41 @@ def run_inference(model_path, image, use_fpn=False):
         fpn.to(device)
         # Load Depth Decoder
         depth_decoder = DepthDecoder(num_ch_enc=fpn.num_ch_pyramid, scales=range(4))
+        loaded_dict = torch.load(depth_decoder_path, map_location=device)
+        depth_decoder.load_state_dict(loaded_dict)
+
+        depth_decoder.to(device)
+        depth_decoder.eval()
+        return (encoder, fpn, depth_decoder)
     else:
         # Load depth decoder
         depth_decoder = DepthDecoder(num_ch_enc=encoder.num_ch_enc, scales=range(4))
-    loaded_dict = torch.load(depth_decoder_path, map_location=device)
-    depth_decoder.load_state_dict(loaded_dict)
+        loaded_dict = torch.load(depth_decoder_path, map_location=device)
+        depth_decoder.load_state_dict(loaded_dict)
 
-    depth_decoder.to(device)
-    depth_decoder.eval()
+        depth_decoder.to(device)
+        depth_decoder.eval()
+        return (encoder, depth_decoder)
+
+    
+
+def run_inference(models, image, use_fpn=False):
+    """
+    This function does a forward pass on an image given a model and outputs a disparity map.
+    :param [tuple] models: tuple containing the loaded pretrained models - either (encoder, decoder) or (encoder, fpn, decoder)
+    :param [torch.Tensor] image: [1, 3, H, W], Image that disparity is being predicted for.
+    :param use_fpn [boolean]: indicates whether an FPN was used when training the specified model.
+    :return [torch.Tensor] disp: [1, 1, H, W], Disparity map for inputted image.
+    """
+    
+    if(use_fpn):
+        encoder = models[0]
+        fpn = models[1]
+        decoder = models[2]
+    else:
+        encoder = models[0]
+        decoder = models[1]
+
     # Predict depth for single image
     image = image.to(device)
     features = encoder(image)

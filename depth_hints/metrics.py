@@ -1,6 +1,6 @@
 import layers
 import kitti_utils as ku
-from inference import run_inference
+from inference import run_inference, load_model
 import torch
 import os
 import datasets
@@ -8,6 +8,10 @@ import datasets
 
 class Metrics:
     def __init__(self, options):
+        """
+        This class loads a pretrained model as predictes depth for a split based on that model. It then runs metrics based on these predicted depths.
+        :param options: maps user options to the values they chose for each option.
+        """
         self.opt = options
         self.model_path = self.opt.load_weights_folder
         split_path = os.path.join('splits', self.opt.eval_split, 'test_files.txt')
@@ -22,13 +26,14 @@ class Metrics:
         self.lidar_depth_maps = []
         idx=0
         print('-> Loading predicted depth maps and lidar depth maps')
+        self.models = load_model(self.model_path, use_fpn=self.opt.use_fpn)
         for data in dataloader:
             file_info = filenames[idx].split()
             input_color = data[("color", 0, 0)].cuda()
             lidar_depth_map = ku.generate_depth_map(os.path.join('kitti_data', file_info[0][:10]), os.path.join('kitti_data', file_info[0], f'velodyne_points/data/{int(file_info[1]):010}.bin'))
             self.lidar_depth_maps.append(lidar_depth_map)
             with torch.no_grad():
-                predicted_disp = run_inference(self.model_path, input_color, use_fpn = self.opt.use_fpn)
+                predicted_disp = run_inference(self.models, input_color, use_fpn = self.opt.use_fpn)
             self.predicted_disps.append(torch.nn.functional.interpolate(predicted_disp, (375, 1242), mode="bilinear", align_corners=False))
             idx+=1
 
