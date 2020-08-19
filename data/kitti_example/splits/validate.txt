@@ -1,5 +1,0 @@
-data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/ 7
-data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/ 10
-data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/ 12
-data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/ 17
-data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/ 19
