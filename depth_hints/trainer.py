@@ -56,9 +56,12 @@ class Trainer:
             assert 's' in self.opt.frame_ids, "Can't use depth hints without training from stereo" \
                                               "images - either add --use_stereo or remove " \
                                               "--use_depth_hints."
+        self.models['encoder'] = networks.ResnetEncoder(self.opt.num_layers, self.opt.weights_init == "pretrained")
+        self.models['encoder'].to(self.device)
 
         self.models['dense_network'] = networks.DenseNetwork(self.opt)
-        
+        self.models['dense_network'].to(self.device)
+
         if self.use_pose_net:
             if self.opt.pose_model_type == "separate_resnet":
                 self.models["pose_encoder"] = networks.ResnetEncoder(
@@ -245,6 +248,9 @@ class Trainer:
             outputs = self.models["depth"](features[0])
         else:
             # Otherwise, we only feed the image with frame_id 0 through the depth encoder
+
+            # Output of ResNet needed for predicting pose
+            features = self.models['encoder'](inputs["color_aug", 0, 0])
             outputs = self.models['dense_network'](inputs["color_aug", 0, 0])
 
         if self.opt.predictive_mask:
