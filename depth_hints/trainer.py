@@ -59,8 +59,28 @@ class Trainer:
         self.models['encoder'] = networks.ResnetEncoder(self.opt.num_layers, self.opt.weights_init == "pretrained")
         self.models['encoder'].to(self.device)
 
+<<<<<<< HEAD
         self.models['dense_network'] = networks.DenseNetwork(self.opt)
         self.models['dense_network'].to(self.device)
+=======
+        self.models["encoder"] = networks.ResnetEncoder(
+            self.opt.num_layers, self.opt.weights_init == "pretrained")
+        self.models["encoder"].to(self.device)
+        self.parameters_to_train += list(self.models["encoder"].parameters())
+
+        if(self.opt.use_fpn):
+            self.models["fpn"] = networks.FPN(np.append(self.models["encoder"].num_ch_enc[1:], self.models["encoder"].num_ch_enc[-1]), self.device)
+            self.parameters_to_train += list(self.models["fpn"].parameters())
+            self.models["depth"] = networks.DepthDecoder(
+                self.models["fpn"].num_ch_pyramid, self.opt.scales)
+
+        else:
+            self.models["depth"] = networks.DepthDecoder(
+                self.models["encoder"].num_ch_enc, self.opt.scales)
+        
+        self.models["depth"].to(self.device)
+        self.parameters_to_train += list(self.models["depth"].parameters())
+>>>>>>> parent of c40fee1... Added DenseNetwork class
 
         if self.use_pose_net:
             if self.opt.pose_model_type == "separate_resnet":
@@ -248,10 +268,20 @@ class Trainer:
             outputs = self.models["depth"](features[0])
         else:
             # Otherwise, we only feed the image with frame_id 0 through the depth encoder
+<<<<<<< HEAD
 
             # Output of ResNet needed for predicting pose
             features = self.models['encoder'](inputs["color_aug", 0, 0])
             outputs = self.models['dense_network'](inputs["color_aug", 0, 0])
+=======
+            features = self.models["encoder"](inputs["color_aug", 0, 0])
+
+            if(self.opt.use_fpn):
+                pyramid = self.models["fpn"](features)
+                outputs = self.models["depth"](pyramid)
+            else:
+                outputs = self.models["depth"](features)
+>>>>>>> parent of c40fee1... Added DenseNetwork class
 
         if self.opt.predictive_mask:
             outputs["predictive_mask"] = self.models["predictive_mask"](features)
