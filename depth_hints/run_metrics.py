@@ -8,3 +8,4 @@ if __name__ == "__main__":
     metrics = Metrics(opts)
     error = metrics.compute_l1_error_on_split()
     print(f'-> L1 Error: {error}')
+    #TODO: write results to .csv file.

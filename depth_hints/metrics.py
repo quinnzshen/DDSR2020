@@ -33,7 +33,8 @@ class Metrics:
             lidar_depth_map = ku.generate_depth_map(os.path.join('kitti_data', file_info[0][:10]), os.path.join('kitti_data', file_info[0], f'velodyne_points/data/{int(file_info[1]):010}.bin'))
             self.lidar_depth_maps.append(lidar_depth_map)
             with torch.no_grad():
-                predicted_disp = run_inference(self.models, input_color, use_fpn = self.opt.use_fpn)
+                predicted_disp = run_inference(self.models, input_color)
+            #TODO: convert to depth in init
             self.predicted_disps.append(torch.nn.functional.interpolate(predicted_disp, (375, 1242), mode="bilinear", align_corners=False))
             idx+=1
 
@@ -56,6 +57,7 @@ class Metrics:
         :param [numpy.array] lidar_depth_map: [H, W] ground truth lidar points projected into the image frame.
         :return [float] avg_error: average L1 error across the entire image.
         """
+        #TODO: bin error by depth value
         predicted_depth_map = layers.disp_to_depth(predicted_disp_map, .1, 100)[1]
         predicted_depth_map = predicted_depth_map.squeeze(0).squeeze(0) * 31.257
         
