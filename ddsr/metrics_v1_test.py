@@ -8,8 +8,6 @@ import cv2
 
 import pytest
 import metrics_v1 as m
-import kitti_utils as ku
-import overlay_lidar_utils as olu
 
 lidar_path = 'data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/velodyne_points/data/0000000000.bin'
 date_path = 'data/kitti_example/2011_09_26/'
