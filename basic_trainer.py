@@ -20,6 +20,7 @@ from kitti_dataset import KittiDataset
 from loss import process_depth, calc_loss
 from third_party.monodepth2.ResnetEncoder import ResnetEncoder
 from third_party.monodepth2.DepthDecoder import DepthDecoder
+from third_party.monodepth2.PoseDecoder import PoseDecoder
 
 LOSS_VIS_SIZE = (10, 4)
 LOSS_VIS_CMAP = "cividis"
@@ -79,10 +80,15 @@ class Trainer:
         self.models['depth_decoder'] = DepthDecoder(num_ch_enc=self.models['resnet_encoder'].num_ch_enc,
                                                     scales=range(self.num_scales)).to(self.device)
 
+        self.models["pose_encoder"] = ResnetEncoder(self.config["encoder_layers"], pretrained=self.pretrained, num_input_images=2).to(self.device)
+        self.models["pose_decoder"] = PoseDecoder(self.models["pose_encoder"].num_ch_enc, num_input_features=1, num_frames_to_predict_for=2).to(self.device)
+
         # Parameters
         parameters_to_train = []
         parameters_to_train += list(self.models['resnet_encoder'].parameters())
         parameters_to_train += list(self.models['depth_decoder'].parameters())
+        parameters_to_train += list(self.models["pose_encoder"].parameters())
+        parameters_to_train += list(self.models["pose_decoder"].parameters())
 
         # Optimizer
         learning_rate = self.config["learning_rate"]
