@@ -69,13 +69,7 @@ def plot_sparse_img_and_surrounding_lidar(front_lidar_points_image_plane, pixel_
     plt.show()
 
 
-def calc_transformation_matrix(rotation, translation):
-    """
-    Calculates the homogeneous transformation matrix given relative rotation and translation
-    :param [np.ndarray] rotation: Shape of [3] containing the relative roll, pitch, and yaw (in radians)
-    :param [np.ndarray] translation: Shape of [3] containing the relative XYZ displacement
-    :return [np.ndarray]: 4x4 matrix that transforms given the relative rotation and translation
-    """
+def calc_rotation_matrix(rotation):
     sin_rot = np.sin(rotation)
     cos_rot = np.cos(rotation)
     return np.array([
@@ -83,22 +77,54 @@ def calc_transformation_matrix(rotation, translation):
             cos_rot[2] * cos_rot[1],
             cos_rot[2] * sin_rot[1] * sin_rot[0] - sin_rot[2] * cos_rot[0],
             cos_rot[2] * sin_rot[1] * cos_rot[0] + sin_rot[2] * sin_rot[0],
-            translation[0]
         ],
         [
             sin_rot[2] * cos_rot[1],
             sin_rot[2] * sin_rot[1] * sin_rot[0] + cos_rot[2] * cos_rot[0],
             sin_rot[2] * sin_rot[1] * sin_rot[0] - cos_rot[2] * sin_rot[0],
-            translation[1]
         ],
         [
             -1 * sin_rot[1],
             cos_rot[1] * sin_rot[0],
             cos_rot[1] * cos_rot[0],
-            translation[2]
         ],
-        [0, 0, 0, 1],
     ], dtype=np.float32)
+
+
+def calc_transformation_matrix(rotation, translation):
+    """
+    Calculates the homogeneous transformation matrix given relative rotation and translation
+    :param [np.ndarray] rotation: Shape of [3] containing the relative roll, pitch, and yaw (in radians)
+    :param [np.ndarray] translation: Shape of [3] containing the relative XYZ displacement
+    :return [np.ndarray]: 4x4 matrix that transforms given the relative rotation and translation
+    """
+    out_array = np.eye(4, dtype=np.float32)
+    out_array[:3, :3] = calc_rotation_matrix(rotation)
+    out_array[:3, 3] = translation
+    return out_array
+    # sin_rot = np.sin(rotation)
+    # cos_rot = np.cos(rotation)
+    # return np.array([
+    #     [
+    #         cos_rot[2] * cos_rot[1],
+    #         cos_rot[2] * sin_rot[1] * sin_rot[0] - sin_rot[2] * cos_rot[0],
+    #         cos_rot[2] * sin_rot[1] * cos_rot[0] + sin_rot[2] * sin_rot[0],
+    #         translation[0]
+    #     ],
+    #     [
+    #         sin_rot[2] * cos_rot[1],
+    #         sin_rot[2] * sin_rot[1] * sin_rot[0] + cos_rot[2] * cos_rot[0],
+    #         sin_rot[2] * sin_rot[1] * sin_rot[0] - cos_rot[2] * sin_rot[0],
+    #         translation[1]
+    #     ],
+    #     [
+    #         -1 * sin_rot[1],
+    #         cos_rot[1] * sin_rot[0],
+    #         cos_rot[1] * cos_rot[0],
+    #         translation[2]
+    #     ],
+    #     [0, 0, 0, 1],
+    # ], dtype=np.float32)
 
 
 def calc_photo_error(target_image, color_points):
