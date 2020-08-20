@@ -6,8 +6,6 @@ import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import cv2
 
-import metrics as m
-
 def compute_l1_error(depth, lidar):
     """
     This function computes the metrics of the loss and allows an understanding of how well the model is
