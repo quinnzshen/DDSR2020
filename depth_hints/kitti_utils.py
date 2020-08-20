@@ -53,7 +53,8 @@ def generate_depth_map(calib_dir, velo_filename, cam=2, vel_depth=False):
     velo2cam = np.vstack((velo2cam, np.array([0, 0, 0, 1.0])))
 
     # get image shape
-    im_shape = cam2cam["S_rect_02"][::-1].astype(np.int32)
+    #im_shape = cam2cam["S_rect_02"][::-1].astype(np.int32)
+    im_shape = np.array([375, 1242])
 
     # compute projection matrix velodyne->image plane
     R_cam2rect = np.eye(4)
