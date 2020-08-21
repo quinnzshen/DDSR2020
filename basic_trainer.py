@@ -41,7 +41,7 @@ class Trainer:
 
         # GPU/CPU setup
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        # torch.cuda.empty_cache()
+        torch.cuda.empty_cache()
 
         # Epoch and batch info
         self.num_epochs = self.config["num_epochs"]
@@ -141,7 +141,9 @@ class Trainer:
 
         self.models['resnet_encoder'].train()
         self.models['depth_decoder'].train()
-
+        self.models['pose_encoder'].train()
+        self.models['pose_decoder'].train()
+        
         self.steps_until_write = total_loss = count = 0
         for batch_idx, batch in enumerate(self.train_dataloader):
             count += 1
@@ -162,6 +164,9 @@ class Trainer:
 
         self.models['resnet_encoder'].eval()
         self.models['depth_decoder'].eval()
+        self.models['pose_encoder'].eval()
+        self.models['pose_decoder'].eval()
+        
         self.steps_until_write = total_loss = count = 0
         for batch_idx, batch in enumerate(self.val_dataloader):
             with torch.no_grad():
@@ -189,24 +194,31 @@ class Trainer:
         local_batch_size = len(inputs)
         features = self.models['resnet_encoder'](inputs)
         outputs = self.models['depth_decoder'](features)
-
+        
         # Loading source images and pose data
         sources_list = []
         poses_list = []
         if self.use_stereo:
             sources_list.append(batch["stereo_right_image"].float().to(self.device))
             poses_list.append(batch["rel_pose_stereo"].to(self.device))
-
+        
         for i in range(-self.prev_frames, self.next_frames + 1):
             if i == 0:
                 continue
             sources_list.append(batch["nearby_frames"][i]["camera_data"]["stereo_left_image"].float().to(self.device))
-            poses_list.append(batch["nearby_frames"][i]["pose"].to(self.device))
-
+            #poses_list.append(batch["nearby_frames"][i]["pose"].to(self.device))
+            if i < 0:
+                pose_inputs = [batch["nearby_frames"][i]["camera_data"]["stereo_left_image"].float().to(self.device), inputs]
+            elif i > 0:
+                pose_inputs = [inputs, batch["nearby_frames"][i]["camera_data"]["stereo_left_image"].float().to(self.device)]
+            pose_features = [self.models["pose_encoder"](torch.cat(pose_inputs, 1))] 
+            axisangle, translation = self.models["pose_decoder"](pose_features)
+            poses_list.append(transformation_from_parameters(axisangle[:, 0], translation[:, 0], invert=(i < 0)).to(self.device))
+        
         # Stacking source images and pose data
         sources = torch.stack(sources_list, dim=0)
         poses = torch.stack(poses_list, dim=0)
-
+        
         # Loading intrinsics
         tgt_intrinsics = batch["intrinsics"]["stereo_left"].to(self.device)
         if self.use_stereo:
@@ -386,8 +398,8 @@ class Trainer:
                               automask,
                               img_num)
         self.writer.add_image(f"{name} Losses/Epoch: {self.epoch + 1}",
-                            loss,
-                            img_num)
+                              loss,
+                              img_num)
         self.writer.add_image(f"{name} Backward Reprojection/Epoch: {self.epoch + 1}",
                               reproj[0], img_num)
         self.writer.add_image(f"{name} Forward Reprojection/Epoch: {self.epoch + 1}",
@@ -410,7 +422,80 @@ def disp_to_depth(disp, min_depth, max_depth):
     depth = 1 / scaled_disp
     return scaled_disp, depth
 
+def transformation_from_parameters(axisangle, translation, invert=False):
+    """Convert the network's (axisangle, translation) output into a 4x4 matrix
+    """
+    R = rot_from_axisangle(axisangle)
+    t = translation.clone()
 
+    if invert:
+        R = R.transpose(1, 2)
+        t *= -1
+
+    T = get_translation_matrix(t)
+
+    if invert:
+        M = torch.matmul(R, T)
+    else:
+        M = torch.matmul(T, R)
+
+    return M
+def get_translation_matrix(translation_vector):
+    """Convert a translation vector into a 4x4 transformation matrix
+    """
+    T = torch.zeros(translation_vector.shape[0], 4, 4).to(device=translation_vector.device)
+
+    t = translation_vector.contiguous().view(-1, 3, 1)
+
+    T[:, 0, 0] = 1
+    T[:, 1, 1] = 1
+    T[:, 2, 2] = 1
+    T[:, 3, 3] = 1
+    T[:, :3, 3, None] = t
+
+    return T
+
+
+def rot_from_axisangle(vec):
+    """Convert an axisangle rotation into a 4x4 transformation matrix
+    (adapted from https://github.com/Wallacoloo/printipi)
+    Input 'vec' has to be Bx1x3
+    """
+    angle = torch.norm(vec, 2, 2, True)
+    axis = vec / (angle + 1e-7)
+
+    ca = torch.cos(angle)
+    sa = torch.sin(angle)
+    C = 1 - ca
+
+    x = axis[..., 0].unsqueeze(1)
+    y = axis[..., 1].unsqueeze(1)
+    z = axis[..., 2].unsqueeze(1)
+
+    xs = x * sa
+    ys = y * sa
+    zs = z * sa
+    xC = x * C
+    yC = y * C
+    zC = z * C
+    xyC = x * yC
+    yzC = y * zC
+    zxC = z * xC
+
+    rot = torch.zeros((vec.shape[0], 4, 4)).to(device=vec.device)
+
+    rot[:, 0, 0] = torch.squeeze(x * xC + ca)
+    rot[:, 0, 1] = torch.squeeze(xyC - zs)
+    rot[:, 0, 2] = torch.squeeze(zxC + ys)
+    rot[:, 1, 0] = torch.squeeze(xyC + zs)
+    rot[:, 1, 1] = torch.squeeze(y * yC + ca)
+    rot[:, 1, 2] = torch.squeeze(yzC - xs)
+    rot[:, 2, 0] = torch.squeeze(zxC - ys)
+    rot[:, 2, 1] = torch.squeeze(yzC + xs)
+    rot[:, 2, 2] = torch.squeeze(z * zC + ca)
+    rot[:, 3, 3] = 1
+
+    return rot
 if __name__ == "__main__":
     test = Trainer("configs/full_model.yml")
     test.train()
