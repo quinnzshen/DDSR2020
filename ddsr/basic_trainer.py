@@ -208,11 +208,11 @@ class Trainer:
             sources_list.append(batch["nearby_frames"][i]["camera_data"]["stereo_left_image"].float().to(self.device))
             if i < 0:
                 pose_inputs = [batch["nearby_frames"][i]["camera_data"]["stereo_left_image"].float().to(self.device), inputs]
-            elif i > 0:
+            else:
                 pose_inputs = [inputs, batch["nearby_frames"][i]["camera_data"]["stereo_left_image"].float().to(self.device)]
             pose_features = [self.models["pose_encoder"](torch.cat(pose_inputs, 1))] 
             axisangle, translation = self.models["pose_decoder"](pose_features)
-            poses_list.append(transformation_from_parameters(axisangle[:, 0], translation[:, 0], invert=(i < 0)).to(self.device))
+            poses_list.append(transformation_from_parameters(axisangle[:, 0], translation[:, 0], invert=(i < 0)))
         
         # Stacking source images and pose data
         sources = torch.stack(sources_list, dim=0)
