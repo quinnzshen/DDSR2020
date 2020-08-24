@@ -8,7 +8,7 @@ import os
 import pandas as pd
 from enum import Enum
 
-from compute_photometric_error_utils import calc_transformation_matrix
+from compute_photometric_error_utils import calc_transformation_matrix, calc_rotation_matrix
 
 
 class KITTICameraNames(str, Enum):
@@ -297,11 +297,13 @@ def get_relative_pose_between_consecutive_frames(scene_path, target, source):
             datas = np.array(fs.readline().split(), dtype=np.float)
 
             # Calculates relative rotation and velocity
-            rot = np.array(datat[3:6], dtype=np.float) - np.array(datas[3:6], dtype=np.float)
+            drot = np.array(datat[3:6], dtype=np.float) - np.array(datas[3:6], dtype=np.float)
             velo = (datat[VELO_INDICES] + datas[VELO_INDICES]) / 2
-            yaw = -datat[5]
-            yaw_rot_mat = np.array([[np.cos(yaw), -np.sin(yaw)], [np.sin(yaw), np.cos(yaw)]])
-            velo[:2] = velo[:2] @ yaw_rot_mat.T
+            source_rot_mat = calc_rotation_matrix(datas[3:6])
+            velo = velo @ np.linalg.inv(source_rot_mat.T)
+            # yaw = -datat[5]
+            # yaw_rot_mat = np.array([[np.cos(yaw), -np.sin(yaw)], [np.sin(yaw), np.cos(yaw)]])
+            # velo[:2] = velo[:2] @ yaw_rot_mat.T
 
     # Determines the relative time passed between the 2 frames, as target - source
     with open(os.path.join(scene_path, "oxts/timestamps.txt")) as time:
@@ -321,8 +323,10 @@ def get_relative_pose_between_consecutive_frames(scene_path, target, source):
     # Determines displacement by multiplying velocity by time
     pos = velo * delta_time_nsec / 1E9
     # Convert trnasformation from IMU frame to camera frame.
+    pos_cam = pos
+    rot_cam = drot
     pos_cam = np.array([-pos[1], -pos[2], pos[0]])
-    rot_cam = np.array([-rot[1], -rot[2], rot[0]])
+    rot_cam = np.array([-drot[1], -drot[2], drot[0]])
     rel_pose = calc_transformation_matrix(rot_cam, pos_cam)
     return torch.from_numpy(rel_pose)
 
@@ -341,3 +345,77 @@ def get_pose(scene_path, frame):
     pose[:3, 3] = rel_translation
 
     return pose
+
+
+def get_abs_pose(scene_path, frame):
+    er = 6378137.  # earth radius (approx.) in meters
+
+    with open(os.path.join(scene_path, f"oxts/data/{frame:010}.txt")) as oxt_file:
+        data = np.array(oxt_file.readline().split(), dtype=np.float)
+        latlonalt = data[:3]
+        rpy = data[3:6]
+        scale = np.cos(latlonalt[0] * np.pi / 180.)
+        tx = scale * latlonalt[1] * np.pi * er / 180
+        ty = scale * er * np.log(np.tan((90 + latlonalt[0]) * np.pi / 360))
+        tz = latlonalt[2]
+
+    with open(os.path.join(scene_path, f"oxts/data/{0:010}.txt")) as orig:
+        data = np.array(orig.readline().split(), dtype=np.float)
+        latlonalt = data[:3]
+        scale = np.cos(latlonalt[0] * np.pi / 180.)
+        orig_t = np.array([
+            scale * latlonalt[1] * np.pi * er / 180,
+            scale * er * np.log(np.tan((90 + latlonalt[0]) * np.pi / 360)),
+            latlonalt[2]
+        ])
+
+    # Use a Mercator projection to get the translation vector
+    # tx = scale * packet.lon * np.pi * er / 180.
+    # ty = scale * er * \
+    #      np.log(np.tan((90. + packet.lat) * np.pi / 360.))
+    # tz = packet.alt
+    t = np.array([tx, ty, tz])
+
+    def rotx(t):
+        """Rotation about the x-axis."""
+        c = np.cos(t)
+        s = np.sin(t)
+        return np.array([[1, 0, 0],
+                         [0, c, -s],
+                         [0, s, c]])
+
+    def roty(t):
+        """Rotation about the y-axis."""
+        c = np.cos(t)
+        s = np.sin(t)
+        return np.array([[c, 0, s],
+                         [0, 1, 0],
+                         [-s, 0, c]])
+
+    def rotz(t):
+        """Rotation about the z-axis."""
+        c = np.cos(t)
+        s = np.sin(t)
+        return np.array([[c, -s, 0],
+                         [s, c, 0],
+                         [0, 0, 1]])
+    # Use the Euler angles to get the rotation matrix
+    Rx = rotx(rpy[0])
+    Ry = roty(rpy[1])
+    Rz = rotz(rpy[2])
+    R = Rz.dot(Ry.dot(Rx))
+    Rr = calc_rotation_matrix(rpy)
+    print(R, "Theirs")
+    print(Rr, "Ours")
+    out = np.eye(4, dtype=np.float)
+    out[:3, :3] = R
+    out[:3, 3] = t - orig_t
+    # Combine the translation and rotation into a homogeneous transform
+    return torch.from_numpy(out)
+
+
+if __name__ == "__main__":
+    calib_path = "data/kitti_example/2011_09_28"
+    scene_path = os.path.join(calib_path, "2011_09_28_drive_0001_sync")
+    get_abs_pose(scene_path, 3)
+
