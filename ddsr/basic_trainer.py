@@ -21,7 +21,7 @@ from loss import process_depth, calc_loss
 from third_party.monodepth2.ResnetEncoder import ResnetEncoder
 from third_party.monodepth2.DepthDecoder import DepthDecoder
 from third_party.monodepth2.PoseDecoder import PoseDecoder
-from third_party.monodepth2.layers import transformation_from_parameters
+from third_party.monodepth2.layers import transformation_from_parameters, disp_to_depth
 
 LOSS_VIS_SIZE = (10, 4)
 LOSS_VIS_CMAP = "cividis"
@@ -384,27 +384,18 @@ class Trainer:
         self.writer.add_image(f"{name} Losses/Epoch: {self.epoch + 1}",
                               loss,
                               img_num)
-        self.writer.add_image(f"{name} Backward Reprojection/Epoch: {self.epoch + 1}",
-                              reproj[0], img_num)
-        self.writer.add_image(f"{name} Forward Reprojection/Epoch: {self.epoch + 1}",
-                              reproj[1], img_num)
-
-def disp_to_depth(disp, min_depth, max_depth):
-    """
-    Converts network's sigmoid output into depth prediction (from monodepth 2 repo)
-    The formula for this conversion is given in the 'additional considerations'
-    section of the paper
-    :param [tensor] disp: The disparity map outputted by the network
-    :param [int] min_depth: The minimum depth value
-    :param [int] max_depth: The maximum depth value
-    """
-
-    min_disp = 1 / max_depth
-    max_disp = 1 / min_depth
-    scaled_disp = min_disp + (max_disp - min_disp) * disp
-    depth = 1 / scaled_disp
-    return scaled_disp, depth
-
+        if self.use_stereo:
+            self.writer.add_image(f"{name} Stereo Reprojection/Epoch: {self.epoch + 1}",
+                                  reproj[0], img_num)
+            self.writer.add_image(f"{name} Backward Reprojection/Epoch: {self.epoch + 1}",
+                                  reproj[1], img_num)
+            self.writer.add_image(f"{name} Forward Reprojection/Epoch: {self.epoch + 1}",
+                                  reproj[2], img_num)
+        else:
+            self.writer.add_image(f"{name} Backward Reprojection/Epoch: {self.epoch + 1}",
+                                  reproj[0], img_num)
+            self.writer.add_image(f"{name} Forward Reprojection/Epoch: {self.epoch + 1}",
+                                  reproj[1], img_num)
 
 if __name__ == "__main__":
     test = Trainer("configs/full_model.yml")
