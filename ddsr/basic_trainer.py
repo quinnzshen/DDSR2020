@@ -17,7 +17,7 @@ from third_party.monodepth2.layers import BackprojectDepth, Project3D
 
 from collate import Collator
 from kitti_dataset import KittiDataset
-from loss import process_depth, calc_loss
+from loss import process_depth, calc_loss, GenerateReprojections
 from third_party.monodepth2.ResnetEncoder import ResnetEncoder
 from third_party.monodepth2.DepthDecoder import DepthDecoder
 from third_party.monodepth2.PoseDecoder import PoseDecoder
@@ -99,14 +99,12 @@ class Trainer:
         weight_decay = self.config["weight_decay"]
         self.lr_scheduler = optim.lr_scheduler.StepLR(self.optimizer, scheduler_step_size, weight_decay)
 
-        # Testing process depth from Monodepth
-        self.backproj = []
-        self.proj3d = []
+        # Setting up reprojection
+        self.gen_reproj = []
         for i in range(self.num_scales):
             h = self.height // (2 ** i)
             w = self.width // (2 ** i)
-            self.backproj.append(BackprojectDepth(self.batch_size, h, w).to(self.device))
-            self.proj3d.append(Project3D(self.batch_size, h, w).to(self.device))
+            self.gen_reproj.append(GenerateReprojections(h, w, self.batch_size).to(self.device))
 
         # Writer for tensorboard
         self.writer = SummaryWriter()
@@ -146,7 +144,7 @@ class Trainer:
         self.models['depth_decoder'].train()
         self.models['pose_encoder'].train()
         self.models['pose_decoder'].train()
-        
+
         self.steps_until_write = total_loss = count = 0
         for batch_idx, batch in enumerate(self.train_dataloader):
             count += 1
@@ -169,7 +167,7 @@ class Trainer:
         self.models['depth_decoder'].eval()
         self.models['pose_encoder'].eval()
         self.models['pose_decoder'].eval()
-        
+
         self.steps_until_write = total_loss = count = 0
         for batch_idx, batch in enumerate(self.val_dataloader):
             with torch.no_grad():
@@ -197,30 +195,30 @@ class Trainer:
         local_batch_size = len(inputs)
         features = self.models['resnet_encoder'](inputs)
         outputs = self.models['depth_decoder'](features)
-        
+
         # Loading source images and pose data
         sources_list = []
         poses_list = []
         if self.use_stereo:
             sources_list.append(batch["stereo_right_image"].float().to(self.device))
             poses_list.append(batch["rel_pose_stereo"].to(self.device))
-        
+
         for i in range(-self.prev_frames, self.next_frames + 1):
             if i == 0:
                 continue
             sources_list.append(batch["nearby_frames"][i]["camera_data"]["stereo_left_image"].float().to(self.device))
             if i < 0:
                 pose_inputs = [batch["nearby_frames"][i]["camera_data"]["stereo_left_image"].float().to(self.device), inputs]
-            elif i > 0:
+            else:
                 pose_inputs = [inputs, batch["nearby_frames"][i]["camera_data"]["stereo_left_image"].float().to(self.device)]
-            pose_features = [self.models["pose_encoder"](torch.cat(pose_inputs, 1))] 
+            pose_features = [self.models["pose_encoder"](torch.cat(pose_inputs, 1))]
             axisangle, translation = self.models["pose_decoder"](pose_features)
-            poses_list.append(transformation_from_parameters(axisangle[:, 0], translation[:, 0], invert=(i < 0)).to(self.device))
-        
+            poses_list.append(transformation_from_parameters(axisangle[:, 0], translation[:, 0], invert=(i < 0)))
+
         # Stacking source images and pose data
         sources = torch.stack(sources_list, dim=0)
         poses = torch.stack(poses_list, dim=0)
-        
+
         # Loading intrinsics
         tgt_intrinsics = batch["intrinsics"]["stereo_left"].to(self.device)
         if self.use_stereo:
@@ -271,25 +269,26 @@ class Trainer:
                 intrinsics_list.append(tgt_intrinsics_scale)
 
             src_intrinsics_scale = torch.stack(intrinsics_list)
-            
+
             # Reprojection
-            reprojected = process_depth(sources_scale, depths, poses, tgt_intrinsics_scale, src_intrinsics_scale, (h, w))
-    
+            reprojected = self.gen_reproj[scale](sources_scale, depths, poses, tgt_intrinsics_scale, src_intrinsics_scale, local_batch_size)
+            reprojected = torch.stack(reprojected, dim=0)
+
             # Compute Losses            
             loss_inputs = {"targets": inputs_scale,
                            "sources": sources_scale}
             loss_outputs = {"reproj": reprojected,
                             "disparities": disp}
-            
-            loss, automask, min_loss  = calc_loss(loss_inputs, loss_outputs, scale)
-            
+
+            loss, automask, min_loss = calc_loss(loss_inputs, loss_outputs, scale)
+
             losses.append(loss)
             automasks.append(automask)
             min_losses.append(min_loss)
             reprojections.append(reprojected)
-           
+
             total_loss += losses[scale]
-        
+
         total_loss /= self.num_scales
 
         # Backpropagation
@@ -297,7 +296,7 @@ class Trainer:
             self.optimizer.zero_grad()
             total_loss.backward()
             self.optimizer.step()
-                
+
         # Add image, disparity map, and loss to tensorboard
         curr_idx = 0
         while curr_idx < local_batch_size:

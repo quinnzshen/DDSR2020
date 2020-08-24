@@ -149,6 +149,44 @@ def calc_loss(inputs, outputs, scale=0, smooth_term=0.001):
     return loss, mask, min_error_vis
 
 
+class GenerateReprojections(nn.Module):
+    def __init__(self, height, width, default_batch_size):
+        super(GenerateReprojections, self).__init__()
+
+        self.h = height
+        self.w = width
+        self.batch_size = default_batch_size
+
+        meshgrid = torch.meshgrid([
+            torch.arange(height, dtype=torch.float,),
+            torch.arange(width, dtype=torch.float,)
+        ])
+        img_coords = torch.stack((meshgrid[1].reshape(-1), meshgrid[0].reshape(-1)), dim=0).unsqueeze(0).repeat(
+            default_batch_size, 1, 1)
+        self.ones = nn.Parameter(torch.ones(self.batch_size, 1, width * height), requires_grad=False)
+        self.img_indices = nn.Parameter(torch.cat([img_coords, self.ones], 1), requires_grad=False)
+
+    def forward(self, src_images, depths, poses, tgt_intr, src_intr, local_batch_size):
+        reprojected = []
+        tgt_intr_inv = tgt_intr.inverse()
+        for i in range(len(poses)):
+            print((tgt_intr_inv @ self.img_indices[:local_batch_size]).shape)
+            print(depths.view(local_batch_size, 1, -1).shape)
+            world_coords = depths.view(local_batch_size, 1, -1) * (tgt_intr_inv[:, :3, :3] @ self.img_indices[:local_batch_size])
+            world_coords = torch.cat([world_coords, self.ones[:local_batch_size]], dim=1)
+            src_coords = (src_intr[i] @ poses[i][:, :3]) @ world_coords
+
+            src_coords = src_coords[:, :2] / (src_coords[:, 2].unsqueeze(1) + 1e-7)
+            src_coords = src_coords.view(local_batch_size, 2, self.h, self.w)
+            src_coords = src_coords.permute(0, 2, 3, 1)
+            src_coords[..., 0] /= self.w - 1
+            src_coords[..., 1] /= self.h - 1
+            src_coords = (src_coords - 0.5) * 2
+
+            reprojected.append(F.grid_sample(src_images[i], src_coords, padding_mode="border", align_corners=False))
+        return reprojected
+
+
 def process_depth(src_images, depths, poses, tgt_intr, src_intr, img_shape):
     """
     Reprojects a batch of source images into the target frame, using the target depth map, relative pose between the
