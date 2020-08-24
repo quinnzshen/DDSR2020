@@ -13,3 +13,6 @@ num_workers: 12
 use_stereo: True
 train_config_path: configs/full_train_dataset.yml
 valid_config_path: configs/full_validation_dataset.yml
+test_config_path: configs/full_test_dataset.yml
+log_path: full_experiment_0
+gt_path: data/gt_full

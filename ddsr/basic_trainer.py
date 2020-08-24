@@ -117,6 +117,9 @@ class Trainer:
         # Utility variables
         self.steps_until_write = 0
         self.epoch = 0
+        
+        # Log path
+        self.log_path = self.config["log_path"]
 
     def train(self):
         """
@@ -319,7 +322,7 @@ class Trainer:
         """
         Saves model weights to disk (from monodepth2 repo)
         """
-        save_folder = os.path.join("models", "weights_{}".format(self.epoch))
+        save_folder = os.path.join("models", self.log_path, "weights_{}".format(self.epoch))
         if not os.path.exists(save_folder):
             os.makedirs(save_folder)
         for model_name, model in self.models.items():
