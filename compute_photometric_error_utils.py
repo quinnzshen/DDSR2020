@@ -81,7 +81,7 @@ def calc_rotation_matrix(rotation):
         [
             sin_rot[2] * cos_rot[1],
             sin_rot[2] * sin_rot[1] * sin_rot[0] + cos_rot[2] * cos_rot[0],
-            sin_rot[2] * sin_rot[1] * sin_rot[0] - cos_rot[2] * sin_rot[0],
+            sin_rot[2] * sin_rot[1] * cos_rot[0] - cos_rot[2] * sin_rot[0],
         ],
         [
             -1 * sin_rot[1],
