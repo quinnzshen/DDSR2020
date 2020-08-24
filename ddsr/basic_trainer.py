@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from torchvision import transforms
 import yaml
-#from tensorflow.image import decode_jpeg
+from tensorflow.image import decode_jpeg
 from third_party.monodepth2.layers import BackprojectDepth, Project3D
 
 from collate import Collator
@@ -270,30 +270,20 @@ class Trainer:
             src_intrinsics_scale = torch.stack(intrinsics_list)
             
             # Reprojection
-            reprojected_list = []
-            for i in range(len(poses_list)):
-                cam_points = self.backproj[scale](depths, tgt_intrinsics_scale.inverse(), local_batch_size)
-                new_intr = torch.eye(4, dtype=torch.float, device=self.device).repeat(local_batch_size, 1, 1)
-                new_intr[:, :3, :3] = src_intrinsics_scale[i]
-                pix_coords = self.proj3d[scale](cam_points, new_intr, poses[i], local_batch_size)
-                reproj = F.grid_sample(sources[i], pix_coords, padding_mode="border")
-                reprojected_list.append(reproj)
-            reprojected = torch.stack(reprojected_list, dim=0)
-            #reprojected, mask = process_depth(sources_scale, depths, poses, tgt_intrinsics_scale, src_intrinsics_scale,
-                                            #  (h, w))
+            reprojected = process_depth(sources_scale, depths, poses, tgt_intrinsics_scale, src_intrinsics_scale, (h, w))
     
             # Compute Losses            
             loss_inputs = {"targets": inputs_scale,
                            "sources": sources_scale}
             loss_outputs = {"reproj": reprojected,
-                            "disparities": disp,
-                            "initial_masks": mask}
+                            "disparities": disp}
             
             loss, automask, min_loss  = calc_loss(loss_inputs, loss_outputs, scale)
             
             losses.append(loss)
             automasks.append(automask)
             min_losses.append(min_loss)
+            reprojections.append(reprojected)
            
             total_loss += losses[scale]
         
@@ -304,9 +294,7 @@ class Trainer:
             self.optimizer.zero_grad()
             total_loss.backward()
             self.optimizer.step()
-        
-        local_batch_size = len(inputs)
-        
+                
         # Add image, disparity map, and loss to tensorboard
         curr_idx = 0
         while curr_idx < local_batch_size:
@@ -378,8 +366,8 @@ class Trainer:
         plt.savefig(buf, format="jpg")
         plt.close(figure)
         buf.seek(0)
-        #loss = torch.from_numpy(decode_jpeg(buf.getvalue()).numpy())
-        #loss = loss.permute(2, 0, 1)
+        loss = torch.from_numpy(decode_jpeg(buf.getvalue()).numpy())
+        loss = loss.permute(2, 0, 1)
 
         reproj /= 255
 
@@ -393,9 +381,9 @@ class Trainer:
         self.writer.add_image(f"{name} Automasks/Epoch: {self.epoch + 1}",
                               automask,
                               img_num)
-        #self.writer.add_image(f"{name} Losses/Epoch: {self.epoch + 1}",
-         #                     loss,
-         #                     img_num)
+        self.writer.add_image(f"{name} Losses/Epoch: {self.epoch + 1}",
+                              loss,
+                              img_num)
         self.writer.add_image(f"{name} Backward Reprojection/Epoch: {self.epoch + 1}",
                               reproj[0], img_num)
         self.writer.add_image(f"{name} Forward Reprojection/Epoch: {self.epoch + 1}",
