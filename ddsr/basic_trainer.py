@@ -355,7 +355,6 @@ class Trainer:
         colormapped_img = img_np.astype(np.uint8).transpose(1, 2, 0)
         final_img = transforms.ToTensor()(colormapped_img)
 
-
         loss_mean = loss.mean()
         figure = plt.figure(figsize=LOSS_VIS_SIZE)
         plt.imshow(loss.cpu(), cmap=LOSS_VIS_CMAP)
@@ -395,6 +394,7 @@ class Trainer:
                                   reproj[0], img_num)
             self.writer.add_image(f"{name} Forward Reprojection/Epoch: {self.epoch + 1}",
                                   reproj[1], img_num)
+
 
 if __name__ == "__main__":
     test = Trainer("configs/full_model.yml")
