@@ -41,4 +41,4 @@ def export_gt_depths_kitti(split_path, gt_depth_dir, output_dir):
     np.savez_compressed(output_path, data=np.array(gt_depths))
 
 if __name__ == "__main__":
-    export_gt_depths_kitti("splits/basic_test_split.txt", "data/gt_example", "data/gt_example")
+    export_gt_depths_kitti("splits/eigen_zhou/test.txt", "data/kitti_gt", "data/eigen_zhou_test")

@@ -121,4 +121,5 @@ def run_metrics(config_path, epoch):
     print(("&{: 8.3f}  " * 7).format(*mean_errors.tolist()) + "\\\\")
     print("\n-> Done!")
 
-run_metrics("configs/basic_model.yml", 5)
+if __name__ == "__main__":
+    run_metrics("configs/full_model.yml", 5)
