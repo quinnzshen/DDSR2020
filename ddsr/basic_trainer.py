@@ -1,8 +1,9 @@
+import argparse
+import io
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import numpy as np
-import io
 import os
 import time
 import torch
@@ -400,4 +401,11 @@ class Trainer:
 
 if __name__ == "__main__":
     test = Trainer("configs/full_model.yml")
+    parser = argparse.ArgumentParser(description="ddsr options")
+    parser.add_argument("--config_path",
+                             type = str,
+                             help = "path to the config",
+                             default = "configs/full_model.yml")
+    opt = parser.parse_args()
+    test = Trainer(opt.config_path)
     test.train()

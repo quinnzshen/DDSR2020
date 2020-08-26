@@ -1,14 +1,8 @@
-# Copyright Niantic 2020. Patent Pending. All rights reserved.
-#
-# This software is licensed under the terms of the DepthHints licence
-# which allows for non-commercial use only, the full terms of which are made
-# available in the LICENSE file.
-
 from __future__ import absolute_import, division, print_function
 
-import os
-
+import argparse
 import numpy as np
+import os
 import PIL.Image as pil
 
 def export_gt_depths_kitti(split_path, gt_depth_dir, output_dir):
@@ -41,4 +35,18 @@ def export_gt_depths_kitti(split_path, gt_depth_dir, output_dir):
     np.savez_compressed(output_path, data=np.array(gt_depths))
 
 if __name__ == "__main__":
-    export_gt_depths_kitti("splits/eigen_zhou/test.txt", "data/kitti_gt/depth_maps", "data/kitti_gt")
+    parser = argparse.ArgumentParser(description="ddsr options")
+    parser.add_argument("--split_path",
+                             type = str,
+                             help = "path to split file",
+                             default = "splits/eigen_zhou/test.txt")
+    parser.add_argument("--gt_depth_dir",
+                             type = int,
+                             help = "path to directory containing all ground truth depth maps",
+                             default = "data/kitti_gt/depth_maps")
+    parser.add_argument("--output_dir",
+                             type = int,
+                             help = "path to directory containing exported ground truth depth maps",
+                             default = "data/kitti_gt")
+    opt = parser.parse_args()
+    export_gt_depths_kitti(opt.split_path, opt.gt_depth_dir, opt.output_dir)

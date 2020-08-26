@@ -1,10 +1,11 @@
-from torch.utils.data import DataLoader
-from kitti_dataset import KittiDataset
+import argparse
 from collate import Collator
+from kitti_dataset import KittiDataset
 import numpy as np
 import os
 import cv2
 import torch
+from torch.utils.data import DataLoader
 import yaml
 from third_party.monodepth2.ResnetEncoder import ResnetEncoder
 from third_party.monodepth2.DepthDecoder import DepthDecoder
@@ -13,7 +14,7 @@ from third_party.monodepth2.layers import disp_to_depth
 cv2.setNumThreads(0)
 
 def compute_errors(gt, pred):
-    """Computation of error metrics between predicted and ground truth depths
+    """Computation of error metrics between predicted and ground truth depths. Taken from Monodepth2
     """
     thresh = np.maximum((gt / pred), (pred / gt))
     a1 = (thresh < 1.25     ).mean()
@@ -33,7 +34,10 @@ def compute_errors(gt, pred):
     return abs_rel, sq_rel, rmse, rmse_log, a1, a2, a3
 
 def run_metrics(config_path, epoch):
-    
+    """Computes metrics based on a specified config_path and epoch number. Adapted from Monodepth2
+    :param [String] config_path: Path to the config that the model was trained on
+    :param [int] epoch: Epoch number corresponding to the model that metrics will be evaluated on
+    """
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     MIN_DEPTH = 0.1
     MAX_DEPTH = 100
@@ -122,4 +126,14 @@ def run_metrics(config_path, epoch):
     print("\n-> Done!")
 
 if __name__ == "__main__":
-    run_metrics("configs/full_model.yml", 8)
+    parser = argparse.ArgumentParser(description="metrics options")
+    parser.add_argument("--config_path",
+                             type = str,
+                             help = "path to the config",
+                             default = "configs/full_model.yml")
+    parser.add_argument("--epoch",
+                             type = int,
+                             help = "epoch number",
+                             default = 10)
+    opt = parser.parse_args()
+    run_metrics(opt.config_path, opt.epoch)
