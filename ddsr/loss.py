@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-import numpy as np
 import torch.nn.functional as F
 
 class SSIM(nn.Module):
@@ -183,65 +182,3 @@ class GenerateReprojections(nn.Module):
 
             reprojected.append(F.grid_sample(src_images[i], src_coords, padding_mode="border", align_corners=False))
         return reprojected
-
-
-def process_depth(src_images, depths, poses, tgt_intr, src_intr, img_shape):
-    """
-    Reprojects a batch of source images into the target frame, using the target depth map, relative pose between the
-    two frames, and the target and source intrinsic matrices.
-    :param [torch.tensor] src_images: Tensor of source images, where dimension 0 separates the different type of source
-    images. In format [num_source_images, batch_size, 3, H, W]
-    :param [torch.tensor] depths: Tensor containing the depth maps as determined from the target images, in the format
-    [batch_size, 1, H, W]
-    :param [torch.tensor] poses: Tensor containing the relative poses for each given source image to the target frame,
-    in format [num_source_imgs, batch_size, 4, 4]
-    :param [torch.tensor] tgt_intr: The intrinsic matrices for the target camera, in format [batch_size, 3, 3]
-    :param [torch.tensor] src_intr: The intrinsic matrix for the source camera, in format
-    [num_source_imgs, batch_size, 3, 3]
-    :param [tuple] img_shape: An integer, indexable data type where the 0th and 1st index represent the height and width
-    of the images respectively.
-    :return [tuple]: Returns a tuple containing 2 tensors, the first containing the reprojected images, in format
-    [num_source_imgs, batch_size, 3, H, W], and the second containing binary masks recording which pixels were able to
-    be reprojected back onto target, in format [num_source_imgs, 1, batch_size, H, W]
-    """
-    reprojected = torch.full((len(src_images), len(depths), 3, img_shape[0], img_shape[1]), 127, dtype=torch.float,
-                             device=poses.device)
-
-    # Creates an array of all image coordinates: [0, 0], [1, 0], [2, 0], etc.
-    img_ones = torch.ones((img_shape[0] * img_shape[1], 1), device=poses.device)
-    img_coords = torch.meshgrid([
-        torch.arange(img_shape[0], dtype=torch.float, device=poses.device),
-        torch.arange(img_shape[1], dtype=torch.float, device=poses.device)
-    ])
-    img_indices = torch.cat((img_coords[1].reshape(-1, 1), img_coords[0].reshape(-1, 1), img_ones), dim=1)
-
-    # Transposes intrinsic matrices, also inverting those that need to be inverted
-    tgt_intr_torch_T = tgt_intr.transpose(1, 2)
-    src_intr_torch_T = src_intr.transpose(2, 3)
-    tgt_intr_inv_torch_T = tgt_intr_torch_T.inverse()
-
-    t_poses = poses.transpose(2, 3)
-
-    # Iterates through all source image types (t+1, t-1, etc.)
-    for i in range(len(src_images)):
-        # Iterates through all images in batch
-        for j in range(len(depths)):
-
-            world_coords = torch.cat((img_indices @ tgt_intr_inv_torch_T[j] * depths[j, 0].view(-1, 1),
-                                      torch.ones(img_indices.shape[0], 1, device=poses.device)), dim=1)
-
-            src_coords = torch.cat(((world_coords @ t_poses[i, j])[:, :3] @ src_intr_torch_T[i, j], img_indices[:, :2]),
-                                   dim=1)
-            src_coords = src_coords[src_coords[:, 2] > 0]
-
-            src_coords = torch.cat((src_coords[:, :2] / src_coords[:, 2].reshape(-1, 1), src_coords[:, 2:]), dim=1)
-
-            src_coords = src_coords[
-                (src_coords[:, 1] >= 0) & (src_coords[:, 1] <= img_shape[0] - 1) & (src_coords[:, 0] >= 0) & (
-                        src_coords[:, 0] <= img_shape[1] - 1)]
-
-            pic_coords = torch.empty((1, img_shape[0], img_shape[1], 2), device=poses.device)
-            pic_coords[0, src_coords[:, 4].long(), src_coords[:, 3].long()] = 2 * src_coords[:, :2] / torch.tensor([img_shape[1], img_shape[0]], device=poses.device) - 1
-            reprojected[i, j] = F.grid_sample(src_images[i, j].unsqueeze(0), pic_coords, padding_mode="border", align_corners=False)
-
-    return reprojected
