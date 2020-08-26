@@ -83,7 +83,7 @@ def run_metrics(config_path, epoch):
     pred_disps = np.concatenate(pred_disps)
 
     gt_path = os.path.join(config["gt_path"], "gt_depths.npz")
-    gt_depths = np.load(gt_path, fix_imports=True, encoding='latin1')["data"]
+    gt_depths = np.load(gt_path, fix_imports=True, encoding='latin1', allow_pickle=True)["data"]
 
     print("-> Evaluating")
 
