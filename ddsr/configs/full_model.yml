@@ -14,5 +14,5 @@ use_stereo: False
 train_config_path: configs/full_train_dataset.yml
 valid_config_path: configs/full_validation_dataset.yml
 test_config_path: configs/full_test_dataset.yml
-log_path: eigen_zhou_experiment_0
+log_path: 
 gt_path: data/kitti_gt/eigen_zhou_test
