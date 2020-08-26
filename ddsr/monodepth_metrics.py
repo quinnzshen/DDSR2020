@@ -122,4 +122,4 @@ def run_metrics(config_path, epoch):
     print("\n-> Done!")
 
 if __name__ == "__main__":
-    run_metrics("configs/full_model.yml", 5)
+    run_metrics("configs/full_model.yml", 8)
