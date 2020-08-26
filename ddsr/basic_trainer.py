@@ -13,11 +13,10 @@ from torch.utils.tensorboard import SummaryWriter
 from torchvision import transforms
 import yaml
 from tensorflow.image import decode_jpeg
-from third_party.monodepth2.layers import BackprojectDepth, Project3D
 
 from collate import Collator
 from kitti_dataset import KittiDataset
-from loss import process_depth, calc_loss, GenerateReprojections
+from loss import calc_loss, GenerateReprojections
 from third_party.monodepth2.ResnetEncoder import ResnetEncoder
 from third_party.monodepth2.DepthDecoder import DepthDecoder
 from third_party.monodepth2.PoseDecoder import PoseDecoder
@@ -115,6 +114,9 @@ class Trainer:
         # Utility variables
         self.steps_until_write = 0
         self.epoch = 0
+        
+        # Log path
+        self.log_path = self.config["log_path"]
 
     def train(self):
         """
@@ -318,7 +320,7 @@ class Trainer:
         """
         Saves model weights to disk (from monodepth2 repo)
         """
-        save_folder = os.path.join("models", "weights_{}".format(self.epoch))
+        save_folder = os.path.join(self.log_path, "weights_{}".format(self.epoch))
         if not os.path.exists(save_folder):
             os.makedirs(save_folder)
         for model_name, model in self.models.items():
