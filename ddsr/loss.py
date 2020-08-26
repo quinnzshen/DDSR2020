@@ -170,8 +170,6 @@ class GenerateReprojections(nn.Module):
         reprojected = []
         tgt_intr_inv = tgt_intr.inverse()
         for i in range(len(poses)):
-            print((tgt_intr_inv @ self.img_indices[:local_batch_size]).shape)
-            print(depths.view(local_batch_size, 1, -1).shape)
             world_coords = depths.view(local_batch_size, 1, -1) * (tgt_intr_inv[:, :3, :3] @ self.img_indices[:local_batch_size])
             world_coords = torch.cat([world_coords, self.ones[:local_batch_size]], dim=1)
             src_coords = (src_intr[i] @ poses[i][:, :3]) @ world_coords

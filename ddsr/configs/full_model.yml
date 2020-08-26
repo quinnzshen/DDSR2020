@@ -2,11 +2,11 @@ encoder_layers: 18
 pretrained: True
 num_scales: 4
 learning_rate: 0.00002
-scheduler_step_size: 5
+scheduler_step_size: 10
 weight_decay: 0.1
 width: 1280
 height: 384
-num_epochs: 20
+num_epochs: 15
 batch_size: 8
 tensorboard_step: 1000
 num_workers: 12

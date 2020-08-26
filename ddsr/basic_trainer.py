@@ -399,5 +399,5 @@ class Trainer:
                                   reproj[1], img_num)
 
 if __name__ == "__main__":
-    test = Trainer("configs/basic_model.yml")
+    test = Trainer("configs/full_model.yml")
     test.train()
