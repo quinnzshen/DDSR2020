@@ -42,7 +42,7 @@ def run_metrics(config_path, epoch):
     with open(config_path) as file:
         config = yaml.load(file, Loader=yaml.Loader)
             
-    weights_folder = os.path.join("models", config["log_path"], f'weights_{epoch-1}')
+    weights_folder = os.path.join(config["log_path"], f'weights_{epoch-1}')
     print("-> Loading weights from {weights_folder}")
     encoder_path = os.path.join(weights_folder, "resnet_encoder.pth")
     decoder_path = os.path.join(weights_folder, "depth_decoder.pth")

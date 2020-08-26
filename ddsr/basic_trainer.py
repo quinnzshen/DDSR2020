@@ -321,7 +321,7 @@ class Trainer:
         """
         Saves model weights to disk (from monodepth2 repo)
         """
-        save_folder = os.path.join("models", self.log_path, "weights_{}".format(self.epoch))
+        save_folder = os.path.join(self.log_path, "weights_{}".format(self.epoch))
         if not os.path.exists(save_folder):
             os.makedirs(save_folder)
         for model_name, model in self.models.items():
