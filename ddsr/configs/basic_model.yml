@@ -15,4 +15,3 @@ train_config_path: configs/basic_train_dataset.yml
 valid_config_path: configs/basic_validation_dataset.yml
 test_config_path: configs/basic_test_dataset.yml
 log_path: models/basic_experiment_0
-gt_path: data/gt_example

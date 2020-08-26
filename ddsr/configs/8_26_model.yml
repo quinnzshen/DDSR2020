@@ -15,4 +15,3 @@ train_config_path: configs/full_train_dataset.yml
 valid_config_path: configs/full_validation_dataset.yml
 test_config_path: configs/full_test_dataset.yml
 log_path: models/8_26_eigen_zhou
-gt_path: data/kitti_gt
