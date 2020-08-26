@@ -13,11 +13,10 @@ from torch.utils.tensorboard import SummaryWriter
 from torchvision import transforms
 import yaml
 from tensorflow.image import decode_jpeg
-from third_party.monodepth2.layers import BackprojectDepth, Project3D
 
 from collate import Collator
 from kitti_dataset import KittiDataset
-from loss import process_depth, calc_loss, GenerateReprojections
+from loss import calc_loss, GenerateReprojections
 from third_party.monodepth2.ResnetEncoder import ResnetEncoder
 from third_party.monodepth2.DepthDecoder import DepthDecoder
 from third_party.monodepth2.PoseDecoder import PoseDecoder
