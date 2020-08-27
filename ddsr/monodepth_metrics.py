@@ -33,9 +33,9 @@ def compute_errors(gt, pred):
 
     return abs_rel, sq_rel, rmse, rmse_log, a1, a2, a3
 
-def run_metrics(config_path, epoch):
-    """Computes metrics based on a specified config_path and epoch number. Adapted from Monodepth2
-    :param [String] config_path: Path to the config that the model was trained on
+def run_metrics(config_dir, epoch):
+    """Computes metrics based on a specified directory containing a config and an epoch number. Adapted from Monodepth2
+    :param [String] config_path: Path to the config directory that the model was trained on
     :param [int] epoch: Epoch number corresponding to the model that metrics will be evaluated on
     """
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -43,10 +43,11 @@ def run_metrics(config_path, epoch):
     MAX_DEPTH = 100
     
     # Load data from config
+    config_path = os.path.join(config_dir, "config.yml")
     with open(config_path) as file:
         config = yaml.load(file, Loader=yaml.Loader)
             
-    weights_folder = os.path.join(config["log_path"], f'weights_{epoch-1}')
+    weights_folder = os.path.join(config_dir, config["log_dir"], f'weights_{epoch-1}')
     print("-> Loading weights from {weights_folder}")
     encoder_path = os.path.join(weights_folder, "resnet_encoder.pth")
     decoder_path = os.path.join(weights_folder, "depth_decoder.pth")
@@ -132,16 +133,16 @@ def run_metrics(config_path, epoch):
     print("\n  " + ("{:>8} | " * 7).format("abs_rel", "sq_rel", "rmse", "rmse_log", "a1", "a2", "a3"))
     print(("&{: 8.3f}  " * 7).format(*mean_errors.tolist()) + "\\\\")
     print("\n-> Done!")
-
+    
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="metrics options")
-    parser.add_argument("--config_path",
+    parser.add_argument("--config_dir",
                              type = str,
-                             help = "path to the config",
-                             default = "configs/full_model.yml")
+                             help = "path to the config directory",
+                             default = "experiments/full_model")
     parser.add_argument("--epoch",
                              type = int,
                              help = "epoch number",
                              default = 10)
     opt = parser.parse_args()
-    run_metrics(opt.config_path, opt.epoch)
+    run_metrics(opt.config_dir, opt.epoch)

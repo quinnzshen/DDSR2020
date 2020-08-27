@@ -13,11 +13,12 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from torchvision import transforms
 import yaml
-from tensorflow.image import decode_jpeg
+#from tensorflow.image import decode_jpeg
 
 from collate import Collator
 from kitti_dataset import KittiDataset
 from loss import calc_loss, GenerateReprojections
+from monodepth_metrics import run_metrics
 from third_party.monodepth2.ResnetEncoder import ResnetEncoder
 from third_party.monodepth2.DepthDecoder import DepthDecoder
 from third_party.monodepth2.PoseDecoder import PoseDecoder
@@ -27,14 +28,16 @@ LOSS_VIS_SIZE = (10, 4)
 LOSS_VIS_CMAP = "cividis"
 
 class Trainer:
-    def __init__(self, config_path):
+    def __init__(self, config_dir):
         """
         Creates an instance of tranier using a config file
         The config file contains all the information needed to train a model
         :param [str] config_path: The path to the config file
         :return [Trainer]: Object instance of the trainer
         """
-
+        self.config_dir = config_dir
+        config_path = os.path.join(config_dir, "config.yml")
+        
         # Load data from config
         with open(config_path) as file:
             self.config = yaml.load(file, Loader=yaml.Loader)
@@ -107,7 +110,7 @@ class Trainer:
             self.gen_reproj.append(GenerateReprojections(h, w, self.batch_size).to(self.device))
 
         # Writer for tensorboard
-        self.writer = SummaryWriter()
+        self.writer = SummaryWriter(log_dir=os.path.join(self.config_dir, "tensorboard"))
 
         # Step size for tensorboard
         self.tensorboard_step = self.config["tensorboard_step"]
@@ -116,9 +119,12 @@ class Trainer:
         self.steps_until_write = 0
         self.epoch = 0
         
-        # Log path
-        self.log_path = self.config["log_path"]
-
+        # Directory where weights will be logged (within the config directory)
+        self.log_dir = self.config["log_dir"]
+        
+        # Determines whether or not to run metrics
+        self.metrics = self.config["metrics"]
+   
     def train(self):
         """
         Runs the entire training pipeline
@@ -127,7 +133,8 @@ class Trainer:
         for self.epoch in range(self.num_epochs):
             self.run_epoch()
             self.save_model()
-
+            if self.metrics == True:
+                run_metrics(self.config_dir, self.epoch+1)
         self.writer.close()
         print('Model saved.')
 
@@ -321,7 +328,7 @@ class Trainer:
         """
         Saves model weights to disk (from monodepth2 repo)
         """
-        save_folder = os.path.join(self.log_path, "weights_{}".format(self.epoch))
+        save_folder = os.path.join(self.config_dir, self.log_dir, "weights_{}".format(self.epoch))
         if not os.path.exists(save_folder):
             os.makedirs(save_folder)
         for model_name, model in self.models.items():
@@ -333,7 +340,7 @@ class Trainer:
             torch.save(to_save, save_path)
         save_path = os.path.join(save_folder, "{}.pth".format("adam"))
         torch.save(self.optimizer.state_dict(), save_path)
-
+        
     def add_img_disparity_loss_to_tensorboard(self, disp, img, automask, loss, reproj, img_num, name):
         """
         Adds image disparity map, and automask to tensorboard
@@ -368,8 +375,8 @@ class Trainer:
         plt.savefig(buf, format="jpg")
         plt.close(figure)
         buf.seek(0)
-        loss = torch.from_numpy(decode_jpeg(buf.getvalue()).numpy())
-        loss = loss.permute(2, 0, 1)
+        # = torch.from_numpy(decode_jpeg(buf.getvalue()).numpy())
+        #loss = loss.permute(2, 0, 1)
 
         reproj /= 255
 
@@ -383,9 +390,9 @@ class Trainer:
         self.writer.add_image(f"{name} Automasks/Epoch: {self.epoch + 1}",
                               automask,
                               img_num)
-        self.writer.add_image(f"{name} Losses/Epoch: {self.epoch + 1}",
-                              loss,
-                              img_num)
+        #self.writer.add_image(f"{name} Losses/Epoch: {self.epoch + 1}",
+        #                      loss,
+        #                      img_num)
         if self.use_stereo:
             self.writer.add_image(f"{name} Stereo Reprojection/Epoch: {self.epoch + 1}",
                                   reproj[0], img_num)
@@ -400,12 +407,11 @@ class Trainer:
                                   reproj[1], img_num)
 
 if __name__ == "__main__":
-    test = Trainer("configs/full_model.yml")
     parser = argparse.ArgumentParser(description="ddsr options")
-    parser.add_argument("--config_path",
+    parser.add_argument("--config_dir",
                              type = str,
-                             help = "path to the config",
-                             default = "configs/full_model.yml")
+                             help = "path to the directory containing the config",
+                             default = "experiments/full_model")
     opt = parser.parse_args()
-    test = Trainer(opt.config_path)
+    test = Trainer(opt.config_dir)
     test.train()

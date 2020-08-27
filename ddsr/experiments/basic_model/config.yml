@@ -1,3 +1,4 @@
+name: basic_model
 encoder_layers: 18
 pretrained: True
 num_scales: 4
@@ -14,5 +15,6 @@ use_stereo: False
 train_config_path: configs/basic_train_dataset.yml
 valid_config_path: configs/basic_validation_dataset.yml
 test_config_path: configs/basic_test_dataset.yml
-log_path: basic_experiment_0
+log_dir: models
 gt_path: data/gt_example
+metrics: True
