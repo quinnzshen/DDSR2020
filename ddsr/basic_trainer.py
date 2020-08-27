@@ -368,7 +368,6 @@ class Trainer:
         :param [tensor] automask: Automask
         :param [torch.Tensor] loss: Minimum photometric error as calculated in loss functions
         :param [int] img_num: The index of the input image in the training/validation file
-        :param [int] dataset_length: The length of the training/validation dataset
         :param [String] name: Differentiates between training/validation/evaluation
         """
         # Processing disparity map
