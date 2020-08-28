@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+
 class SSIM(nn.Module):
     """
     Based off SSIM in Monodepth2 repo
@@ -117,6 +118,7 @@ def calc_loss(inputs, outputs, scale=0, smooth_term=0.001):
     :param [dict] outputs: Contains the keys "reproj", "disparities", and "initial_masks" which are tensors
     [num_reprojected_imgs, batch_size, 3, H, W], [batch_size, 1, H, W], and [num_src_imgs, batch_size, 1, H, W]
     (dtype=torch.bool) respectively
+    :param [int] scale: The scale number, applied to the smoothness term calculation
     :param [float] smooth_term: Constant that controls how much the smoothing term is considered in the loss
     :return [tuple]: Returns a 3 element tuple containing: a float representing the calculated loss, a torch.Tensor
     with dimensions [batch_size, H, W] representing the auto-mask, and a torch.Tensor of dimensions [batch_size, H,

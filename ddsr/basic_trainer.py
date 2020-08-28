@@ -27,6 +27,7 @@ from third_party.monodepth2.layers import transformation_from_parameters, disp_t
 LOSS_VIS_SIZE = (10, 4)
 LOSS_VIS_CMAP = "cividis"
 
+
 class Trainer:
     def __init__(self, config_dir):
         """
@@ -57,6 +58,7 @@ class Trainer:
         # Dataloader Setup
         self.collate = Collator(self.height, self.width)
         self.num_workers = self.config["num_workers"]
+
         train_config_path = self.config["train_config_path"]
         self.train_dataset = KittiDataset.init_from_config(train_config_path)
         self.train_dataloader = DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True,
@@ -74,17 +76,34 @@ class Trainer:
         # Stereo
         self.use_stereo = self.config["use_stereo"]
 
+        # Number of scales
+        self.num_scales = self.config["num_scales"]
+
         # Model setup
         self.models = {}
         self.pretrained = self.config["pretrained"]
-        self.models['resnet_encoder'] = ResnetEncoder(self.config["encoder_layers"], pretrained=self.pretrained).to(
-            self.device)
-        self.num_scales = self.config["num_scales"]
-        self.models['depth_decoder'] = DepthDecoder(num_ch_enc=self.models['resnet_encoder'].num_ch_enc,
-                                                    scales=range(self.num_scales)).to(self.device)
 
-        self.models["pose_encoder"] = ResnetEncoder(self.config["encoder_layers"], pretrained=self.pretrained, num_input_images=2).to(self.device)
-        self.models["pose_decoder"] = PoseDecoder(self.models["pose_encoder"].num_ch_enc, num_input_features=1, num_frames_to_predict_for=2).to(self.device)
+        self.models['resnet_encoder'] = ResnetEncoder(
+            self.config["encoder_layers"],
+            pretrained=self.pretrained
+        ).to(self.device)
+
+        self.models['depth_decoder'] = DepthDecoder(
+            num_ch_enc=self.models['resnet_encoder'].num_ch_enc,
+            scales=range(self.num_scales)
+        ).to(self.device)
+
+        self.models["pose_encoder"] = ResnetEncoder(
+            self.config["encoder_layers"],
+            pretrained=self.pretrained,
+            num_input_images=2
+        ).to(self.device)
+
+        self.models["pose_decoder"] = PoseDecoder(
+            self.models["pose_encoder"].num_ch_enc,
+            num_input_features=1,
+            num_frames_to_predict_for=2
+        ).to(self.device)
 
         # Parameters
         parameters_to_train = []
@@ -124,7 +143,7 @@ class Trainer:
         
         # Determines whether or not to run metrics
         self.metrics = self.config["metrics"]
-   
+
     def train(self):
         """
         Runs the entire training pipeline
@@ -215,9 +234,15 @@ class Trainer:
                 continue
             sources_list.append(batch["nearby_frames"][i]["camera_data"]["stereo_left_image"].float().to(self.device))
             if i < 0:
-                pose_inputs = [batch["nearby_frames"][i]["camera_data"]["stereo_left_image"].float().to(self.device), inputs]
+                pose_inputs = [
+                    batch["nearby_frames"][i]["camera_data"]["stereo_left_image"].float().to(self.device),
+                    inputs
+                ]
             else:
-                pose_inputs = [inputs, batch["nearby_frames"][i]["camera_data"]["stereo_left_image"].float().to(self.device)]
+                pose_inputs = [
+                    inputs,
+                    batch["nearby_frames"][i]["camera_data"]["stereo_left_image"].float().to(self.device)
+                ]
             pose_features = [self.models["pose_encoder"](torch.cat(pose_inputs, 1))]
             axisangle, translation = self.models["pose_decoder"](pose_features)
             poses_list.append(transformation_from_parameters(axisangle[:, 0], translation[:, 0], invert=(i < 0)))
@@ -278,7 +303,8 @@ class Trainer:
             src_intrinsics_scale = torch.stack(intrinsics_list)
 
             # Reprojection
-            reprojected = self.gen_reproj[scale](sources_scale, depths, poses, tgt_intrinsics_scale, src_intrinsics_scale, local_batch_size)
+            reprojected = self.gen_reproj[scale](sources_scale, depths, poses, tgt_intrinsics_scale,
+                                                 src_intrinsics_scale, local_batch_size)
             reprojected = torch.stack(reprojected, dim=0)
 
             # Compute Losses            
@@ -349,7 +375,6 @@ class Trainer:
         :param [tensor] automask: Automask
         :param [torch.Tensor] loss: Minimum photometric error as calculated in loss functions
         :param [int] img_num: The index of the input image in the training/validation file
-        :param [int] dataset_length: The length of the training/validation dataset
         :param [String] name: Differentiates between training/validation/evaluation
         """
         # Processing disparity map
@@ -364,7 +389,6 @@ class Trainer:
         img_np = img.squeeze().cpu().detach().numpy()
         colormapped_img = img_np.astype(np.uint8).transpose(1, 2, 0)
         final_img = transforms.ToTensor()(colormapped_img)
-
 
         loss_mean = loss.mean()
         figure = plt.figure(figsize=LOSS_VIS_SIZE)
@@ -405,6 +429,7 @@ class Trainer:
                                   reproj[0], img_num)
             self.writer.add_image(f"{name} Forward Reprojection/Epoch: {self.epoch + 1}",
                                   reproj[1], img_num)
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="ddsr options")
