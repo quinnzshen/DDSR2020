@@ -143,7 +143,11 @@ class Trainer:
         
         # Determines whether or not to run metrics
         self.metrics = self.config["metrics"]
-
+        
+        # Depth boundaries
+        self.min_depth = self.config["min_depth"]
+        self.max_depth = self.config["max_depth"]
+        
     def train(self):
         """
         Runs the entire training pipeline
@@ -269,7 +273,7 @@ class Trainer:
 
             # Convert disparity to depth
             disp = outputs[("disp", scale)]
-            _, depths = disp_to_depth(disp, 0.1, 100)
+            _, depths = disp_to_depth(disp, self.min_depth, self.max_depth)
 
             # Input scaling
             inputs_scale = F.interpolate(inputs, [h, w], mode="bilinear", align_corners=False).to(self.device)

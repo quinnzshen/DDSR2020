@@ -80,7 +80,7 @@ def run_metrics(config_dir, epoch):
 
             output = depth_decoder(encoder(inputs))
 
-            pred_disp, _ = disp_to_depth(output[("disp", 0)], MIN_DEPTH, MAX_DEPTH)
+            pred_disp, _ = disp_to_depth(output[("disp", 0)], config["min_depth"], config["max_depth"])
             pred_disp = pred_disp.cpu()[:, 0].numpy()
 
             pred_disps.append(pred_disp)
