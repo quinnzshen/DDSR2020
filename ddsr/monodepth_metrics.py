@@ -39,8 +39,8 @@ def run_metrics(config_dir, epoch):
     :param [int] epoch: Epoch number corresponding to the model that metrics will be evaluated on
     """
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    MIN_DEPTH = 0.1
-    MAX_DEPTH = 100
+    MIN_DEPTH = 0.001
+    MAX_DEPTH = 80
     
     # Load data from config
     config_path = os.path.join(config_dir, "config.yml")
