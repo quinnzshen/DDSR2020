@@ -1,10 +1,12 @@
 import argparse
+from datetime import datetime
 import io
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import numpy as np
 import os
+import shutil
 import time
 import torch
 import torch.nn.functional as F
@@ -29,19 +31,23 @@ LOSS_VIS_CMAP = "cividis"
 
 
 class Trainer:
-    def __init__(self, config_dir):
+    def __init__(self, config_path):
         """
         Creates an instance of tranier using a config file
         The config file contains all the information needed to train a model
         :param [str] config_path: The path to the config file
         :return [Trainer]: Object instance of the trainer
         """
-        self.config_dir = config_dir
-        config_path = os.path.join(config_dir, "config.yml")
         
         # Load data from config
         with open(config_path) as file:
             self.config = yaml.load(file, Loader=yaml.Loader)
+
+        date_time = datetime.now().strftime("%Y_%m_%d-%I_%M_%S_%p")
+        self.log_dir = self.config["log_dir"] + "_" + date_time
+        os.mkdir(self.log_dir)
+        
+        shutil.copyfileobj(open(config_path, "r"), open(os.path.join(self.log_dir, "config.yml"),"w+"))
 
         # GPU/CPU setup
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -129,7 +135,7 @@ class Trainer:
             self.gen_reproj.append(GenerateReprojections(h, w, self.batch_size).to(self.device))
 
         # Writer for tensorboard
-        self.writer = SummaryWriter(log_dir=os.path.join(self.config_dir, "tensorboard"))
+        self.writer = SummaryWriter(log_dir=os.path.join(self.log_dir, "tensorboard"))
 
         # Step size for tensorboard
         self.tensorboard_step = self.config["tensorboard_step"]
@@ -358,7 +364,7 @@ class Trainer:
         """
         Saves model weights to disk (from monodepth2 repo)
         """
-        save_folder = os.path.join(self.config_dir, self.log_dir, "weights_{}".format(self.epoch))
+        save_folder = os.path.join(self.log_dir, "models", "weights_{}".format(self.epoch))
         if not os.path.exists(save_folder):
             os.makedirs(save_folder)
         for model_name, model in self.models.items():
@@ -437,10 +443,10 @@ class Trainer:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="ddsr options")
-    parser.add_argument("--config_dir",
+    parser.add_argument("--config_path",
                              type = str,
-                             help = "path to the directory containing the config",
-                             default = "experiments/full_model")
+                             help = "path to the config",
+                             default = "configs/full_model.yml")
     opt = parser.parse_args()
-    test = Trainer(opt.config_dir)
+    test = Trainer(opt.config_path)
     test.train()
