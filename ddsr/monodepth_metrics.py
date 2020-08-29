@@ -33,7 +33,7 @@ def compute_errors(gt, pred):
 
     return abs_rel, sq_rel, rmse, rmse_log, a1, a2, a3
 
-def run_metrics(config_dir, epoch):
+def run_metrics(log_dir, epoch):
     """Computes metrics based on a specified directory containing a config and an epoch number. Adapted from Monodepth2
     :param [String] config_path: Path to the config directory that the model was trained on
     :param [int] epoch: Epoch number corresponding to the model that metrics will be evaluated on
@@ -43,11 +43,11 @@ def run_metrics(config_dir, epoch):
     MAX_DEPTH = 80
     
     # Load data from config
-    config_path = os.path.join(config_dir, "config.yml")
+    config_path = os.path.join(log_dir, "config.yml")
     with open(config_path) as file:
         config = yaml.load(file, Loader=yaml.Loader)
             
-    weights_folder = os.path.join(config_dir, config["log_dir"], f'weights_{epoch-1}')
+    weights_folder = os.path.join(log_dir, "models", f'weights_{epoch-1}')
     print("-> Loading weights from {weights_folder}")
     encoder_path = os.path.join(weights_folder, "resnet_encoder.pth")
     decoder_path = os.path.join(weights_folder, "depth_decoder.pth")
@@ -136,13 +136,11 @@ def run_metrics(config_dir, epoch):
     
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="metrics options")
-    parser.add_argument("--config_dir",
+    parser.add_argument("--log_dir",
                              type = str,
-                             help = "path to the config directory",
-                             default = "experiments/full_model")
+                             help = "path to experiment directory")
     parser.add_argument("--epoch",
                              type = int,
-                             help = "epoch number",
-                             default = 10)
+                             help = "epoch number")
     opt = parser.parse_args()
-    run_metrics(opt.config_dir, opt.epoch)
+    run_metrics(opt.log_dir, opt.epoch)
