@@ -13,3 +13,4 @@ num_workers: 0
 use_stereo: False
 train_config_path: configs/basic_train_dataset.yml
 valid_config_path: configs/basic_validation_dataset.yml
+use_fpn: True
