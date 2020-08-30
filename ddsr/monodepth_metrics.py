@@ -134,6 +134,8 @@ def run_metrics(log_dir, epoch):
     print(("&{: 8.3f}  " * 7).format(*mean_errors.tolist()) + "\\\\")
     print("\n-> Done!")
     
+    return mean_errors.tolist()
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="metrics options")
     parser.add_argument("--log_dir",
