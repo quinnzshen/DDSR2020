@@ -166,6 +166,7 @@ class Trainer:
             self.save_model()
             if self.metrics == True:
                 metrics = run_metrics(self.log_dir, self.epoch+1)
+                self.add_metrics_to_tensorboard(metrics)
                 metrics = [round(num, 3) for num in metrics]
                 metrics.insert(0, self.epoch+1)
                 self.metrics_file.writerow(metrics)
@@ -444,8 +445,16 @@ class Trainer:
                                   reproj[0], img_num)
             self.writer.add_image(f"{name} Forward Reprojection/Epoch: {self.epoch + 1}",
                                   reproj[1], img_num)
-
-
+    
+    def add_metrics_to_tensorboard(self, metrics):
+         self.writer.add_scalar("abs_rel", metrics[0], self.epoch)
+         self.writer.add_scalar("sq_rel", metrics[1], self.epoch)
+         self.writer.add_scalar("rmse", metrics[2], self.epoch)
+         self.writer.add_scalar("rmse_log", metrics[3], self.epoch)
+         self.writer.add_scalar("a1", metrics[4], self.epoch)
+         self.writer.add_scalar("a2", metrics[5], self.epoch)
+         self.writer.add_scalar("a3", metrics[6], self.epoch)
+         
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="ddsr options")
     parser.add_argument("--config_path",
