@@ -13,6 +13,8 @@ from third_party.monodepth2.layers import disp_to_depth
 
 cv2.setNumThreads(0)
 
+STEREO_SCALE_FACTOR = 5.4
+
 def compute_errors(gt, pred):
     """Computation of error metrics between predicted and ground truth depths. Taken from Monodepth2
     """
@@ -115,10 +117,12 @@ def run_metrics(log_dir, epoch):
         pred_depth = pred_depth[mask]
         gt_depth = gt_depth[mask]
         
-        ratio = np.median(gt_depth) / np.median(pred_depth)
-        ratios.append(ratio)
-        pred_depth *= ratio
-            
+        if config["use_stereo"]:
+            pred_depth *= STEREO_SCALE_FACTOR
+        else:
+            ratio = np.median(gt_depth) / np.median(pred_depth)
+            ratios.append(ratio)
+            pred_depth *= ratio
         pred_depth[pred_depth < MIN_DEPTH] = MIN_DEPTH
         pred_depth[pred_depth > MAX_DEPTH] = MAX_DEPTH
 
