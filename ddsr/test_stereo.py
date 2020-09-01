@@ -31,7 +31,10 @@ sources=[]
 sources.append(F.interpolate(stereo, [h, w], mode="bilinear", align_corners=False))
 sources = torch.stack(sources, dim=0)
 
-rel_pose_stereo = dataset[6]["rel_pose_stereo"].unsqueeze(0).to(device)
+# OUR METHOD
+#rel_pose_stereo = dataset[6]["rel_pose_stereo"].unsqueeze(0).to(device)
+
+# RESEARCHER METHOD
 rel_pose_stereo = torch.eye(4, dtype=torch.float).unsqueeze(0)
 rel_pose_stereo[0, 0, 3] = -0.54
 
