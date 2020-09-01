@@ -447,13 +447,13 @@ class Trainer:
                                   reproj[1], img_num)
     
     def add_metrics_to_tensorboard(self, metrics):
-         self.writer.add_scalar("abs_rel", metrics[0], self.epoch)
-         self.writer.add_scalar("sq_rel", metrics[1], self.epoch)
-         self.writer.add_scalar("rmse", metrics[2], self.epoch)
-         self.writer.add_scalar("rmse_log", metrics[3], self.epoch)
-         self.writer.add_scalar("a1", metrics[4], self.epoch)
-         self.writer.add_scalar("a2", metrics[5], self.epoch)
-         self.writer.add_scalar("a3", metrics[6], self.epoch)
+         self.writer.add_scalar("metrics/abs_rel", metrics[0], self.epoch)
+         self.writer.add_scalar("metrics/sq_rel", metrics[1], self.epoch)
+         self.writer.add_scalar("metrics/rmse", metrics[2], self.epoch)
+         self.writer.add_scalar("metrics/rmse_log", metrics[3], self.epoch)
+         self.writer.add_scalar("metrics/a1", metrics[4], self.epoch)
+         self.writer.add_scalar("metrics/a2", metrics[5], self.epoch)
+         self.writer.add_scalar("metrics/a3", metrics[6], self.epoch)
          
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="ddsr options")
