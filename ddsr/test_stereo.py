@@ -21,7 +21,7 @@ h = 384
 w = 1280
 gt_depth_path = "data/gt_example/2011_09_26_drive_0048_sync/proj_depth/groundtruth/image_02/0000000008.png"
 gt_depth = np.array(pil.open(gt_depth_path)).astype(np.float32) / 256
-gt_depth = cv2.resize(gt_depth, (h, w))
+gt_depth = cv2.resize(gt_depth, (w,h))
 gt_depth = torch.from_numpy(gt_depth)
 
 target = F.interpolate(dataset[6]["stereo_left_image"].permute(2, 0, 1).unsqueeze(0).float(), [h, w], mode="bilinear", align_corners=False)
@@ -32,11 +32,11 @@ sources.append(F.interpolate(stereo, [h, w], mode="bilinear", align_corners=Fals
 sources = torch.stack(sources, dim=0)
 
 # OUR METHOD
-#rel_pose_stereo = dataset[6]["rel_pose_stereo"].unsqueeze(0).to(device)
+rel_pose_stereo = dataset[6]["rel_pose_stereo"].unsqueeze(0).to(device)
 
 # RESEARCHER METHOD
-rel_pose_stereo = torch.eye(4, dtype=torch.float).unsqueeze(0)
-rel_pose_stereo[0, 0, 3] = -0.54
+#rel_pose_stereo = torch.eye(4, dtype=torch.float).unsqueeze(0)
+#rel_pose_stereo[0, 0, 3] = -0.54
 
 poses = []
 poses.append(rel_pose_stereo)
