@@ -1,10 +1,14 @@
 import argparse
+import csv
+from datetime import datetime
+
 import io
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import numpy as np
 import os
+import shutil
 import time
 import torch
 import torch.nn.functional as F
@@ -18,6 +22,7 @@ from tensorflow.image import decode_jpeg
 from collate import Collator
 from kitti_dataset import KittiDataset
 from loss import calc_loss, GenerateReprojections
+from monodepth_metrics import run_metrics
 from third_party.monodepth2.ResnetEncoder import ResnetEncoder
 from third_party.monodepth2.DepthDecoder import DepthDecoder
 from third_party.monodepth2.PoseDecoder import PoseDecoder
@@ -35,10 +40,16 @@ class Trainer:
         :param [str] config_path: The path to the config file
         :return [Trainer]: Object instance of the trainer
         """
-
+        
         # Load data from config
         with open(config_path) as file:
             self.config = yaml.load(file, Loader=yaml.Loader)
+
+        date_time = datetime.now().strftime("%Y_%m_%d-%I_%M_%S_%p")
+        self.log_dir = self.config["log_dir"] + "_" + date_time
+        os.mkdir(self.log_dir)
+        
+        shutil.copyfileobj(open(config_path, "r"), open(os.path.join(self.log_dir, "config.yml"),"w+"))
 
         # GPU/CPU setup
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -126,7 +137,7 @@ class Trainer:
             self.gen_reproj.append(GenerateReprojections(h, w, self.batch_size).to(self.device))
 
         # Writer for tensorboard
-        self.writer = SummaryWriter()
+        self.writer = SummaryWriter(log_dir=os.path.join(self.log_dir, "tensorboard"))
 
         # Step size for tensorboard
         self.tensorboard_step = self.config["tensorboard_step"]
@@ -135,8 +146,16 @@ class Trainer:
         self.steps_until_write = 0
         self.epoch = 0
 
-        # Log path
-        self.log_path = self.config["log_path"]
+        # Set up for metrics
+        self.metrics = self.config["metrics"]
+        if self.metrics:
+            self.metrics_file = csv.writer(open(os.path.join(self.log_dir, "metrics.csv"),"w",newline=''), delimiter=',')
+            metrics_list = ["epoch", "abs_rel", "sq_rel", "rmse", "rmse_log", "a1", "a2", "a3"]
+            self.metrics_file.writerow(metrics_list)
+            
+        # Depth boundaries
+        self.min_depth = self.config["min_depth"]
+        self.max_depth = self.config["max_depth"]
 
     def train(self):
         """
@@ -146,7 +165,12 @@ class Trainer:
         for self.epoch in range(self.num_epochs):
             self.run_epoch()
             self.save_model()
-
+            if self.metrics:
+                metrics = run_metrics(self.log_dir, self.epoch+1)
+                self.add_metrics_to_tensorboard(metrics)
+                metrics = [round(num, 3) for num in metrics]
+                metrics.insert(0, self.epoch+1)
+                self.metrics_file.writerow(metrics)
         self.writer.close()
         print('Model saved.')
 
@@ -262,7 +286,7 @@ class Trainer:
 
             # Convert disparity to depth
             disp = outputs[("disp", scale)]
-            _, depths = disp_to_depth(disp, 0.1, 100)
+            _, depths = disp_to_depth(disp, self.min_depth, self.max_depth)
 
             # Input scaling
             inputs_scale = F.interpolate(inputs, [h, w], mode="bilinear", align_corners=False).to(self.device)
@@ -347,7 +371,7 @@ class Trainer:
         """
         Saves model weights to disk (from monodepth2 repo)
         """
-        save_folder = os.path.join(self.log_path, "weights_{}".format(self.epoch))
+        save_folder = os.path.join(self.log_dir, "models", "weights_{}".format(self.epoch))
         if not os.path.exists(save_folder):
             os.makedirs(save_folder)
         for model_name, model in self.models.items():
@@ -359,7 +383,7 @@ class Trainer:
             torch.save(to_save, save_path)
         save_path = os.path.join(save_folder, "{}.pth".format("adam"))
         torch.save(self.optimizer.state_dict(), save_path)
-
+        
     def add_img_disparity_loss_to_tensorboard(self, disp, img, automask, loss, reproj, img_num, name):
         """
         Adds image disparity map, and automask to tensorboard
@@ -422,6 +446,15 @@ class Trainer:
                                   reproj[0], img_num)
             self.writer.add_image(f"{name} Forward Reprojection/Epoch: {self.epoch + 1}",
                                   reproj[1], img_num)
+
+    def add_metrics_to_tensorboard(self, metrics):
+        self.writer.add_scalar("metrics/abs_rel", metrics[0], self.epoch)
+        self.writer.add_scalar("metrics/sq_rel", metrics[1], self.epoch)
+        self.writer.add_scalar("metrics/rmse", metrics[2], self.epoch)
+        self.writer.add_scalar("metrics/rmse_log", metrics[3], self.epoch)
+        self.writer.add_scalar("metrics/a1", metrics[4], self.epoch)
+        self.writer.add_scalar("metrics/a2", metrics[5], self.epoch)
+        self.writer.add_scalar("metrics/a3", metrics[6], self.epoch)
 
 
 if __name__ == "__main__":
