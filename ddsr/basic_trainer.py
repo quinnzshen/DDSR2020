@@ -1,6 +1,7 @@
 import argparse
 import csv
 from datetime import datetime
+
 import io
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -144,10 +145,10 @@ class Trainer:
         # Utility variables
         self.steps_until_write = 0
         self.epoch = 0
-        
+
         # Set up for metrics
         self.metrics = self.config["metrics"]
-        if self.metrics == True:
+        if self.metrics:
             self.metrics_file = csv.writer(open(os.path.join(self.log_dir, "metrics.csv"),"w",newline=''), delimiter=',')
             metrics_list = ["epoch", "abs_rel", "sq_rel", "rmse", "rmse_log", "a1", "a2", "a3"]
             self.metrics_file.writerow(metrics_list)
@@ -155,7 +156,7 @@ class Trainer:
         # Depth boundaries
         self.min_depth = self.config["min_depth"]
         self.max_depth = self.config["max_depth"]
-        
+
     def train(self):
         """
         Runs the entire training pipeline
@@ -164,7 +165,7 @@ class Trainer:
         for self.epoch in range(self.num_epochs):
             self.run_epoch()
             self.save_model()
-            if self.metrics == True:
+            if self.metrics:
                 metrics = run_metrics(self.log_dir, self.epoch+1)
                 self.add_metrics_to_tensorboard(metrics)
                 metrics = [round(num, 3) for num in metrics]
@@ -445,22 +446,23 @@ class Trainer:
                                   reproj[0], img_num)
             self.writer.add_image(f"{name} Forward Reprojection/Epoch: {self.epoch + 1}",
                                   reproj[1], img_num)
-    
+
     def add_metrics_to_tensorboard(self, metrics):
-         self.writer.add_scalar("metrics/abs_rel", metrics[0], self.epoch)
-         self.writer.add_scalar("metrics/sq_rel", metrics[1], self.epoch)
-         self.writer.add_scalar("metrics/rmse", metrics[2], self.epoch)
-         self.writer.add_scalar("metrics/rmse_log", metrics[3], self.epoch)
-         self.writer.add_scalar("metrics/a1", metrics[4], self.epoch)
-         self.writer.add_scalar("metrics/a2", metrics[5], self.epoch)
-         self.writer.add_scalar("metrics/a3", metrics[6], self.epoch)
-         
+        self.writer.add_scalar("metrics/abs_rel", metrics[0], self.epoch)
+        self.writer.add_scalar("metrics/sq_rel", metrics[1], self.epoch)
+        self.writer.add_scalar("metrics/rmse", metrics[2], self.epoch)
+        self.writer.add_scalar("metrics/rmse_log", metrics[3], self.epoch)
+        self.writer.add_scalar("metrics/a1", metrics[4], self.epoch)
+        self.writer.add_scalar("metrics/a2", metrics[5], self.epoch)
+        self.writer.add_scalar("metrics/a3", metrics[6], self.epoch)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="ddsr options")
     parser.add_argument("--config_path",
-                             type = str,
-                             help = "path to the config",
-                             default = "configs/full_model.yml")
+                        type=str,
+                        help="path to the config",
+                        default="configs/full_model.yml")
     opt = parser.parse_args()
     test = Trainer(opt.config_path)
     test.train()
