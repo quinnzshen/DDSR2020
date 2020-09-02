@@ -42,4 +42,4 @@ def plot_depth_error(error_array, image, fig_h=20, fig_w=20, alpha=.6, s=15):
     plt.figure(figsize=(fig_h, fig_w))
     plt.imshow(grayscale_array, cmap='gray', alpha=alpha)
     plt.scatter(sorted_error_array[:, 0], sorted_error_array[:, 1], c=sorted_error_array[:, 2], cmap='plasma', s=s, marker='x')
-    plt.show() 
+    plt.show()

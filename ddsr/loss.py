@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-import numpy as np
+import torch.nn.functional as F
 
 
 class SSIM(nn.Module):
@@ -106,7 +106,6 @@ def get_mask(targets, sources, min_reproject_errors):
 
     source_error = torch.cat(source_error, dim=1)
     min_source_errors, _ = torch.min(source_error, dim=1)
-
     return min_reproject_errors < min_source_errors
 
 
@@ -119,6 +118,7 @@ def calc_loss(inputs, outputs, scale=0, smooth_term=0.001):
     :param [dict] outputs: Contains the keys "reproj", "disparities", and "initial_masks" which are tensors
     [num_reprojected_imgs, batch_size, 3, H, W], [batch_size, 1, H, W], and [num_src_imgs, batch_size, 1, H, W]
     (dtype=torch.bool) respectively
+    :param [int] scale: The scale number, applied to the smoothness term calculation
     :param [float] smooth_term: Constant that controls how much the smoothing term is considered in the loss
     :return [tuple]: Returns a 3 element tuple containing: a float representing the calculated loss, a torch.Tensor
     with dimensions [batch_size, H, W] representing the auto-mask, and a torch.Tensor of dimensions [batch_size, H,
@@ -127,109 +127,60 @@ def calc_loss(inputs, outputs, scale=0, smooth_term=0.001):
     targets = inputs["targets"]
     sources = inputs["sources"]
     reprojections = outputs["reproj"]
-    reproj_masks = outputs["initial_masks"]
 
     loss = 0
 
     reproj_errors = torch.stack([calc_pe(reprojections[i], targets).squeeze(1) for i in range(len(reprojections))])
+    min_errors_reproj, _ = torch.min(reproj_errors, dim=0)
+    mask = get_mask(targets, sources, min_errors_reproj)
 
-    reproj_errors[~reproj_masks.squeeze(2)] = torch.finfo(torch.float).max
-    min_errors, _ = torch.min(reproj_errors, dim=0)
-
-    # Auto-masking
+    # Source errors
+    source_errors = torch.stack([calc_pe(sources[i], targets).squeeze(1) for i in range(len(sources))])
+    combined_errors = torch.cat((source_errors, reproj_errors), dim=0)
+    
+    min_errors, _ = torch.min(combined_errors, dim=0)
     min_error_vis = min_errors.detach().clone()
-    min_error_vis[min_error_vis == torch.finfo(torch.float).max] = 0
-
-    mask = get_mask(targets, sources, min_errors)
-    min_errors[~mask] = torch.finfo(torch.float).max
-    min_errors[min_errors == torch.finfo(torch.float).max] = 0
-
+    
     disp = outputs["disparities"]
     normalized_disp = disp / (disp.mean(2, True).mean(3, True) + 1e-7)
 
-    loss = loss + torch.mean(min_errors)
-    if torch.isnan(loss):
-        loss = 10
+    loss = loss + min_errors.mean()
     loss = loss + smooth_term * calc_smooth_loss(normalized_disp, targets) / (2 ** scale)
 
     return loss, mask, min_error_vis
 
 
-def process_depth(src_images, depths, poses, tgt_intr, src_intr, img_shape):
-    """
-    Reprojects a batch of source images into the target frame, using the target depth map, relative pose between the
-    two frames, and the target and source intrinsic matrices.
-    :param [torch.tensor] src_images: Tensor of source images, where dimension 0 separates the different type of source
-    images. In format [num_source_images, batch_size, 3, H, W]
-    :param [torch.tensor] depths: Tensor containing the depth maps as determined from the target images, in the format
-    [batch_size, 1, H, W]
-    :param [torch.tensor] poses: Tensor containing the relative poses for each given source image to the target frame,
-    in format [num_source_imgs, batch_size, 4, 4]
-    :param [torch.tensor] tgt_intr: The intrinsic matrices for the target camera, in format [batch_size, 3, 3]
-    :param [torch.tensor] src_intr: The intrinsic matrix for the source camera, in format
-    [num_source_imgs, batch_size, 3, 3]
-    :param [tuple] img_shape: An integer, indexable data type where the 0th and 1st index represent the height and width
-    of the images respectively.
-    :return [tuple]: Returns a tuple containing 2 tensors, the first containing the reprojected images, in format
-    [num_source_imgs, batch_size, 3, H, W], and the second containing binary masks recording which pixels were able to
-    be reprojected back onto target, in format [num_source_imgs, 1, batch_size, H, W]
-    """
-    reprojected = torch.full((len(src_images), len(depths), 3, img_shape[0], img_shape[1]), 127, dtype=torch.float,
-                             device=poses.device)
-    masks = torch.zeros((len(src_images), len(depths), 1, img_shape[0], img_shape[1]), dtype=torch.bool,
-                        device=poses.device)
+class GenerateReprojections(nn.Module):
+    def __init__(self, height, width, default_batch_size):
+        super(GenerateReprojections, self).__init__()
 
-    # Creates an array of all image coordinates: [0, 0], [1, 0], [2, 0], etc.
-    img_ones = torch.ones((img_shape[0] * img_shape[1], 1), device=poses.device)
-    img_coords = torch.meshgrid([
-        torch.arange(img_shape[0], dtype=torch.float, device=poses.device),
-        torch.arange(img_shape[1], dtype=torch.float, device=poses.device)
-    ])
-    img_indices = torch.cat((img_coords[1].reshape(-1, 1), img_coords[0].reshape(-1, 1), img_ones), dim=1)
+        self.h = height
+        self.w = width
+        self.batch_size = default_batch_size
 
-    # Transposes intrinsic matrices, also inverting those that need to be inverted
-    tgt_intr_torch_T = tgt_intr.transpose(1, 2)
-    src_intr_torch_T = src_intr.transpose(2, 3)
-    tgt_intr_inv_torch_T = tgt_intr_torch_T.inverse()
+        meshgrid = torch.meshgrid([
+            torch.arange(height, dtype=torch.float,),
+            torch.arange(width, dtype=torch.float,)
+        ])
+        img_coords = torch.stack((meshgrid[1].reshape(-1), meshgrid[0].reshape(-1)), dim=0).unsqueeze(0).repeat(
+            default_batch_size, 1, 1)
+        self.ones = nn.Parameter(torch.ones(self.batch_size, 1, width * height), requires_grad=False)
+        self.img_indices = nn.Parameter(torch.cat([img_coords, self.ones], 1), requires_grad=False)
 
-    t_poses = poses.transpose(2, 3)
+    def forward(self, src_images, depths, poses, tgt_intr, src_intr, local_batch_size):
+        reprojected = []
+        tgt_intr_inv = tgt_intr.inverse()
+        for i in range(len(poses)):
+            world_coords = depths.view(local_batch_size, 1, -1) * (tgt_intr_inv[:, :3, :3] @ self.img_indices[:local_batch_size])
+            world_coords = torch.cat([world_coords, self.ones[:local_batch_size]], dim=1)
+            src_coords = (src_intr[i] @ poses[i][:, :3]) @ world_coords
 
-    # Iterates through all source image types (t+1, t-1, etc.)
-    for i in range(len(src_images)):
-        # Iterates through all images in batch
-        for j in range(len(depths)):
-            world_coords = torch.cat((img_indices @ tgt_intr_inv_torch_T[j] * depths[j, 0].view(-1, 1),
-                                      torch.ones(img_indices.shape[0], 1, device=poses.device)), dim=1)
+            src_coords = src_coords[:, :2] / (src_coords[:, 2].unsqueeze(1) + 1e-7)
+            src_coords = src_coords.view(local_batch_size, 2, self.h, self.w)
+            src_coords = src_coords.permute(0, 2, 3, 1)
+            src_coords[..., 0] /= self.w - 1
+            src_coords[..., 1] /= self.h - 1
+            src_coords = (src_coords - 0.5) * 2
 
-            src_coords = torch.cat(((world_coords @ t_poses[i, j])[:, :3] @ src_intr_torch_T[i, j], img_indices[:, :2]),
-                                   dim=1)
-            src_coords = src_coords[src_coords[:, 2] > 0]
-
-            src_coords = torch.cat((src_coords[:, :2] / src_coords[:, 2].reshape(-1, 1), src_coords[:, 2:]), dim=1)
-
-            src_coords = src_coords[
-                (src_coords[:, 1] >= 0) & (src_coords[:, 1] <= img_shape[0] - 1) & (src_coords[:, 0] >= 0) & (
-                        src_coords[:, 0] <= img_shape[1] - 1)]
-
-            # Bilinear sampling
-            x = src_coords[:, 0]
-            y = src_coords[:, 1]
-            x12 = (torch.floor(x).long(), torch.ceil(x).long())
-            y12 = (torch.floor(y).long(), torch.ceil(y).long())
-            xdiff = (x - x12[0], x12[1] - x)
-            ydiff = (y - y12[0], y12[1] - y)
-            src_img = src_images[i, j]
-            reprojected[i, j, :, src_coords[:, 4].long(), src_coords[:, 3].long()] = \
-                src_img[:, y12[0], x12[0]] * xdiff[1] * ydiff[1] + \
-                src_img[:, y12[0], x12[1]] * xdiff[0] * ydiff[1] + \
-                src_img[:, y12[1], x12[0]] * xdiff[1] * ydiff[0] + \
-                src_img[:, y12[1], x12[1]] * xdiff[0] * ydiff[0]
-
-            int_coords = (x12[0] == x12[1]) | (y12[0] == y12[1])
-            if int_coords.any():
-                rounded_coords = src_coords[int_coords].round().long()
-                reprojected[i, j, :, rounded_coords[:, 4], rounded_coords[:, 3]] = src_img[:, rounded_coords[:, 1],
-                                                                                   rounded_coords[:, 0]].float()
-
-            masks[i, j, 0, src_coords[:, 4].long(), src_coords[:, 3].long()] = 1
-    return reprojected, masks
+            reprojected.append(F.grid_sample(src_images[i], src_coords, padding_mode="border", align_corners=False))
+        return reprojected
