@@ -19,3 +19,4 @@ test_config_path: configs/datasets/eigen_zhou_test_dataset.yml
 log_dir: experiments/baseline_m
 gt_path: data/kitti_gt
 metrics: True
+use_fpn: False
