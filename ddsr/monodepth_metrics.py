@@ -10,6 +10,7 @@ import yaml
 from third_party.monodepth2.ResnetEncoder import ResnetEncoder
 from third_party.monodepth2.DepthDecoder import DepthDecoder
 from third_party.monodepth2.layers import disp_to_depth
+from fpn import FPN
 
 cv2.setNumThreads(0)
 
@@ -53,6 +54,8 @@ def run_metrics(log_dir, epoch):
     print("-> Loading weights from {weights_folder}")
     encoder_path = os.path.join(weights_folder, "resnet_encoder.pth")
     decoder_path = os.path.join(weights_folder, "depth_decoder.pth")
+    if config["use_fpn"]:
+        fpn_path = os.path.join(weights_folder, "fpn.pth")
 
     encoder_dict = torch.load(encoder_path)
 
@@ -60,7 +63,14 @@ def run_metrics(log_dir, epoch):
     dataloader = DataLoader(dataset, config["batch_size"], shuffle=False, collate_fn=Collator(config["height"], config["width"]), num_workers=config["num_workers"])
 
     encoder = ResnetEncoder(config["encoder_layers"], False)
-    depth_decoder = DepthDecoder(encoder.num_ch_enc)
+    decoder_num_ch = encoder.num_ch_enc
+    if config["use_fpn"]:
+        fpn = FPN(decoder_num_ch)
+        decoder_num_ch = fpn.num_ch_pyramid
+        fpn.load_state_dict(torch.load(fpn_path))
+        fpn.cuda()
+        fpn.eval()
+    depth_decoder = DepthDecoder(decoder_num_ch)
 
     model_dict = encoder.state_dict()
     encoder.load_state_dict({k: v for k, v in encoder_dict.items() if k in model_dict})
@@ -79,8 +89,10 @@ def run_metrics(log_dir, epoch):
     with torch.no_grad():
         for batch in dataloader:
             inputs = batch["stereo_left_image"].to(device).float()
-
-            output = depth_decoder(encoder(inputs))
+            if config["use_fpn"]:
+                output = depth_decoder(fpn(encoder(inputs)))
+            else:
+                output = depth_decoder(encoder(inputs))
 
             pred_disp, _ = disp_to_depth(output[("disp", 0)], config["min_depth"], config["max_depth"])
             pred_disp = pred_disp.cpu()[:, 0].numpy()
@@ -139,6 +151,7 @@ def run_metrics(log_dir, epoch):
     print("\n-> Done!")
     
     return mean_errors.tolist()
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="metrics options")
