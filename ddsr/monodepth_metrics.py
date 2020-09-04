@@ -54,7 +54,7 @@ def run_metrics(log_dir, epoch):
     print("-> Loading weights from {weights_folder}")
     encoder_path = os.path.join(weights_folder, "resnet_encoder.pth")
     decoder_path = os.path.join(weights_folder, "depth_decoder.pth")
-    if config["use_fpn"]:
+    if config.get("use_fpn"):
         fpn_path = os.path.join(weights_folder, "fpn.pth")
 
     encoder_dict = torch.load(encoder_path)
@@ -64,7 +64,7 @@ def run_metrics(log_dir, epoch):
 
     encoder = ResnetEncoder(config["encoder_layers"], False)
     decoder_num_ch = encoder.num_ch_enc
-    if config["use_fpn"]:
+    if config.get("use_fpn"):
         fpn = FPN(decoder_num_ch)
         decoder_num_ch = fpn.num_ch_pyramid
         fpn.load_state_dict(torch.load(fpn_path))
@@ -89,7 +89,7 @@ def run_metrics(log_dir, epoch):
     with torch.no_grad():
         for batch in dataloader:
             inputs = batch["stereo_left_image"].to(device).float()
-            if config["use_fpn"]:
+            if config.get("use_fpn"):
                 output = depth_decoder(fpn(encoder(inputs)))
             else:
                 output = depth_decoder(encoder(inputs))

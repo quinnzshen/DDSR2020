@@ -96,7 +96,7 @@ class Trainer:
         self.num_scales = self.config["num_scales"]
         decoder_num_ch = self.models["resnet_encoder"].num_ch_enc
 
-        if self.config["use_fpn"]:
+        if self.config.get("use_fpn"):
             self.models["fpn"] = FPN(decoder_num_ch).to(self.device)
             decoder_num_ch = self.models["fpn"].num_ch_pyramid
 
@@ -240,7 +240,7 @@ class Trainer:
         inputs = batch["stereo_left_image"].to(self.device).float()
         local_batch_size = len(inputs)
         features = self.models['resnet_encoder'](inputs)
-        if self.config["use_fpn"]:
+        if self.config.get("use_fpn"):
             pyramid = self.models["fpn"](features)
             outputs = self.models["depth_decoder"](pyramid)
         else:
