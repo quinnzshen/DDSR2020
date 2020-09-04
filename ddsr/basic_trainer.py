@@ -33,30 +33,40 @@ LOSS_VIS_CMAP = "cividis"
 
 
 class Trainer:
-    def __init__(self, config_path):
+    def __init__(self, config_path, continue_training, start_epoch):
         """
         Creates an instance of tranier using a config file
         The config file contains all the information needed to train a model
         :param [str] config_path: The path to the config file
         :return [Trainer]: Object instance of the trainer
         """
+        # Determines whether or not to continue training an existing model
+        self.continue_training = continue_training
+        
+        # Epoch to continue training from (0 if new model)
+        self.start_epoch = start_epoch
         
         # Load data from config
         with open(config_path) as file:
             self.config = yaml.load(file, Loader=yaml.Loader)
-
-        date_time = datetime.now().strftime("%Y_%m_%d-%I_%M_%S_%p")
-        self.log_dir = self.config["log_dir"] + "_" + date_time
-        os.mkdir(self.log_dir)
-        
-        shutil.copyfileobj(open(config_path, "r"), open(os.path.join(self.log_dir, "config.yml"),"w+"))
+            
+        if self.continue_training == True:
+            self.log_dir = os.path.dirname(config_path)
+        else:
+            date_time = datetime.now().strftime("%Y_%m_%d-%I_%M_%S_%p")
+            self.log_dir = self.config["log_dir"] + "_" + date_time
+            os.mkdir(self.log_dir)
+            shutil.copyfileobj(open(config_path, "r"), open(os.path.join(self.log_dir, "config.yml"),"w+"))
 
         # GPU/CPU setup
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         torch.cuda.empty_cache()
 
         # Epoch and batch info
-        self.num_epochs = self.config["num_epochs"]
+        if self.continue_training == True:
+            self.num_epochs = self.config["num_epochs"]
+        else:
+            self.num_epochs = self.start_epoch + self.config["num_epochs"]
         self.batch_size = self.config["batch_size"]
 
         # Image dimensions
@@ -90,28 +100,70 @@ class Trainer:
         # Model setup
         self.models = {}
         self.pretrained = self.config["pretrained"]
-
-        self.models['resnet_encoder'] = ResnetEncoder(
-            self.config["encoder_layers"],
-            pretrained=self.pretrained
-        ).to(self.device)
-
-        self.models['depth_decoder'] = DepthDecoder(
-            num_ch_enc=self.models['resnet_encoder'].num_ch_enc,
-            scales=range(self.num_scales)
-        ).to(self.device)
-
-        self.models["pose_encoder"] = ResnetEncoder(
-            self.config["encoder_layers"],
-            pretrained=self.pretrained,
-            num_input_images=2
-        ).to(self.device)
-
-        self.models["pose_decoder"] = PoseDecoder(
-            self.models["pose_encoder"].num_ch_enc,
-            num_input_features=1,
-            num_frames_to_predict_for=2
-        ).to(self.device)
+        
+        if self.continue_training==True:
+            weights_folder = os.path.join(self.log_dir, "models", f'weights_{self.start_epoch-1}')
+    
+            resnet_encoder_path = os.path.join(weights_folder, "resnet_encoder.pth")    
+            resnet_encoder = ResnetEncoder(
+                self.config["encoder_layers"],
+                pretrained=self.pretrained
+            )
+            resnet_model_dict = resnet_encoder.state_dict()
+            resnet_encoder_dict = torch.load(resnet_encoder_path)
+            resnet_encoder.load_state_dict({k: v for k, v in resnet_encoder_dict.items() if k in resnet_model_dict})
+            self.models['resnet_encoder'] = resnet_encoder.to(self.device)
+            
+            depth_decoder_path = os.path.join(weights_folder, "depth_decoder.pth")
+            depth_decoder =  DepthDecoder(
+                num_ch_enc=self.models['resnet_encoder'].num_ch_enc,
+                scales=range(self.num_scales)
+            )
+            depth_decoder.load_state_dict(torch.load(depth_decoder_path))    
+            self.models['depth_decoder'] = depth_decoder.to(self.device)
+            
+            pose_encoder_path = os.path.join(weights_folder, "pose_encoder.pth")    
+            pose_encoder = ResnetEncoder(
+                self.config["encoder_layers"],
+                pretrained=self.pretrained,
+                num_input_images=2
+            )
+            pose_model_dict = pose_encoder.state_dict()
+            pose_encoder_dict = torch.load(pose_encoder_path)
+            pose_encoder.load_state_dict({k: v for k, v in pose_encoder_dict.items() if k in pose_model_dict})
+            self.models["pose_encoder"] = pose_encoder.to(self.device)   
+            
+            pose_decoder_path = os.path.join(weights_folder, "pose_decoder.pth")
+            pose_decoder = PoseDecoder(
+                self.models["pose_encoder"].num_ch_enc,
+                num_input_features=1,
+                num_frames_to_predict_for=2
+            )
+            pose_decoder.load_state_dict(torch.load(pose_decoder_path))
+            self.models["pose_decoder"] = pose_decoder.to(self.device) 
+        
+        else:
+            self.models['resnet_encoder'] = ResnetEncoder(
+                self.config["encoder_layers"],
+                pretrained=self.pretrained
+            ).to(self.device)
+    
+            self.models['depth_decoder'] = DepthDecoder(
+                num_ch_enc=self.models['resnet_encoder'].num_ch_enc,
+                scales=range(self.num_scales)
+            ).to(self.device)
+    
+            self.models["pose_encoder"] = ResnetEncoder(
+                self.config["encoder_layers"],
+                pretrained=self.pretrained,
+                num_input_images=2
+            ).to(self.device)
+    
+            self.models["pose_decoder"] = PoseDecoder(
+                self.models["pose_encoder"].num_ch_enc,
+                num_input_features=1,
+                num_frames_to_predict_for=2
+            ).to(self.device)
 
         # Parameters
         parameters_to_train = []
@@ -121,8 +173,14 @@ class Trainer:
         parameters_to_train += list(self.models["pose_decoder"].parameters())
 
         # Optimizer
-        learning_rate = self.config["learning_rate"]
-        self.optimizer = optim.Adam(parameters_to_train, learning_rate)
+        if self.continue_training==True:
+            optimizer_load_path = os.path.join(weights_folder, "adam.pth")
+            optimizer_dict = torch.load(optimizer_load_path)
+            self.optimizer = optim.Adam(parameters_to_train)
+            self.optimizer.load_state_dict(optimizer_dict)
+        else:
+            learning_rate = self.config["learning_rate"]
+            self.optimizer = optim.Adam(parameters_to_train, learning_rate)
 
         # Learning rate scheduler
         scheduler_step_size = self.config["scheduler_step_size"]
@@ -144,14 +202,15 @@ class Trainer:
 
         # Utility variables
         self.steps_until_write = 0
-        self.epoch = 0
 
         # Set up for metrics
         self.metrics = self.config["metrics"]
-        if self.metrics:
-            self.metrics_file = csv.writer(open(os.path.join(self.log_dir, "metrics.csv"),"w",newline=''), delimiter=',')
+        if self.metrics and self.continue_training==False:
+            self.metrics_file = csv.writer(open(os.path.join(self.log_dir, "metrics.csv"),"w", newline=''), delimiter=',')
             metrics_list = ["epoch", "abs_rel", "sq_rel", "rmse", "rmse_log", "a1", "a2", "a3"]
             self.metrics_file.writerow(metrics_list)
+        else:
+            self.metrics_file = csv.writer(open(os.path.join(self.log_dir, "metrics.csv"),"a", newline=''), delimiter=',')
             
         # Depth boundaries
         self.min_depth = self.config["min_depth"]
@@ -162,7 +221,7 @@ class Trainer:
         Runs the entire training pipeline
         Saves the model's weights at the end of training
         """
-        for self.epoch in range(self.num_epochs):
+        for self.epoch in range(self.start_epoch, self.num_epochs):
             self.run_epoch()
             self.save_model()
             if self.metrics:
@@ -459,10 +518,22 @@ class Trainer:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="ddsr options")
+    
     parser.add_argument("--config_path",
                         type=str,
                         help="path to the config",
-                        default="configs/full_model.yml")
+                        default="configs/basic_model.yml")
+        
+    parser.add_argument("--continue_training",
+                        type=bool,
+                        help="Setting this to true allows the user to continue training",
+                        default=False)
+    
+    parser.add_argument("--epoch",
+                        type=int,
+                        help="epoch to start training from",
+                        default=0)
+    
     opt = parser.parse_args()
-    test = Trainer(opt.config_path)
+    test = Trainer(opt.config_path, opt.continue_training, opt.epoch)
     test.train()
