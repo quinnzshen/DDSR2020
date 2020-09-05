@@ -34,7 +34,7 @@ LOSS_VIS_CMAP = "cividis"
 
 
 class Trainer:
-    def __init__(self, config_path):
+    def __init__(self, config_path, start_epoch):
         """
         Creates an instance of tranier using a config file
         The config file contains all the information needed to train a model
@@ -42,22 +42,30 @@ class Trainer:
         :return [Trainer]: Object instance of the trainer
         """
         
+        # Epoch to continue training from (0 if new model)
+        self.start_epoch = start_epoch
+        
         # Load data from config
         with open(config_path) as file:
             self.config = yaml.load(file, Loader=yaml.Loader)
-
-        date_time = datetime.now().strftime("%Y_%m_%d-%I_%M_%S_%p")
-        self.log_dir = self.config["log_dir"] + "_" + date_time
-        os.mkdir(self.log_dir)
-        
-        shutil.copyfileobj(open(config_path, "r"), open(os.path.join(self.log_dir, "config.yml"),"w+"))
+            
+        if self.start_epoch > 0:
+            self.log_dir = os.path.dirname(config_path)
+        else:
+            date_time = datetime.now().strftime("%Y_%m_%d-%I_%M_%S_%p")
+            self.log_dir = self.config["log_dir"] + "_" + date_time
+            os.mkdir(self.log_dir)
+            shutil.copyfileobj(open(config_path, "r"), open(os.path.join(self.log_dir, "config.yml"),"w+"))
 
         # GPU/CPU setup
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         torch.cuda.empty_cache()
 
         # Epoch and batch info
-        self.num_epochs = self.config["num_epochs"]
+        if  self.start_epoch > 0:
+            self.num_epochs = self.config["num_epochs"]
+        else:
+            self.num_epochs = self.start_epoch + self.config["num_epochs"]
         self.batch_size = self.config["batch_size"]
 
         # Image dimensions
@@ -91,6 +99,7 @@ class Trainer:
         # Model setup
         self.models = {}
         self.pretrained = self.config["pretrained"]
+
         self.models['resnet_encoder'] = ResnetEncoder(self.config["encoder_layers"], pretrained=self.pretrained).to(
             self.device)
         self.num_scales = self.config["num_scales"]
@@ -113,18 +122,33 @@ class Trainer:
             num_input_features=1,
             num_frames_to_predict_for=2
         ).to(self.device)
+        
+        # Loading pretrained weights
+        if self.start_epoch > 0:
+            weights_folder = os.path.join(self.log_dir, "models", f'weights_{self.start_epoch-1}')
+            for model_name in self.models:
+                model_path = os.path.join(weights_folder, f"{model_name}.pth")
+
+                # if model_name == "resnet_encoder" or model_name == "depth_encoder":
+                model_dict = self.models[model_name].state_dict()
+                preset_dict = torch.load(model_path)
+                model_dict.update({k: v for k, v in preset_dict.items() if k in model_dict})
+                self.models[model_name].load_state_dict(model_dict)
 
         # Parameters
         parameters_to_train = []
-        parameters_to_train += list(self.models['resnet_encoder'].parameters())
-        parameters_to_train += list(self.models["fpn"].parameters())
-        parameters_to_train += list(self.models['depth_decoder'].parameters())
-        parameters_to_train += list(self.models["pose_encoder"].parameters())
-        parameters_to_train += list(self.models["pose_decoder"].parameters())
+        for model_name in self.models:
+            parameters_to_train += list(self.models[model_name].parameters())
 
         # Optimizer
-        learning_rate = self.config["learning_rate"]
-        self.optimizer = optim.Adam(parameters_to_train, learning_rate)
+        if self.start_epoch > 0:
+            optimizer_load_path = os.path.join(weights_folder, "adam.pth")
+            optimizer_dict = torch.load(optimizer_load_path)
+            self.optimizer = optim.Adam(parameters_to_train)
+            self.optimizer.load_state_dict(optimizer_dict)
+        else:
+            learning_rate = self.config["learning_rate"]
+            self.optimizer = optim.Adam(parameters_to_train, learning_rate)
 
         # Learning rate scheduler
         scheduler_step_size = self.config["scheduler_step_size"]
@@ -146,15 +170,19 @@ class Trainer:
 
         # Utility variables
         self.steps_until_write = 0
-        self.epoch = 0
 
         # Set up for metrics
         self.metrics = self.config["metrics"]
         if self.metrics:
-            self.metrics_file = csv.writer(open(os.path.join(self.log_dir, "metrics.csv"),"w",newline=''), delimiter=',')
-            metrics_list = ["epoch", "abs_rel", "sq_rel", "rmse", "rmse_log", "a1", "a2", "a3"]
-            self.metrics_file.writerow(metrics_list)
-            
+            if self.start_epoch > 0:
+                self.metrics_file = open(os.path.join(self.log_dir, "metrics.csv"),"a", newline='')
+                self.metrics_writer = csv.writer(self.metrics_file, delimiter=',')
+            else:
+                self.metrics_file = open(os.path.join(self.log_dir, "metrics.csv"),"w", newline='')
+                self.metrics_writer = csv.writer(self.metrics_file, delimiter=',')
+                metrics_list = ["epoch", "abs_rel", "sq_rel", "rmse", "rmse_log", "a1", "a2", "a3"]
+                self.metrics_writer.writerow(metrics_list)
+       
         # Depth boundaries
         self.min_depth = self.config["min_depth"]
         self.max_depth = self.config["max_depth"]
@@ -164,7 +192,7 @@ class Trainer:
         Runs the entire training pipeline
         Saves the model's weights at the end of training
         """
-        for self.epoch in range(self.num_epochs):
+        for self.epoch in range(self.start_epoch, self.num_epochs):
             self.run_epoch()
             self.save_model()
             if self.metrics:
@@ -172,8 +200,9 @@ class Trainer:
                 self.add_metrics_to_tensorboard(metrics)
                 metrics = [round(num, 3) for num in metrics]
                 metrics.insert(0, self.epoch+1)
-                self.metrics_file.writerow(metrics)
+                self.metrics_writer.writerow(metrics)
         self.writer.close()
+        self.metrics_file.close()
         print('Model saved.')
 
     def run_epoch(self):
@@ -469,10 +498,17 @@ class Trainer:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="ddsr options")
+    
     parser.add_argument("--config_path",
                         type=str,
                         help="path to the config",
-                        default="configs/full_model.yml")
+                        default="configs/basic_model.yml")
+    
+    parser.add_argument("--epoch",
+                        type=int,
+                        help="epoch to continue training from",
+                        default=0)
+    
     opt = parser.parse_args()
-    test = Trainer(opt.config_path)
+    test = Trainer(opt.config_path, opt.epoch)
     test.train()

@@ -51,7 +51,7 @@ def run_metrics(log_dir, epoch):
         config = yaml.load(file, Loader=yaml.Loader)
             
     weights_folder = os.path.join(log_dir, "models", f'weights_{epoch-1}')
-    print("-> Loading weights from {weights_folder}")
+    print(f'-> Loading weights from {weights_folder}')
     encoder_path = os.path.join(weights_folder, "resnet_encoder.pth")
     decoder_path = os.path.join(weights_folder, "depth_decoder.pth")
     if config.get("use_fpn"):
