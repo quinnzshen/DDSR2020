@@ -237,11 +237,8 @@ class Trainer:
 
         print(f"Validating epoch {self.epoch + 1}", end=", ")
 
-        self.models['resnet_encoder'].eval()
-        self.models['depth_decoder'].eval()
-        self.models["fpn"].eval()
-        self.models['pose_encoder'].eval()
-        self.models['pose_decoder'].eval()
+        for model_name in self.models:
+            self.models[model_name].eval()
 
         self.steps_until_write = total_loss = count = 0
         for batch_idx, batch in enumerate(self.val_dataloader):
