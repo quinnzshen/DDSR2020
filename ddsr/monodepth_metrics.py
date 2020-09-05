@@ -16,6 +16,7 @@ cv2.setNumThreads(0)
 
 STEREO_SCALE_FACTOR = 5.4
 
+
 def compute_errors(gt, pred):
     """Computation of error metrics between predicted and ground truth depths. Taken from Monodepth2
     """
@@ -36,6 +37,7 @@ def compute_errors(gt, pred):
 
     return abs_rel, sq_rel, rmse, rmse_log, a1, a2, a3
 
+
 def run_metrics(log_dir, epoch):
     """Computes metrics based on a specified directory containing a config and an epoch number. Adapted from Monodepth2
     :param [String] config_path: Path to the config directory that the model was trained on
@@ -49,50 +51,43 @@ def run_metrics(log_dir, epoch):
     config_path = os.path.join(log_dir, "config.yml")
     with open(config_path) as file:
         config = yaml.load(file, Loader=yaml.Loader)
-            
-    weights_folder = os.path.join(log_dir, "models", f'weights_{epoch-1}')
-    print(f'-> Loading weights from {weights_folder}')
-    encoder_path = os.path.join(weights_folder, "resnet_encoder.pth")
-    decoder_path = os.path.join(weights_folder, "depth_decoder.pth")
-    if config.get("use_fpn"):
-        fpn_path = os.path.join(weights_folder, "fpn.pth")
-
-    encoder_dict = torch.load(encoder_path)
 
     dataset = KittiDataset.init_from_config(config["test_config_path"])
     dataloader = DataLoader(dataset, config["batch_size"], shuffle=False, collate_fn=Collator(config["height"], config["width"]), num_workers=config["num_workers"])
 
-    encoder = ResnetEncoder(config["encoder_layers"], False)
-    decoder_num_ch = encoder.num_ch_enc
+    models = {"resnet_encoder": ResnetEncoder(config["encoder_layers"], False)}
+    decoder_num_ch = models["resnet_encoder"].num_ch_enc
     if config.get("use_fpn"):
         fpn = FPN(decoder_num_ch)
         decoder_num_ch = fpn.num_ch_pyramid
-        fpn.load_state_dict(torch.load(fpn_path))
-        fpn.cuda()
-        fpn.eval()
-    depth_decoder = DepthDecoder(decoder_num_ch)
+    models["depth_decoder"] = DepthDecoder(decoder_num_ch)
 
-    model_dict = encoder.state_dict()
-    encoder.load_state_dict({k: v for k, v in encoder_dict.items() if k in model_dict})
-    depth_decoder.load_state_dict(torch.load(decoder_path))
+    weights_folder = os.path.join(log_dir, "models", f'weights_{epoch-1}')
+    print(f'-> Loading weights from {weights_folder}')
 
-    encoder.cuda()
-    encoder.eval()
-    depth_decoder.cuda()
-    depth_decoder.eval()
+    for model_name in models:
+        preset_path = os.path.join(weights_folder, f"{model_name}.pth")
+        model_dict = models[model_name].state_dict()
+        preset_dict = torch.load(preset_path)
+        if model_name == "resnet_encoder":
+            dims = (preset_dict["height"], preset_dict["width"])
+        model_dict.update({k: v for k, v in preset_dict.items() if k in model_dict})
+        models[model_name].load_state_dict(model_dict)
+        models[model_name].cuda()
+        models[model_name].eval()
 
     pred_disps = []
 
     print("-> Computing predictions with size {}x{}".format(
-        encoder_dict['width'], encoder_dict['height']))
+        dims[1], dims[0]))
 
     with torch.no_grad():
         for batch in dataloader:
             inputs = batch["stereo_left_image"].to(device).float()
             if config.get("use_fpn"):
-                output = depth_decoder(fpn(encoder(inputs)))
+                output = models["depth_decoder"](models["fpn"](models["resnet_encoder"](inputs)))
             else:
-                output = depth_decoder(encoder(inputs))
+                output = models["depth_decoder"](models["resnet_encoder"](inputs))
 
             pred_disp, _ = disp_to_depth(output[("disp", 0)], config["min_depth"], config["max_depth"])
             pred_disp = pred_disp.cpu()[:, 0].numpy()
@@ -156,10 +151,10 @@ def run_metrics(log_dir, epoch):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="metrics options")
     parser.add_argument("--log_dir",
-                             type = str,
-                             help = "path to experiment directory")
+                        type=str,
+                        help="path to experiment directory")
     parser.add_argument("--epoch",
-                             type = int,
-                             help = "epoch number")
+                        type=int,
+                        help="epoch number")
     opt = parser.parse_args()
     run_metrics(opt.log_dir, opt.epoch)
