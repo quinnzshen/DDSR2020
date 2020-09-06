@@ -58,8 +58,8 @@ def run_metrics(log_dir, epoch):
     models = {"resnet_encoder": ResnetEncoder(config["encoder_layers"], False)}
     decoder_num_ch = models["resnet_encoder"].num_ch_enc
     if config.get("use_fpn"):
-        fpn = FPN(decoder_num_ch)
-        decoder_num_ch = fpn.num_ch_pyramid
+        models["fpn"] = FPN(decoder_num_ch)
+        decoder_num_ch = models["fpn"].num_ch_pyramid
     models["depth_decoder"] = DepthDecoder(decoder_num_ch)
 
     weights_folder = os.path.join(log_dir, "models", f'weights_{epoch-1}')
