@@ -12,7 +12,6 @@ class FPN(nn.Module):
         """
         super(FPN, self).__init__()
         self.upsampler = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=False)
-        self.upsampler.to(self.device)
         self.num_ch_pyramid = np.roll(num_ch_enc, -1)
         self.num_ch_pyramid[-1] = self.num_ch_pyramid[-2]
         self.convs = []

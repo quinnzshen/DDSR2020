@@ -64,8 +64,8 @@ class Trainer:
         self.models["encoder"].to(self.device)
         self.parameters_to_train += list(self.models["encoder"].parameters())
 
-        if(self.opt.use_fpn):
-            self.models["fpn"] = networks.FPN(np.append(self.models["encoder"].num_ch_enc[1:], self.models["encoder"].num_ch_enc[-1]), self.device)
+        if self.opt.use_fpn:
+            self.models["fpn"] = networks.FPN(self.models["encoder"].num_ch_enc).to(self.device)
             self.parameters_to_train += list(self.models["fpn"].parameters())
             self.models["depth"] = networks.DepthDecoder(
                 self.models["fpn"].num_ch_pyramid, self.opt.scales)

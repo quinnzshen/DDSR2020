@@ -25,6 +25,7 @@ from loss import calc_loss, GenerateReprojections
 from monodepth_metrics import run_metrics
 from third_party.monodepth2.ResnetEncoder import ResnetEncoder
 from third_party.monodepth2.DepthDecoder import DepthDecoder
+from fpn import FPN
 from third_party.monodepth2.PoseDecoder import PoseDecoder
 from third_party.monodepth2.layers import transformation_from_parameters, disp_to_depth
 
@@ -98,17 +99,18 @@ class Trainer:
         # Model setup
         self.models = {}
         self.pretrained = self.config["pretrained"]
-        
-        self.models['resnet_encoder'] = ResnetEncoder(
-            self.config["encoder_layers"],
-            pretrained=self.pretrained
-        ).to(self.device)
 
-        self.models['depth_decoder'] = DepthDecoder(
-            num_ch_enc=self.models['resnet_encoder'].num_ch_enc,
-            scales=range(self.num_scales)
-        ).to(self.device)
+        self.models['resnet_encoder'] = ResnetEncoder(self.config["encoder_layers"], pretrained=self.pretrained).to(
+            self.device)
+        self.num_scales = self.config["num_scales"]
+        decoder_num_ch = self.models["resnet_encoder"].num_ch_enc
 
+        if self.config.get("use_fpn"):
+            self.models["fpn"] = FPN(decoder_num_ch).to(self.device)
+            decoder_num_ch = self.models["fpn"].num_ch_pyramid
+
+        self.models['depth_decoder'] = DepthDecoder(num_ch_enc=decoder_num_ch,
+                                                    scales=range(self.num_scales)).to(self.device)
         self.models["pose_encoder"] = ResnetEncoder(
             self.config["encoder_layers"],
             pretrained=self.pretrained,
@@ -124,32 +126,22 @@ class Trainer:
         # Loading pretrained weights
         if self.start_epoch > 0:
             weights_folder = os.path.join(self.log_dir, "models", f'weights_{self.start_epoch-1}')
+            for model_name in self.models:
+                model_path = os.path.join(weights_folder, f"{model_name}.pth")
 
-            resnet_encoder_path = os.path.join(weights_folder, "resnet_encoder.pth")   
-            resnet_model_dict = self.models['resnet_encoder'].state_dict()
-            resnet_encoder_dict = torch.load(resnet_encoder_path)
-            self.models['resnet_encoder'].load_state_dict({k: v for k, v in resnet_encoder_dict.items() if k in resnet_model_dict})
-            
-            depth_decoder_path = os.path.join(weights_folder, "depth_decoder.pth")
-            self.models['depth_decoder'].load_state_dict(torch.load(depth_decoder_path))
-            
-            pose_encoder_path = os.path.join(weights_folder, "pose_encoder.pth")
-            pose_model_dict = self.models["pose_encoder"].state_dict()
-            pose_encoder_dict = torch.load(pose_encoder_path)
-            self.models["pose_encoder"].load_state_dict({k: v for k, v in pose_encoder_dict.items() if k in pose_model_dict})
-            
-            pose_decoder_path = os.path.join(weights_folder, "pose_decoder.pth")
-            self.models["pose_decoder"].load_state_dict(torch.load(pose_decoder_path))
-            
+                # if model_name == "resnet_encoder" or model_name == "depth_encoder":
+                model_dict = self.models[model_name].state_dict()
+                preset_dict = torch.load(model_path)
+                model_dict.update({k: v for k, v in preset_dict.items() if k in model_dict})
+                self.models[model_name].load_state_dict(model_dict)
+
         # Parameters
         parameters_to_train = []
-        parameters_to_train += list(self.models['resnet_encoder'].parameters())
-        parameters_to_train += list(self.models['depth_decoder'].parameters())
-        parameters_to_train += list(self.models["pose_encoder"].parameters())
-        parameters_to_train += list(self.models["pose_decoder"].parameters())
+        for model_name in self.models:
+            parameters_to_train += list(self.models[model_name].parameters())
 
         # Optimizer
-        if  self.start_epoch > 0:
+        if self.start_epoch > 0:
             optimizer_load_path = os.path.join(weights_folder, "adam.pth")
             optimizer_dict = torch.load(optimizer_load_path)
             self.optimizer = optim.Adam(parameters_to_train)
@@ -245,10 +237,8 @@ class Trainer:
 
         print(f"Validating epoch {self.epoch + 1}", end=", ")
 
-        self.models['resnet_encoder'].eval()
-        self.models['depth_decoder'].eval()
-        self.models['pose_encoder'].eval()
-        self.models['pose_decoder'].eval()
+        for model_name in self.models:
+            self.models[model_name].eval()
 
         self.steps_until_write = total_loss = count = 0
         for batch_idx, batch in enumerate(self.val_dataloader):
@@ -276,7 +266,11 @@ class Trainer:
         inputs = batch["stereo_left_image"].to(self.device).float()
         local_batch_size = len(inputs)
         features = self.models['resnet_encoder'](inputs)
-        outputs = self.models['depth_decoder'](features)
+        if self.config.get("use_fpn"):
+            pyramid = self.models["fpn"](features)
+            outputs = self.models["depth_decoder"](pyramid)
+        else:
+            outputs = self.models['depth_decoder'](features)
 
         # Loading source images and pose data
         sources_list = []
@@ -289,6 +283,7 @@ class Trainer:
             if i == 0:
                 continue
             sources_list.append(batch["nearby_frames"][i]["camera_data"]["stereo_left_image"].float().to(self.device))
+
             if i < 0:
                 pose_inputs = [
                     batch["nearby_frames"][i]["camera_data"]["stereo_left_image"].float().to(self.device),
@@ -325,6 +320,7 @@ class Trainer:
 
             # Convert disparity to depth
             disp = outputs[("disp", scale)]
+
             _, depths = disp_to_depth(disp, self.min_depth, self.max_depth)
 
             # Input scaling
@@ -345,6 +341,7 @@ class Trainer:
 
             if self.use_stereo:
                 src_intrinsics_stereo_scale = torch.clone(src_intrinsics_stereo)
+
                 src_intrinsics_stereo_scale[:, 0] = src_intrinsics_stereo_scale[:, 0] * \
                                                     shapes_scale[:, 1].reshape(-1, 1)
                 src_intrinsics_stereo_scale[:, 1] = src_intrinsics_stereo_scale[:, 1] * \
