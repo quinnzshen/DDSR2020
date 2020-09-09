@@ -1,0 +1,161 @@
+from __future__ import absolute_import, division, print_function
+import numpy as np
+import torch
+import torch.nn as nn
+import torchvision.models as models
+import torch.utils.model_zoo as model_zoo
+from collections import OrderedDict
+import torch.nn.functional as F
+
+class _DenseLayer(nn.Module):
+    def __init__(self, num_input_features, growth_rate, bn_size, drop_rate, memory_efficient=False):
+        super(_DenseLayer, self).__init__()
+        self.add_module('norm1', nn.BatchNorm2d(num_input_features)),
+        self.add_module('relu1', nn.ReLU(inplace=True)),
+        self.add_module('conv1', nn.Conv2d(num_input_features, bn_size *
+                                           growth_rate, kernel_size=1, stride=1,
+                                           bias=False)),
+        self.add_module('norm2', nn.BatchNorm2d(bn_size * growth_rate)),
+        self.add_module('relu2', nn.ReLU(inplace=True)),
+        self.add_module('conv2', nn.Conv2d(bn_size * growth_rate, growth_rate,
+                                           kernel_size=3, stride=1, padding=1,
+                                           bias=False)),
+        self.drop_rate = float(drop_rate)
+        self.memory_efficient = memory_efficient
+
+class _DenseBlock(nn.ModuleDict):
+    _version = 2
+
+    def __init__(self, num_layers, num_input_features, bn_size, growth_rate, drop_rate, memory_efficient=False):
+        super(_DenseBlock, self).__init__()
+        for i in range(num_layers):
+            layer = _DenseLayer(
+                num_input_features + i * growth_rate,
+                growth_rate=growth_rate,
+                bn_size=bn_size,
+                drop_rate=drop_rate,
+                memory_efficient=memory_efficient,
+            )
+            self.add_module('denselayer%d' % (i + 1), layer)
+
+    def forward(self, init_features):
+        features = [init_features]
+        for name, layer in self.items():
+            new_features = layer(features)
+            features.append(new_features)
+        return torch.cat(features, 1)
+
+class _Transition(nn.Sequential):
+    def __init__(self, num_input_features, num_output_features):
+        super(_Transition, self).__init__()
+        self.add_module('norm', nn.BatchNorm2d(num_input_features))
+        self.add_module('relu', nn.ReLU(inplace=True))
+        self.add_module('conv', nn.Conv2d(num_input_features, num_output_features,
+                                          kernel_size=1, stride=1, bias=False))
+        self.add_module('pool', nn.AvgPool2d(kernel_size=2, stride=2))
+        
+class DenseNetMultiImageInput(models.DenseNet):
+    """Constructs a resnet model with varying number of input images.
+    Adapted from https://github.com/pytorch/vision/blob/master/torchvision/models/resnet.py
+    """
+    def __init__(self, growth_rate=32, block_config=(6, 12, 24, 16),
+                 num_init_features=64, bn_size=4, drop_rate=0, num_classes=1000, num_input_images=1):
+        super(DenseNetMultiImageInput, self).__init__()
+        self.features = nn.Sequential(OrderedDict([
+            ('conv0', nn.Conv2d(3*num_input_images, num_init_features, kernel_size=7, stride=2,
+                                padding=3, bias=False)),
+            ('norm0', nn.BatchNorm2d(num_init_features)),
+            ('relu0', nn.ReLU(inplace=True)),
+            ('pool0', nn.MaxPool2d(kernel_size=3, stride=2, padding=1)),
+        ]))
+        
+        # Each denseblock
+        num_features = num_init_features
+        for i, num_layers in enumerate(block_config):
+            block = _DenseBlock(
+                num_layers=num_layers,
+                num_input_features=num_features,
+                bn_size=bn_size,
+                growth_rate=growth_rate,
+                drop_rate=drop_rate,
+            )
+            self.features.add_module('denseblock%d' % (i + 1), block)
+            num_features = num_features + num_layers * growth_rate
+            if i != len(block_config) - 1:
+                trans = _Transition(num_input_features=num_features,
+                                    num_output_features=num_features // 2)
+                self.features.add_module('transition%d' % (i + 1), trans)
+                num_features = num_features // 2
+
+        # Final batch norm
+        self.features.add_module('norm5', nn.BatchNorm2d(num_features))
+
+        # Linear layer
+        self.classifier = nn.Linear(num_features, num_classes)
+
+        # Official init from torch repo.
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.kaiming_normal_(m.weight)
+            elif isinstance(m, nn.BatchNorm2d):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.Linear):
+                nn.init.constant_(m.bias, 0)
+                
+def densenet_multiimage_input(num_layers, pretrained=False, num_input_images=1):
+    """Constructs a DenseNet model.
+    Args:
+        num_layers (int): Number of resnet layers. Must be 18 or 50
+        pretrained (bool): If True, returns a model pre-trained on ImageNet
+        num_input_images (int): Number of frames stacked as input
+    """
+    assert num_layers in [121, 169, 201, 161], "Can only run with 18 or 50 layer resnet"
+    growth_rate = {121:32, 161:48, 169:32, 201:32}[num_layers]
+    block_config = {121:(6, 12, 24, 16), 161:(6, 12, 36, 24), 169:(6, 12, 32, 32), 201:(6, 12, 48, 32)}[num_layers]
+    num_init_features = {121:64, 161:96, 169:64, 201:64}[num_layers]
+    model = DenseNetMultiImageInput(growth_rate=growth_rate, block_config=block_config, 
+                                    num_init_features=num_init_features, num_input_images=num_input_images)
+    if pretrained:
+        loaded = model_zoo.load_url(models.densenet.model_urls['densenet{}'.format(num_layers)])
+        loaded['features[0].weight'] = torch.cat(
+            [loaded['features[0].weight']] * num_input_images, 1) / num_input_images
+        model.load_state_dict(loaded)
+    return model
+
+class DensenetEncoder(nn.Module):
+    """Pytorch module for a resnet encoder
+    """
+    def __init__(self, num_layers, pretrained, num_input_images=1):
+        super(DensenetEncoder, self).__init__()
+        
+        num_init_features = {121:64, 161:96, 169:64, 201:64}[num_layers]
+        growth_rate = {121:32, 161:48, 169:32, 201:32}[num_layers]
+        
+        ch_enc = [num_init_features]
+        num_features = num_init_features
+        for i in range (4):
+            num_features = num_features + num_layers * growth_rate
+            ch_enc.append(num_features)
+        self.num_ch_enc = np.array(ch_enc)
+
+        densenets = {121: models.densenet121,
+                   169: models.densenet169,
+                   201: models.densenet201,
+                   161: models.densenet161}
+
+        if num_layers not in densenets:
+            raise ValueError("{} is not a valid number of resnet layers".format(densenets))
+
+        if num_input_images > 1:
+            self.encoder = densenet_multiimage_input(num_layers, pretrained, num_input_images)
+        else:
+            self.encoder = densenets[num_layers](pretrained)
+        
+    def forward(self, x):
+        features = self.encoder.features(x)
+        out = F.relu(features, inplace=True)
+        out = F.adaptive_avg_pool2d(out, (1, 1))
+        out = torch.flatten(out, 1)
+        out = self.encoder.classifier(out)
+        return out

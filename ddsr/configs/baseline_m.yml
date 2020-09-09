@@ -1,4 +1,4 @@
-encoder_layers: 18
+resnet_layers: 18
 pretrained: True
 num_scales: 4
 learning_rate: 0.0001
