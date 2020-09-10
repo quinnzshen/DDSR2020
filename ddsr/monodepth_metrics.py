@@ -15,13 +15,16 @@ from fpn import FPN
 cv2.setNumThreads(0)
 
 STEREO_SCALE_FACTOR = 5.4
+BINS = [50, 100]
 
 
-def compute_errors(gt, pred):
+def compute_errors(gt, pred, length):
     """Computation of error metrics between predicted and ground truth depths. Taken from Monodepth2
     """
+    metrics = np.empty(length, dtype=np.float64)
+
     thresh = np.maximum((gt / pred), (pred / gt))
-    a1 = (thresh < 1.25     ).mean()
+    a1 = (thresh < 1.25).mean()
     a2 = (thresh < 1.25 ** 2).mean()
     a3 = (thresh < 1.25 ** 3).mean()
 
@@ -34,8 +37,16 @@ def compute_errors(gt, pred):
     abs_rel = np.mean(np.abs(gt - pred) / gt)
 
     sq_rel = np.mean(((gt - pred) ** 2) / gt)
+    metrics[:7] = [abs_rel, sq_rel, rmse, rmse_log, a1, a2, a3]
 
-    return abs_rel, sq_rel, rmse, rmse_log, a1, a2, a3
+    prev_depth = 0
+    for i in range(len(BINS)):
+        mask_indices = prev_depth <= gt < BINS[i]
+        metrics[7 + i] = np.mean(np.abs(gt[mask_indices] - pred[mask_indices]) / gt[mask_indices])
+        metrics[8 + i] = (np.maximum((gt / pred), (pred / gt)) < 1.25).mean()
+        prev_depth = BINS[i]
+
+    return metrics
 
 
 def run_metrics(log_dir, epoch):
@@ -46,14 +57,15 @@ def run_metrics(log_dir, epoch):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     MIN_DEPTH = 0.001
     MAX_DEPTH = 80
-    
+
     # Load data from config
     config_path = os.path.join(log_dir, "config.yml")
     with open(config_path) as file:
         config = yaml.load(file, Loader=yaml.Loader)
 
     dataset = KittiDataset.init_from_config(config["test_config_path"])
-    dataloader = DataLoader(dataset, config["batch_size"], shuffle=False, collate_fn=Collator(config["height"], config["width"]), num_workers=config["num_workers"])
+    dataloader = DataLoader(dataset, config["batch_size"], shuffle=False,
+                            collate_fn=Collator(config["height"], config["width"]), num_workers=config["num_workers"])
 
     models = {"resnet_encoder": ResnetEncoder(config["encoder_layers"], False)}
     decoder_num_ch = models["resnet_encoder"].num_ch_enc
@@ -62,7 +74,7 @@ def run_metrics(log_dir, epoch):
         decoder_num_ch = models["fpn"].num_ch_pyramid
     models["depth_decoder"] = DepthDecoder(decoder_num_ch)
 
-    weights_folder = os.path.join(log_dir, "models", f'weights_{epoch-1}')
+    weights_folder = os.path.join(log_dir, "models", f'weights_{epoch - 1}')
     print(f'-> Loading weights from {weights_folder}')
 
     for model_name in models:
@@ -104,26 +116,32 @@ def run_metrics(log_dir, epoch):
     errors = []
     ratios = []
 
-    for i in range(pred_disps.shape[0]):
-        
+    labels = ["abs_rel", "sq_rel", "rmse", "rmse_log", "a1", "a2", "a3"]
+    for i in BINS:
+        labels.extend(["abs_rel" + str(i), "a1" + str(i)])
+    image_len = pred_disps.shape[0]
+
+    errors = np.empty((image_len, len(labels)), dtype=np.float64)
+    for i in range(image_len):
+
         gt_depth = gt_depths[i]
         gt_height, gt_width = gt_depth.shape[:2]
 
         pred_disp = pred_disps[i]
         pred_disp = cv2.resize(pred_disp, (gt_width, gt_height))
         pred_depth = 1 / pred_disp
-        
+
         mask = np.logical_and(gt_depth > MIN_DEPTH, gt_depth < MAX_DEPTH)
 
         crop = np.array([0.40810811 * gt_height, 0.99189189 * gt_height,
-                         0.03594771 * gt_width,  0.96405229 * gt_width]).astype(np.int32)
+                         0.03594771 * gt_width, 0.96405229 * gt_width]).astype(np.int32)
         crop_mask = np.zeros(mask.shape)
         crop_mask[crop[0]:crop[1], crop[2]:crop[3]] = 1
         mask = np.logical_and(mask, crop_mask)
 
         pred_depth = pred_depth[mask]
         gt_depth = gt_depth[mask]
-        
+
         if config["use_stereo"]:
             pred_depth *= STEREO_SCALE_FACTOR
         else:
@@ -133,19 +151,19 @@ def run_metrics(log_dir, epoch):
         pred_depth[pred_depth < MIN_DEPTH] = MIN_DEPTH
         pred_depth[pred_depth > MAX_DEPTH] = MAX_DEPTH
 
-        errors.append(compute_errors(gt_depth, pred_depth))
+        errors[i] = compute_errors(gt_depth, pred_depth, len(labels))
 
     ratios = np.array(ratios)
     med = np.median(ratios)
     print(" Scaling ratios | med: {:0.3f} | std: {:0.3f}".format(med, np.std(ratios / med)))
-    
-    mean_errors = np.array(errors).mean(0)
 
-    print("\n  " + ("{:>8} | " * 7).format("abs_rel", "sq_rel", "rmse", "rmse_log", "a1", "a2", "a3"))
-    print(("&{: 8.3f}  " * 7).format(*mean_errors.tolist()) + "\\\\")
+    mean_errors = errors.mean(0)
+
+    print("\n  " + ("{:>8} | " * len(labels)).format(*labels))
+    print(("&{: 8.3f}  " * len(labels)).format(*mean_errors.tolist()) + "\\\\")
     print("\n-> Done!")
-    
-    return mean_errors.tolist()
+
+    return mean_errors.tolist(), labels
 
 
 if __name__ == "__main__":

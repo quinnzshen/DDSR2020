@@ -196,8 +196,8 @@ class Trainer:
             self.run_epoch()
             self.save_model()
             if self.metrics:
-                metrics = run_metrics(self.log_dir, self.epoch+1)
-                self.add_metrics_to_tensorboard(metrics)
+                metrics, metric_labels = run_metrics(self.log_dir, self.epoch+1)
+                self.add_metrics_to_tensorboard(metrics, metric_labels)
                 metrics = [round(num, 3) for num in metrics]
                 metrics.insert(0, self.epoch+1)
                 self.metrics_writer.writerow(metrics)
@@ -483,14 +483,9 @@ class Trainer:
             self.writer.add_image(f"{name} Forward Reprojection/Epoch: {self.epoch + 1}",
                                   reproj[1], img_num)
 
-    def add_metrics_to_tensorboard(self, metrics):
-        self.writer.add_scalar("metrics/abs_rel", metrics[0], self.epoch)
-        self.writer.add_scalar("metrics/sq_rel", metrics[1], self.epoch)
-        self.writer.add_scalar("metrics/rmse", metrics[2], self.epoch)
-        self.writer.add_scalar("metrics/rmse_log", metrics[3], self.epoch)
-        self.writer.add_scalar("metrics/a1", metrics[4], self.epoch)
-        self.writer.add_scalar("metrics/a2", metrics[5], self.epoch)
-        self.writer.add_scalar("metrics/a3", metrics[6], self.epoch)
+    def add_metrics_to_tensorboard(self, metrics, labels):
+        for i in range(len(metrics)):
+            self.writer.add_scalar("metrics/" + labels[i], metrics[i], self.epoch)
 
 
 if __name__ == "__main__":
