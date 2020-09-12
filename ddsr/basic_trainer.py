@@ -28,10 +28,45 @@ from third_party.monodepth2.DepthDecoder import DepthDecoder
 from fpn import FPN
 from third_party.monodepth2.PoseDecoder import PoseDecoder
 from third_party.monodepth2.layers import transformation_from_parameters, disp_to_depth
+from qualitative_depth import generate_qualitative
 
 LOSS_VIS_SIZE = (10, 4)
 LOSS_VIS_CMAP = "cividis"
 
+
+def colorize(value, vmin=None, vmax=None, cmap=None):
+    """
+    A utility function for Torch/Numpy that maps a grayscale image to a matplotlib
+    colormap for use with TensorBoard image summaries.
+    By default it will normalize the input value to the range 0..1 before mapping
+    to a grayscale colormap.
+    Arguments:
+      - value: 2D Tensor of shape [height, width] or 3D Tensor of shape
+        [height, width, 1].
+      - vmin: the minimum value of the range used for normalization.
+        (Default: value minimum)
+      - vmax: the maximum value of the range used for normalization.
+        (Default: value maximum)
+      - cmap: a valid cmap named for use with matplotlib's `get_cmap`.
+        (Default: Matplotlib default colormap)
+
+    Returns a 4D uint8 tensor of shape [height, width, 4].
+    """
+
+    # normalize
+    vmin = value.min() if vmin is None else vmin
+    vmax = value.max() if vmax is None else vmax
+    if vmin != vmax:
+        value = (value - vmin) / (vmax - vmin)  # vmin..vmax
+    else:
+        # Avoid 0-division
+        value = value * 0.
+    # squeeze last dim if it exists
+    value = value.squeeze()
+
+    cmapper = cm.get_cmap(cmap)
+    value = cmapper(value, bytes=True)  # (nxmx4)
+    return value
 
 class Trainer:
     def __init__(self, config_path, start_epoch):
@@ -62,7 +97,7 @@ class Trainer:
         torch.cuda.empty_cache()
 
         # Epoch and batch info
-        if  self.start_epoch > 0:
+        if self.start_epoch > 0:
             self.num_epochs = self.config["num_epochs"]
         else:
             self.num_epochs = self.start_epoch + self.config["num_epochs"]
@@ -85,6 +120,11 @@ class Trainer:
         self.val_dataset = KittiDataset.init_from_config(val_config_path)
         self.val_dataloader = DataLoader(self.val_dataset, batch_size=self.batch_size, shuffle=False,
                                          collate_fn=self.collate, num_workers=self.num_workers)
+        self.qualitative = self.config.get("qual_config_path")
+        if self.qualitative:
+            self.qual_dataset = KittiDataset.init_from_config(self.qualitative)
+            self.qual_dataloader = DataLoader(self.qual_dataset, batch_size=self.batch_size, shuffle=False,
+                                              collate_fn=self.collate, num_workers=self.num_workers)
 
         # Neighboring frames
         self.prev_frames = self.train_dataset.previous_frames
@@ -195,6 +235,9 @@ class Trainer:
         for self.epoch in range(self.start_epoch, self.num_epochs):
             self.run_epoch()
             self.save_model()
+            if self.qualitative:
+                images = generate_qualitative(self.log_dir, self.epoch+1)
+                self.add_qualitative_to_tensorboard(images)
             if self.metrics:
                 metrics = run_metrics(self.log_dir, self.epoch+1)
                 self.add_metrics_to_tensorboard(metrics)
@@ -470,18 +513,26 @@ class Trainer:
         self.writer.add_image(f"{name} Losses/Epoch: {self.epoch + 1}",
                               loss,
                               img_num)
+        reproj_index = 0
         if self.use_stereo:
             self.writer.add_image(f"{name} Stereo Reprojection/Epoch: {self.epoch + 1}",
                                   reproj[0], img_num)
-            self.writer.add_image(f"{name} Backward Reprojection/Epoch: {self.epoch + 1}",
-                                  reproj[1], img_num)
-            self.writer.add_image(f"{name} Forward Reprojection/Epoch: {self.epoch + 1}",
-                                  reproj[2], img_num)
-        else:
-            self.writer.add_image(f"{name} Backward Reprojection/Epoch: {self.epoch + 1}",
-                                  reproj[0], img_num)
-            self.writer.add_image(f"{name} Forward Reprojection/Epoch: {self.epoch + 1}",
-                                  reproj[1], img_num)
+            reproj_index += 1
+
+        self.writer.add_image(f"{name} Backward Reprojection/Epoch: {self.epoch + 1}",
+                              reproj[reproj_index], img_num)
+        self.writer.add_image(f"{name} Forward Reprojection/Epoch: {self.epoch + 1}",
+                              reproj[reproj_index+1], img_num)
+
+    def add_qualitative_to_tensorboard(self, qualitative):
+        # Processing disparity map
+        disp_np = qualitative.squeeze(1).cpu().detach().numpy()
+        for i in range(len(disp_np)):
+            vmax = np.percentile(disp_np[i], 95)
+            normalizer = mpl.colors.Normalize(vmin=disp_np[i].min(), vmax=vmax)
+            mapper = cm.ScalarMappable(norm=normalizer, cmap='magma')
+            colormapped_disp = (mapper.to_rgba(disp_np[i])[:, :, :3] * 255).astype(np.uint8)
+            self.writer.add_image(f"Qualitative Images/Epoch: {self.epoch + 1}", transforms.ToTensor()(colormapped_disp), i)
 
     def add_metrics_to_tensorboard(self, metrics):
         self.writer.add_scalar("metrics/abs_rel", metrics[0], self.epoch)

@@ -1,0 +1,6 @@
+root_directory: data/kitti_example
+dataset_paths:
+  - splits/basic_qual_split.txt
+previous_frames: 0
+next_frames: 0
+is_jpeg: False
