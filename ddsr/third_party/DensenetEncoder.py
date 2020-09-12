@@ -55,9 +55,6 @@ class _Transition(nn.Sequential):
         self.add_module('pool', nn.AvgPool2d(kernel_size=2, stride=2))
         
 class DenseNetMultiImageInput(models.DenseNet):
-    """Constructs a resnet model with varying number of input images.
-    Adapted from https://github.com/pytorch/vision/blob/master/torchvision/models/resnet.py
-    """
     def __init__(self, growth_rate=32, block_config=(6, 12, 24, 16),
                  num_init_features=64, bn_size=4, drop_rate=0, num_classes=1000, num_input_images=1):
         super(DenseNetMultiImageInput, self).__init__()
@@ -86,7 +83,7 @@ class DenseNetMultiImageInput(models.DenseNet):
                                     num_output_features=num_features // 2)
                 self.features.add_module('transition%d' % (i + 1), trans)
                 num_features = num_features // 2
-
+        
         # Final batch norm
         self.features.add_module('norm5', nn.BatchNorm2d(num_features))
 
@@ -104,12 +101,6 @@ class DenseNetMultiImageInput(models.DenseNet):
                 nn.init.constant_(m.bias, 0)
                 
 def densenet_multiimage_input(num_layers, pretrained=False, num_input_images=1):
-    """Constructs a DenseNet model.
-    Args:
-        num_layers (int): Number of resnet layers. Must be 18 or 50
-        pretrained (bool): If True, returns a model pre-trained on ImageNet
-        num_input_images (int): Number of frames stacked as input
-    """
     assert num_layers in [121, 169, 201, 161], "Can only run with 18 or 50 layer resnet"
     growth_rate = {121:32, 161:48, 169:32, 201:32}[num_layers]
     block_config = {121:(6, 12, 24, 16), 161:(6, 12, 36, 24), 169:(6, 12, 32, 32), 201:(6, 12, 48, 32)}[num_layers]
@@ -132,13 +123,7 @@ class DensenetEncoder(nn.Module):
         num_init_features = {121:64, 161:96, 169:64, 201:64}[num_layers]
         growth_rate = {121:32, 161:48, 169:32, 201:32}[num_layers]
         
-        ch_enc = [num_init_features]
-        num_features = num_init_features
-        for i in range (4):
-            num_features = num_features + num_layers * growth_rate
-            ch_enc.append(num_features)
-        self.num_ch_enc = np.array(ch_enc)
-
+        self.num_ch_enc = np.array([64, 256, 512, 1024, 1024])
         densenets = {121: models.densenet121,
                    169: models.densenet169,
                    201: models.densenet201,
@@ -153,9 +138,11 @@ class DensenetEncoder(nn.Module):
             self.encoder = densenets[num_layers](pretrained)
         
     def forward(self, x):
-        features = self.encoder.features(x)
-        out = F.relu(features, inplace=True)
-        out = F.adaptive_avg_pool2d(out, (1, 1))
-        out = torch.flatten(out, 1)
-        out = self.encoder.classifier(out)
-        return out
+        self.features = []
+        for i, layer in enumerate(self.encoder.features):
+            x = layer(x)
+            if i == 2:
+                self.features.append(x)
+            if i > 3 and i % 2 == 0:
+                self.features.append(x)
+        return self.features

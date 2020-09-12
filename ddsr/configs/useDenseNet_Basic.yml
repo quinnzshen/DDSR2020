@@ -16,9 +16,9 @@ use_stereo: False
 train_config_path: configs/datasets/basic_train_dataset.yml
 valid_config_path: configs/datasets/basic_validation_dataset.yml
 test_config_path: configs/datasets/basic_test_dataset.yml
-log_dir: experiments/basic_model
+log_dir: experiments/basic_densenet
 gt_path: data/gt_example
-metrics: False
+metrics: True
 use_fpn: False
 use_densenet: True
 densenet_layers: 121
