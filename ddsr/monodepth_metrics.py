@@ -15,14 +15,14 @@ from fpn import FPN
 cv2.setNumThreads(0)
 
 STEREO_SCALE_FACTOR = 5.4
-BINS = [50, 100]
+BINS = [25, 50, 75, 100]
 
 
 def compute_errors(gt, pred, length):
     """Computation of error metrics between predicted and ground truth depths. Taken from Monodepth2
     """
     metrics = np.empty(length, dtype=np.float64)
-
+    print("Ground Truth Maximum:", np.max(gt))
     thresh = np.maximum((gt / pred), (pred / gt))
     a1 = (thresh < 1.25).mean()
     a2 = (thresh < 1.25 ** 2).mean()
@@ -41,7 +41,7 @@ def compute_errors(gt, pred, length):
 
     prev_depth = 0
     for i in range(len(BINS)):
-        mask_indices = prev_depth <= gt < BINS[i]
+        mask_indices = np.logical_and(prev_depth <= gt, gt < BINS[i])
         metrics[7 + i] = np.mean(np.abs(gt[mask_indices] - pred[mask_indices]) / gt[mask_indices])
         metrics[8 + i] = (np.maximum((gt / pred), (pred / gt)) < 1.25).mean()
         prev_depth = BINS[i]
@@ -113,14 +113,12 @@ def run_metrics(log_dir, epoch):
 
     print("-> Evaluating")
 
-    errors = []
-    ratios = []
-
     labels = ["abs_rel", "sq_rel", "rmse", "rmse_log", "a1", "a2", "a3"]
     for i in BINS:
-        labels.extend(["abs_rel" + str(i), "a1" + str(i)])
+        labels.extend(["abs_rel_" + str(i), "a1_" + str(i)])
     image_len = pred_disps.shape[0]
 
+    ratios = np.empty(image_len, dtype=np.float32)
     errors = np.empty((image_len, len(labels)), dtype=np.float64)
     for i in range(image_len):
 
@@ -146,14 +144,13 @@ def run_metrics(log_dir, epoch):
             pred_depth *= STEREO_SCALE_FACTOR
         else:
             ratio = np.median(gt_depth) / np.median(pred_depth)
-            ratios.append(ratio)
+            ratios[i] = ratio
             pred_depth *= ratio
         pred_depth[pred_depth < MIN_DEPTH] = MIN_DEPTH
         pred_depth[pred_depth > MAX_DEPTH] = MAX_DEPTH
 
         errors[i] = compute_errors(gt_depth, pred_depth, len(labels))
 
-    ratios = np.array(ratios)
     med = np.median(ratios)
     print(" Scaling ratios | med: {:0.3f} | std: {:0.3f}".format(med, np.std(ratios / med)))
 
