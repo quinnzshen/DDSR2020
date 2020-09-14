@@ -118,7 +118,7 @@ def densenet_multiimage_input(num_layers, pretrained=False, num_input_images=1):
         pretrained (bool): If True, returns a model pre-trained on ImageNet
         num_input_images (int): Number of frames stacked as input
     """
-    assert num_layers in [121, 169, 201, 161], "Can only run with 18 or 50 layer resnet"
+    assert num_layers in [121, 169, 201, 161], "Can only run with 121, 161, 169, or 201 layer resnet"
     growth_rate = {121:32, 161:48, 169:32, 201:32}[num_layers]
     block_config = {121:(6, 12, 24, 16), 161:(6, 12, 36, 24), 169:(6, 12, 32, 32), 201:(6, 12, 48, 32)}[num_layers]
     num_init_features = {121:64, 161:96, 169:64, 201:64}[num_layers]
@@ -137,7 +137,6 @@ class DensenetEncoder(nn.Module):
     """
     def __init__(self, num_layers, pretrained, num_input_images=1):
         super(DensenetEncoder, self).__init__()
-        
         self.num_ch_enc = np.array([64, 256, 512, 1024, 1024])
         densenets = {121: models.densenet121,
                    169: models.densenet169,
@@ -151,13 +150,12 @@ class DensenetEncoder(nn.Module):
             self.encoder = densenet_multiimage_input(num_layers, pretrained, num_input_images)
         else:
             self.encoder = densenets[num_layers](pretrained)
-        
     def forward(self, x):
         self.features = []
         for i, layer in enumerate(self.encoder.features):
             x = layer(x)
             if i == 2:
                 self.features.append(x)
-            if i > 3 and i % 2 == 0:
+            elif i > 3 and i % 2 == 0:
                 self.features.append(x)
         return self.features
