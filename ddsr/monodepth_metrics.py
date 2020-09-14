@@ -15,6 +15,7 @@ from fpn import FPN
 cv2.setNumThreads(0)
 
 STEREO_SCALE_FACTOR = 5.4
+# Sets N bins for metrics, from 0 -> BINS[0], BINS[1] -> BINS[2}, etc.
 BINS = [25, 50, 75, 100]
 
 

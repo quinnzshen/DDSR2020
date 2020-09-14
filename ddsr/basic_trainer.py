@@ -62,7 +62,7 @@ class Trainer:
         torch.cuda.empty_cache()
 
         # Epoch and batch info
-        if  self.start_epoch > 0:
+        if self.start_epoch > 0:
             self.num_epochs = self.config["num_epochs"]
         else:
             self.num_epochs = self.start_epoch + self.config["num_epochs"]
@@ -484,6 +484,11 @@ class Trainer:
                                   reproj[1], img_num)
 
     def add_metrics_to_tensorboard(self, metrics, labels):
+        """
+        Adds metrics to tensorboard with given metric values and their corresponding values
+        :param [list] metrics: A list of floats representing each metric
+        :param [list] labels: A list of strings (same length as metrics) that describe the title of the metric
+        """
         for i in range(len(metrics)):
             self.writer.add_scalar("metrics/" + labels[i], metrics[i], self.epoch)
 
