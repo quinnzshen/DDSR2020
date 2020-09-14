@@ -525,6 +525,10 @@ class Trainer:
                               reproj[reproj_index+1], img_num)
 
     def add_qualitative_to_tensorboard(self, qualitative):
+        """
+        Adds the generated qualitative images to tensorboard
+        :param [torch.Tensor] qualitative: A torch tensor of the generated depth maps in dimension [batch_size, 1, H, W]
+        """
         # Processing disparity map
         disp_np = qualitative.squeeze(1).cpu().detach().numpy()
         for i in range(len(disp_np)):
@@ -546,7 +550,6 @@ class Trainer:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="ddsr options")
-    
     parser.add_argument("--config_path",
                         type=str,
                         help="path to the config",
@@ -556,7 +559,7 @@ if __name__ == "__main__":
                         type=int,
                         help="epoch to continue training from",
                         default=0)
-    
     opt = parser.parse_args()
+    
     test = Trainer(opt.config_path, opt.epoch)
     test.train()

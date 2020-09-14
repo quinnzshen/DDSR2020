@@ -5,17 +5,18 @@ from torch.utils.data import DataLoader
 import yaml
 from collate import Collator
 from kitti_dataset import KittiDataset
-from monodepth_metrics import run_metrics
 from third_party.monodepth2.ResnetEncoder import ResnetEncoder
 from third_party.monodepth2.DepthDecoder import DepthDecoder
 from fpn import FPN
 
 
 def generate_qualitative(log_dir, epoch):
-    """Computes metrics based on a specified directory containing a config and an epoch number. Adapted from Monodepth2
-        :param [String] config_path: Path to the config directory that the model was trained on
-        :param [int] epoch: Epoch number corresponding to the model that metrics will be evaluated on
-        """
+    """
+    Generates metrics based on a specified directory containing a config and an epoch number.
+    :param [str] log_dir: Path to the config in the experiments directory that the model was trained on
+    :param [int] epoch: Epoch number corresponding to the model that metrics will be evaluated on
+    :return [torch.Tensor]: Tensor representing the generated qualitative depth maps in dimension [B, 1, H, W]
+    """
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     # Load data from config
