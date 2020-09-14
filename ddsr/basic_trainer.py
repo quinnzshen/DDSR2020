@@ -101,6 +101,7 @@ class Trainer:
         self.models = {}
         self.pretrained = self.config["pretrained"]
         
+        # Encoder Setup
         if self.config.get("use_densenet"):
             self.models['depth_encoder'] = DensenetEncoder(self.config["densenet_layers"], pretrained=self.pretrained).to(
                 self.device)
@@ -109,19 +110,23 @@ class Trainer:
                 self.device)
         self.num_scales = self.config["num_scales"]
         decoder_num_ch = self.models["depth_encoder"].num_ch_enc
-
+        
+        # FPN
         if self.config.get("use_fpn"):
             self.models["fpn"] = FPN(decoder_num_ch).to(self.device)
             decoder_num_ch = self.models["fpn"].num_ch_pyramid
-
+        
+        # Decoder Setup
         self.models['depth_decoder'] = DepthDecoder(num_ch_enc=decoder_num_ch,
                                                     scales=range(self.num_scales)).to(self.device)
+        
+        # Pose Network
         self.models["pose_encoder"] = ResnetEncoder(
             self.config["resnet_layers"],
             pretrained=self.pretrained,
             num_input_images=2
         ).to(self.device)
-
+        
         self.models["pose_decoder"] = PoseDecoder(
             self.models["pose_encoder"].num_ch_enc,
             num_input_features=1,

@@ -5,9 +5,11 @@ import torch.nn as nn
 import torchvision.models as models
 import torch.utils.model_zoo as model_zoo
 from collections import OrderedDict
-import torch.nn.functional as F
 
 class _DenseLayer(nn.Module):
+    """
+    Pytorch module for a dense layer. Taken from https://github.com/pytorch/vision/blob/master/torchvision/models/densenet.py
+    """
     def __init__(self, num_input_features, growth_rate, bn_size, drop_rate, memory_efficient=False):
         super(_DenseLayer, self).__init__()
         self.add_module('norm1', nn.BatchNorm2d(num_input_features)),
@@ -24,8 +26,10 @@ class _DenseLayer(nn.Module):
         self.memory_efficient = memory_efficient
 
 class _DenseBlock(nn.ModuleDict):
+    """
+    Pytorch module for a dense block. Taken from https://github.com/pytorch/vision/blob/master/torchvision/models/densenet.py
+    """
     _version = 2
-
     def __init__(self, num_layers, num_input_features, bn_size, growth_rate, drop_rate, memory_efficient=False):
         super(_DenseBlock, self).__init__()
         for i in range(num_layers):
@@ -46,6 +50,9 @@ class _DenseBlock(nn.ModuleDict):
         return torch.cat(features, 1)
 
 class _Transition(nn.Sequential):
+    """
+    Pytorch module for a transition layer. Taken from https://github.com/pytorch/vision/blob/master/torchvision/models/densenet.py
+    """
     def __init__(self, num_input_features, num_output_features):
         super(_Transition, self).__init__()
         self.add_module('norm', nn.BatchNorm2d(num_input_features))
@@ -55,6 +62,9 @@ class _Transition(nn.Sequential):
         self.add_module('pool', nn.AvgPool2d(kernel_size=2, stride=2))
         
 class DenseNetMultiImageInput(models.DenseNet):
+    """
+    Constructs a DenseNet model with varying number of input images.
+    """
     def __init__(self, growth_rate=32, block_config=(6, 12, 24, 16),
                  num_init_features=64, bn_size=4, drop_rate=0, num_classes=1000, num_input_images=1):
         super(DenseNetMultiImageInput, self).__init__()
@@ -101,6 +111,13 @@ class DenseNetMultiImageInput(models.DenseNet):
                 nn.init.constant_(m.bias, 0)
                 
 def densenet_multiimage_input(num_layers, pretrained=False, num_input_images=1):
+    """
+    Constructs a DenseNet model.
+    Args:
+        num_layers (int): Number of densenet layers. Must be 121, 161, 169, or 201.
+        pretrained (bool): If True, returns a model pre-trained on ImageNet
+        num_input_images (int): Number of frames stacked as input
+    """
     assert num_layers in [121, 169, 201, 161], "Can only run with 18 or 50 layer resnet"
     growth_rate = {121:32, 161:48, 169:32, 201:32}[num_layers]
     block_config = {121:(6, 12, 24, 16), 161:(6, 12, 36, 24), 169:(6, 12, 32, 32), 201:(6, 12, 48, 32)}[num_layers]
@@ -115,13 +132,11 @@ def densenet_multiimage_input(num_layers, pretrained=False, num_input_images=1):
     return model
 
 class DensenetEncoder(nn.Module):
-    """Pytorch module for a resnet encoder
+    """
+    Module for a densenet encoder
     """
     def __init__(self, num_layers, pretrained, num_input_images=1):
         super(DensenetEncoder, self).__init__()
-        
-        num_init_features = {121:64, 161:96, 169:64, 201:64}[num_layers]
-        growth_rate = {121:32, 161:48, 169:32, 201:32}[num_layers]
         
         self.num_ch_enc = np.array([64, 256, 512, 1024, 1024])
         densenets = {121: models.densenet121,
