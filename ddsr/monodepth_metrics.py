@@ -121,12 +121,9 @@ def run_metrics(log_dir, epoch):
 
     ratios = np.empty(image_len, dtype=np.float32)
     errors = np.empty((image_len, len(labels)), dtype=np.float64)
-    avg = 0
     for i in range(image_len):
 
         gt_depth = gt_depths[i]
-        print(gt_depth.max())
-        avg += gt_depth.max()
         gt_height, gt_width = gt_depth.shape[:2]
 
         pred_disp = pred_disps[i]
@@ -163,7 +160,6 @@ def run_metrics(log_dir, epoch):
     print("\n  " + ("{:>8} | " * len(labels)).format(*labels))
     print(("&{: 8.3f}  " * len(labels)).format(*mean_errors.tolist()) + "\\\\")
     print("\n-> Done!")
-    print("avg max:", avg / image_len)
     return mean_errors.tolist(), labels
 
 
