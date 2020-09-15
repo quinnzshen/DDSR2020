@@ -214,10 +214,8 @@ class Trainer:
 
         print(f"Training epoch {self.epoch + 1}", end=", ")
 
-        self.models['resnet_encoder'].train()
-        self.models['depth_decoder'].train()
-        self.models['pose_encoder'].train()
-        self.models['pose_decoder'].train()
+        for model_name in self.models:
+            self.models[model_name].train()
 
         self.steps_until_write = total_loss = count = 0
         for batch_idx, batch in enumerate(self.train_dataloader):
