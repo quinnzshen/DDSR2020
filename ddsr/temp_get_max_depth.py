@@ -23,7 +23,7 @@ def run_metrics(log_dir):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     # Load data from config
-    config_path = os.path.join(log_dir, "config.yml")
+    config_path = log_dir
     with open(config_path) as file:
         config = yaml.load(file, Loader=yaml.Loader)
 
