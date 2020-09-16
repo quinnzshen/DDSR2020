@@ -16,8 +16,9 @@ use_stereo: False
 train_config_path: configs/datasets/eigen_zhou_train_dataset.yml
 valid_config_path: configs/datasets/eigen_zhou_validation_dataset.yml
 test_config_path: configs/datasets/eigen_zhou_test_dataset.yml
-qual_config_path: configs/datasets/qualitative_dataset.yml
-log_dir: experiments/use_fpn
+log_dir: experiments/use_DenseNet
 gt_path: data/kitti_gt
 metrics: True
-use_fpn: True
+use_fpn: False
+use_denseNet: True
+densenet_layers: 121

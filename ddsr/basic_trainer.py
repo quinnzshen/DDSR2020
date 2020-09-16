@@ -29,6 +29,8 @@ from fpn import FPN
 from third_party.monodepth2.PoseDecoder import PoseDecoder
 from third_party.monodepth2.layers import transformation_from_parameters, disp_to_depth
 from qualitative_depth import generate_qualitative
+from third_party.DensenetEncoder import DensenetEncoder
+
 
 LOSS_VIS_SIZE = (10, 4)
 LOSS_VIS_CMAP = "cividis"
@@ -105,24 +107,33 @@ class Trainer:
         # Model setup
         self.models = {}
         self.pretrained = self.config["pretrained"]
-
-        self.models['resnet_encoder'] = ResnetEncoder(self.config["encoder_layers"], pretrained=self.pretrained).to(
-            self.device)
+        
+        # Encoder Setup
+        if self.config.get("use_densenet"):
+            self.models['depth_encoder'] = DensenetEncoder(self.config["densenet_layers"], pretrained=self.pretrained).to(
+                self.device)
+        else:
+            self.models['depth_encoder'] = ResnetEncoder(self.config["resnet_layers"], pretrained=self.pretrained).to(
+                self.device)
         self.num_scales = self.config["num_scales"]
-        decoder_num_ch = self.models["resnet_encoder"].num_ch_enc
-
+        decoder_num_ch = self.models["depth_encoder"].num_ch_enc
+        
+        # FPN
         if self.config.get("use_fpn"):
             self.models["fpn"] = FPN(decoder_num_ch).to(self.device)
             decoder_num_ch = self.models["fpn"].num_ch_pyramid
-
+        
+        # Decoder Setup
         self.models['depth_decoder'] = DepthDecoder(num_ch_enc=decoder_num_ch,
                                                     scales=range(self.num_scales)).to(self.device)
+        
+        # Pose Network
         self.models["pose_encoder"] = ResnetEncoder(
-            self.config["encoder_layers"],
+            self.config["resnet_layers"],
             pretrained=self.pretrained,
             num_input_images=2
         ).to(self.device)
-
+        
         self.models["pose_decoder"] = PoseDecoder(
             self.models["pose_encoder"].num_ch_enc,
             num_input_features=1,
@@ -134,8 +145,6 @@ class Trainer:
             weights_folder = os.path.join(self.log_dir, "models", f'weights_{self.start_epoch-1}')
             for model_name in self.models:
                 model_path = os.path.join(weights_folder, f"{model_name}.pth")
-
-                # if model_name == "resnet_encoder" or model_name == "depth_encoder":
                 model_dict = self.models[model_name].state_dict()
                 preset_dict = torch.load(model_path)
                 model_dict.update({k: v for k, v in preset_dict.items() if k in model_dict})
@@ -223,7 +232,7 @@ class Trainer:
 
         print(f"Training epoch {self.epoch + 1}", end=", ")
 
-        self.models['resnet_encoder'].train()
+        self.models['depth_encoder'].train()
         self.models['depth_decoder'].train()
         self.models['pose_encoder'].train()
         self.models['pose_decoder'].train()
@@ -274,7 +283,7 @@ class Trainer:
         # Predict disparity map
         inputs = batch["stereo_left_image"].to(self.device).float()
         local_batch_size = len(inputs)
-        features = self.models['resnet_encoder'](inputs)
+        features = self.models['depth_encoder'](inputs)
         if self.config.get("use_fpn"):
             pyramid = self.models["fpn"](features)
             outputs = self.models["depth_decoder"](pyramid)
@@ -422,7 +431,7 @@ class Trainer:
         for model_name, model in self.models.items():
             save_path = os.path.join(save_folder, "{}.pth".format(model_name))
             to_save = model.state_dict()
-            if model_name == 'resnet_encoder':
+            if model_name == 'depth_encoder':
                 to_save['height'] = self.height
                 to_save['width'] = self.width
             torch.save(to_save, save_path)
