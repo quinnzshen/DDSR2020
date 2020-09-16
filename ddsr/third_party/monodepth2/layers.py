@@ -108,7 +108,7 @@ class ConvBlock(nn.Module):
     """
     def __init__(self, in_channels, out_channels):
         super(ConvBlock, self).__init__()
-
+        #print(in_channels)
         self.conv = Conv3x3(in_channels, out_channels)
         self.nonlin = nn.ELU(inplace=True)
 

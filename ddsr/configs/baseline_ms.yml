@@ -1,4 +1,4 @@
-encoder_layers: 18
+resnet_layers: 18
 pretrained: True
 num_scales: 4
 learning_rate: 0.0001
@@ -16,7 +16,7 @@ use_stereo: True
 train_config_path: configs/datasets/eigen_zhou_train_dataset.yml
 valid_config_path: configs/datasets/eigen_zhou_validation_dataset.yml
 test_config_path: configs/datasets/eigen_zhou_test_dataset.yml
-log_dir: experiments/baseline_m
+log_dir: experiments/baseline_ms
 gt_path: data/kitti_gt
 metrics: True
 use_fpn: False

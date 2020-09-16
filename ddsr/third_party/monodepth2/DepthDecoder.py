@@ -24,6 +24,7 @@ class DepthDecoder(nn.Module):
         self.scales = scales
 
         self.num_ch_enc = num_ch_enc
+
         self.num_ch_dec = np.array([16, 32, 64, 128, 256])
 
         # decoder
@@ -52,6 +53,7 @@ class DepthDecoder(nn.Module):
 
         # decoder
         x = input_features[-1]
+
         for i in range(4, -1, -1):
             x = self.convs[("upconv", i, 0)](x)
             x = [upsample(x)]
