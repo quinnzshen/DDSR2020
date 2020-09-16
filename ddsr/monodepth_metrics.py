@@ -60,7 +60,7 @@ def run_metrics(log_dir, epoch):
     MAX_DEPTH = 80
 
     # Load data from config
-    config_path = os.path.join(log_dir)
+    config_path = os.path.join(log_dir, "config.yml")
     with open(config_path) as file:
         config = yaml.load(file, Loader=yaml.Loader)
 
