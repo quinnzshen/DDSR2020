@@ -43,8 +43,8 @@ def compute_errors(gt, pred, length):
     prev_depth = 0
     for i in range(len(BINS)):
         mask_indices = np.logical_and(prev_depth <= gt, gt < BINS[i])
-        metrics[7 + i] = np.mean(np.abs(gt[mask_indices] - pred[mask_indices]) / gt[mask_indices])
-        metrics[8 + i] = (np.maximum((gt / pred), (pred / gt)) < 1.25).mean()
+        metrics[7 + i * 2] = np.mean(np.abs(gt[mask_indices] - pred[mask_indices]) / gt[mask_indices])
+        metrics[8 + i * 2] = (np.maximum((gt / pred), (pred / gt)) < 1.25).mean()
         prev_depth = BINS[i]
 
     return metrics
@@ -52,7 +52,7 @@ def compute_errors(gt, pred, length):
 
 def run_metrics(log_dir, epoch):
     """Computes metrics based on a specified directory containing a config and an epoch number. Adapted from Monodepth2
-    :param [String] config_path: Path to the config directory that the model was trained on
+    :param [str] log_dir: Path to the config directory that the model was trained on
     :param [int] epoch: Epoch number corresponding to the model that metrics will be evaluated on
     """
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
