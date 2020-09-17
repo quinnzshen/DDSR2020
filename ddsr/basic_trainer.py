@@ -456,7 +456,7 @@ class Trainer:
         final_disp = transforms.ToTensor()(colormapped_disp)
 
         # Processing image
-        img_np = img.squeeze().cpu().detach().numpy()
+        img_np = img.squeeze().cpu().detach().numpy() * 255
         colormapped_img = img_np.astype(np.uint8).transpose(1, 2, 0)
         final_img = transforms.ToTensor()(colormapped_img)
 
@@ -471,8 +471,6 @@ class Trainer:
         buf.seek(0)
         loss = torch.from_numpy(decode_jpeg(buf.getvalue()).numpy())
         loss = loss.permute(2, 0, 1)
-
-        reproj /= 255
 
         # Add image and disparity map to tensorboard
         self.writer.add_image(f"{name} Images/Epoch: {self.epoch + 1}",
