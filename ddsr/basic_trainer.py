@@ -22,7 +22,7 @@ from tensorflow.image import decode_jpeg
 from collate import Collator
 from kitti_dataset import KittiDataset
 from loss import calc_loss, GenerateReprojections
-from monodepth_metrics import run_metrics
+from monodepth_metrics import run_metrics, get_labels
 from third_party.monodepth2.ResnetEncoder import ResnetEncoder
 from third_party.monodepth2.DepthDecoder import DepthDecoder
 from fpn import FPN
@@ -195,7 +195,8 @@ class Trainer:
             else:
                 self.metrics_file = open(os.path.join(self.log_dir, "metrics.csv"),"w", newline='')
                 self.metrics_writer = csv.writer(self.metrics_file, delimiter=',')
-                metrics_list = ["epoch", "abs_rel", "sq_rel", "rmse", "rmse_log", "a1", "a2", "a3"]
+                metrics_list = ["epoch"]
+                metrics_list.extend(get_labels())
                 self.metrics_writer.writerow(metrics_list)
        
         # Depth boundaries
