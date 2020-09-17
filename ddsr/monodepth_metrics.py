@@ -55,8 +55,10 @@ def compute_errors(gt, pred, length):
     prev_depth = 0
     for i in range(len(BINS)):
         mask_indices = np.logical_and(prev_depth <= gt, gt < BINS[i])
-        metrics[7 + i * 2] = np.mean(np.abs(gt[mask_indices] - pred[mask_indices]) / gt[mask_indices])
-        metrics[8 + i * 2] = (np.maximum((gt / pred), (pred / gt)) < 1.25).mean()
+        filt_gt = gt[mask_indices]
+        filt_pred = pred[mask_indices]
+        metrics[7 + i * 2] = np.mean(np.abs(filt_gt - filt_pred) / filt_gt)
+        metrics[8 + i * 2] = (np.maximum((filt_gt / filt_pred), (filt_pred / filt_gt)) < 1.25).mean()
         prev_depth = BINS[i]
 
     return metrics
