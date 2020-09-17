@@ -6,6 +6,7 @@ import torchvision.models as models
 import torch.utils.model_zoo as model_zoo
 from collections import OrderedDict
 
+
 class _DenseLayer(nn.Module):
     """
     Pytorch module for a dense layer. Taken from https://github.com/pytorch/vision/blob/master/torchvision/models/densenet.py
@@ -25,11 +26,13 @@ class _DenseLayer(nn.Module):
         self.drop_rate = float(drop_rate)
         self.memory_efficient = memory_efficient
 
+
 class _DenseBlock(nn.ModuleDict):
     """
     Pytorch module for a dense block. Taken from https://github.com/pytorch/vision/blob/master/torchvision/models/densenet.py
     """
     _version = 2
+
     def __init__(self, num_layers, num_input_features, bn_size, growth_rate, drop_rate, memory_efficient=False):
         super(_DenseBlock, self).__init__()
         for i in range(num_layers):
@@ -49,6 +52,7 @@ class _DenseBlock(nn.ModuleDict):
             features.append(new_features)
         return torch.cat(features, 1)
 
+
 class _Transition(nn.Sequential):
     """
     Pytorch module for a transition layer. Taken from https://github.com/pytorch/vision/blob/master/torchvision/models/densenet.py
@@ -60,7 +64,8 @@ class _Transition(nn.Sequential):
         self.add_module('conv', nn.Conv2d(num_input_features, num_output_features,
                                           kernel_size=1, stride=1, bias=False))
         self.add_module('pool', nn.AvgPool2d(kernel_size=2, stride=2))
-        
+
+
 class DenseNetMultiImageInput(models.DenseNet):
     """
     Constructs a DenseNet model with varying number of input images.
@@ -109,7 +114,8 @@ class DenseNetMultiImageInput(models.DenseNet):
                 nn.init.constant_(m.bias, 0)
             elif isinstance(m, nn.Linear):
                 nn.init.constant_(m.bias, 0)
-                
+
+
 def densenet_multiimage_input(num_layers, pretrained=False, num_input_images=1):
     """
     Constructs a DenseNet model.
@@ -131,6 +137,7 @@ def densenet_multiimage_input(num_layers, pretrained=False, num_input_images=1):
         model.load_state_dict(loaded)
     return model
 
+
 class DensenetEncoder(nn.Module):
     """
     Module for a densenet encoder
@@ -150,12 +157,14 @@ class DensenetEncoder(nn.Module):
             self.encoder = densenet_multiimage_input(num_layers, pretrained, num_input_images)
         else:
             self.encoder = densenets[num_layers](pretrained)
-    def forward(self, x):
-        self.features = []
+
+    def forward(self, input_image):
+        features = []
+        x = (input_image - 0.45) / 0.225
         for i, layer in enumerate(self.encoder.features):
             x = layer(x)
             if i == 2:
-                self.features.append(x)
+                features.append(x)
             elif i > 3 and i % 2 == 0:
-                self.features.append(x)
-        return self.features
+                features.append(x)
+        return features
