@@ -214,8 +214,8 @@ class Trainer:
                 images = generate_qualitative(self.log_dir, self.epoch+1)
                 self.add_qualitative_to_tensorboard(images)
             if self.metrics:
-                metrics = run_metrics(self.log_dir, self.epoch+1)
-                self.add_metrics_to_tensorboard(metrics)
+                metrics, metric_labels = run_metrics(self.log_dir, self.epoch+1)
+                self.add_metrics_to_tensorboard(metrics, metric_labels)
                 metrics = [round(num, 3) for num in metrics]
                 metrics.insert(0, self.epoch+1)
                 self.metrics_writer.writerow(metrics)
@@ -232,11 +232,9 @@ class Trainer:
 
         print(f"Training epoch {self.epoch + 1}", end=", ")
 
-        self.models['depth_encoder'].train()
-        self.models['depth_decoder'].train()
-        self.models['pose_encoder'].train()
-        self.models['pose_decoder'].train()
-
+        for model_name in self.models:
+            self.models[model_name].train()
+        
         self.steps_until_write = total_loss = count = 0
         for batch_idx, batch in enumerate(self.train_dataloader):
             count += 1
@@ -513,14 +511,14 @@ class Trainer:
             colormapped_disp = (mapper.to_rgba(disp_np[i])[:, :, :3] * 255).astype(np.uint8)
             self.writer.add_image(f"Qualitative Images/Epoch: {self.epoch + 1}", transforms.ToTensor()(colormapped_disp), i)
 
-    def add_metrics_to_tensorboard(self, metrics):
-        self.writer.add_scalar("metrics/abs_rel", metrics[0], self.epoch)
-        self.writer.add_scalar("metrics/sq_rel", metrics[1], self.epoch)
-        self.writer.add_scalar("metrics/rmse", metrics[2], self.epoch)
-        self.writer.add_scalar("metrics/rmse_log", metrics[3], self.epoch)
-        self.writer.add_scalar("metrics/a1", metrics[4], self.epoch)
-        self.writer.add_scalar("metrics/a2", metrics[5], self.epoch)
-        self.writer.add_scalar("metrics/a3", metrics[6], self.epoch)
+    def add_metrics_to_tensorboard(self, metrics, labels):
+        """
+        Adds metrics to tensorboard with given metric values and their corresponding values
+        :param [list] metrics: A list of floats representing each metric
+        :param [list] labels: A list of strings (same length as metrics) that describe the title of the metric
+        """
+        for i in range(len(metrics)):
+            self.writer.add_scalar("metrics/" + labels[i], metrics[i], self.epoch)
 
 
 if __name__ == "__main__":
