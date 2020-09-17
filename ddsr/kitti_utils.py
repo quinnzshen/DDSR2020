@@ -3,7 +3,6 @@ from __future__ import absolute_import, division, print_function
 import numpy as np
 from PIL import Image
 import torch
-from torchvision import transforms
 
 import os
 import pandas as pd
@@ -25,8 +24,6 @@ CAMERA_NAME_TO_PATH_MAPPING = {
 KITTI_TIMESTAMPS = ["/timestamps.txt", "velodyne_points/timestamps_start.txt", "velodyne_points/timestamps_end.txt"]
 EPOCH = np.datetime64("1970-01-01")
 VELO_INDICES = np.array([7, 6, 10])
-TO_TENSOR = transforms.ToTensor()
-
 
 def load_lidar_points(filename):
     """
@@ -165,7 +162,7 @@ def get_camera_data(path_name, idx, is_jpeg=True):
             camera_image_path = os.path.join(path_name, f"{camera_path}/data/{idx:010}.png")
 
         timestamp_path = os.path.join(path_name, f"{camera_path}/timestamps.txt")
-        camera_image = TO_TENSOR(Image.open(camera_image_path))
+        camera_image = torch.from_numpy(np.array(Image.open(camera_image_path)))
         timestamp = get_timestamp_nsec(timestamp_path, idx)
         camera_data[f"{camera_name}_image"] = camera_image
         camera_data[f"{camera_name}_shape"] = camera_image.shape
