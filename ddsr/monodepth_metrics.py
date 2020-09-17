@@ -20,6 +20,17 @@ STEREO_SCALE_FACTOR = 5.4
 BINS = [25, 50, 75, 100]
 
 
+def get_labels():
+    """
+    Gets the lables for the metrics
+    :return [list]: List of strings representing the respective metrics
+    """
+    labels = ["abs_rel", "sq_rel", "rmse", "rmse_log", "a1", "a2", "a3"]
+    for i in BINS:
+        labels.extend(["abs_rel_" + str(i), "a1_" + str(i)])
+    return labels
+
+
 def compute_errors(gt, pred, length):
     """Computation of error metrics between predicted and ground truth depths. Taken from Monodepth2
     """
@@ -44,8 +55,10 @@ def compute_errors(gt, pred, length):
     prev_depth = 0
     for i in range(len(BINS)):
         mask_indices = np.logical_and(prev_depth <= gt, gt < BINS[i])
-        metrics[7 + i * 2] = np.mean(np.abs(gt[mask_indices] - pred[mask_indices]) / gt[mask_indices])
-        metrics[8 + i * 2] = (np.maximum((gt / pred), (pred / gt)) < 1.25).mean()
+        filt_gt = gt[mask_indices]
+        filt_pred = pred[mask_indices]
+        metrics[7 + i * 2] = np.mean(np.abs(filt_gt - filt_pred) / filt_gt)
+        metrics[8 + i * 2] = (np.maximum((filt_gt / filt_pred), (filt_pred / filt_gt)) < 1.25).mean()
         prev_depth = BINS[i]
 
     return metrics
@@ -118,9 +131,7 @@ def run_metrics(log_dir, epoch):
 
     print("-> Evaluating")
 
-    labels = ["abs_rel", "sq_rel", "rmse", "rmse_log", "a1", "a2", "a3"]
-    for i in BINS:
-        labels.extend(["abs_rel_" + str(i), "a1_" + str(i)])
+    labels = get_labels()
     image_len = pred_disps.shape[0]
 
     ratios = np.empty(image_len, dtype=np.float32)
