@@ -28,6 +28,9 @@ from third_party.monodepth2.DepthDecoder import DepthDecoder
 from fpn import FPN
 from third_party.monodepth2.PoseDecoder import PoseDecoder
 from third_party.monodepth2.layers import transformation_from_parameters, disp_to_depth
+from qualitative_depth import generate_qualitative
+from third_party.DensenetEncoder import DensenetEncoder
+
 
 LOSS_VIS_SIZE = (10, 4)
 LOSS_VIS_CMAP = "cividis"
@@ -85,6 +88,11 @@ class Trainer:
         self.val_dataset = KittiDataset.init_from_config(val_config_path)
         self.val_dataloader = DataLoader(self.val_dataset, batch_size=self.batch_size, shuffle=False,
                                          collate_fn=self.collate, num_workers=self.num_workers)
+        self.qualitative = self.config.get("qual_config_path")
+        if self.qualitative:
+            self.qual_dataset = KittiDataset.init_from_config(self.qualitative)
+            self.qual_dataloader = DataLoader(self.qual_dataset, batch_size=self.batch_size, shuffle=False,
+                                              collate_fn=self.collate, num_workers=self.num_workers)
 
         # Neighboring frames
         self.prev_frames = self.train_dataset.previous_frames
@@ -99,24 +107,33 @@ class Trainer:
         # Model setup
         self.models = {}
         self.pretrained = self.config["pretrained"]
-
-        self.models['resnet_encoder'] = ResnetEncoder(self.config["encoder_layers"], pretrained=self.pretrained).to(
-            self.device)
+        
+        # Encoder Setup
+        if self.config.get("use_densenet"):
+            self.models['depth_encoder'] = DensenetEncoder(self.config["densenet_layers"], pretrained=self.pretrained).to(
+                self.device)
+        else:
+            self.models['depth_encoder'] = ResnetEncoder(self.config["resnet_layers"], pretrained=self.pretrained).to(
+                self.device)
         self.num_scales = self.config["num_scales"]
-        decoder_num_ch = self.models["resnet_encoder"].num_ch_enc
-
+        decoder_num_ch = self.models["depth_encoder"].num_ch_enc
+        
+        # FPN
         if self.config.get("use_fpn"):
             self.models["fpn"] = FPN(decoder_num_ch).to(self.device)
             decoder_num_ch = self.models["fpn"].num_ch_pyramid
-
+        
+        # Decoder Setup
         self.models['depth_decoder'] = DepthDecoder(num_ch_enc=decoder_num_ch,
                                                     scales=range(self.num_scales)).to(self.device)
+        
+        # Pose Network
         self.models["pose_encoder"] = ResnetEncoder(
-            self.config["encoder_layers"],
+            self.config["resnet_layers"],
             pretrained=self.pretrained,
             num_input_images=2
         ).to(self.device)
-
+        
         self.models["pose_decoder"] = PoseDecoder(
             self.models["pose_encoder"].num_ch_enc,
             num_input_features=1,
@@ -128,8 +145,6 @@ class Trainer:
             weights_folder = os.path.join(self.log_dir, "models", f'weights_{self.start_epoch-1}')
             for model_name in self.models:
                 model_path = os.path.join(weights_folder, f"{model_name}.pth")
-
-                # if model_name == "resnet_encoder" or model_name == "depth_encoder":
                 model_dict = self.models[model_name].state_dict()
                 preset_dict = torch.load(model_path)
                 model_dict.update({k: v for k, v in preset_dict.items() if k in model_dict})
@@ -195,6 +210,9 @@ class Trainer:
         for self.epoch in range(self.start_epoch, self.num_epochs):
             self.run_epoch()
             self.save_model()
+            if self.qualitative:
+                images = generate_qualitative(self.log_dir, self.epoch+1)
+                self.add_qualitative_to_tensorboard(images)
             if self.metrics:
                 metrics, metric_labels = run_metrics(self.log_dir, self.epoch+1)
                 self.add_metrics_to_tensorboard(metrics, metric_labels)
@@ -216,7 +234,7 @@ class Trainer:
 
         for model_name in self.models:
             self.models[model_name].train()
-
+        
         self.steps_until_write = total_loss = count = 0
         for batch_idx, batch in enumerate(self.train_dataloader):
             count += 1
@@ -263,7 +281,7 @@ class Trainer:
         # Predict disparity map
         inputs = batch["stereo_left_image"].to(self.device).float()
         local_batch_size = len(inputs)
-        features = self.models['resnet_encoder'](inputs)
+        features = self.models['depth_encoder'](inputs)
         if self.config.get("use_fpn"):
             pyramid = self.models["fpn"](features)
             outputs = self.models["depth_decoder"](pyramid)
@@ -411,7 +429,7 @@ class Trainer:
         for model_name, model in self.models.items():
             save_path = os.path.join(save_folder, "{}.pth".format(model_name))
             to_save = model.state_dict()
-            if model_name == 'resnet_encoder':
+            if model_name == 'depth_encoder':
                 to_save['height'] = self.height
                 to_save['width'] = self.width
             torch.save(to_save, save_path)
@@ -468,18 +486,30 @@ class Trainer:
         self.writer.add_image(f"{name} Losses/Epoch: {self.epoch + 1}",
                               loss,
                               img_num)
+        reproj_index = 0
         if self.use_stereo:
             self.writer.add_image(f"{name} Stereo Reprojection/Epoch: {self.epoch + 1}",
                                   reproj[0], img_num)
-            self.writer.add_image(f"{name} Backward Reprojection/Epoch: {self.epoch + 1}",
-                                  reproj[1], img_num)
-            self.writer.add_image(f"{name} Forward Reprojection/Epoch: {self.epoch + 1}",
-                                  reproj[2], img_num)
-        else:
-            self.writer.add_image(f"{name} Backward Reprojection/Epoch: {self.epoch + 1}",
-                                  reproj[0], img_num)
-            self.writer.add_image(f"{name} Forward Reprojection/Epoch: {self.epoch + 1}",
-                                  reproj[1], img_num)
+            reproj_index += 1
+
+        self.writer.add_image(f"{name} Backward Reprojection/Epoch: {self.epoch + 1}",
+                              reproj[reproj_index], img_num)
+        self.writer.add_image(f"{name} Forward Reprojection/Epoch: {self.epoch + 1}",
+                              reproj[reproj_index+1], img_num)
+
+    def add_qualitative_to_tensorboard(self, qualitative):
+        """
+        Adds the generated qualitative images to tensorboard
+        :param [torch.Tensor] qualitative: A torch tensor of the generated depth maps in dimension [batch_size, 1, H, W]
+        """
+        # Processing disparity map
+        disp_np = qualitative.squeeze(1).cpu().detach().numpy()
+        for i in range(len(disp_np)):
+            vmax = np.percentile(disp_np[i], 95)
+            normalizer = mpl.colors.Normalize(vmin=disp_np[i].min(), vmax=vmax)
+            mapper = cm.ScalarMappable(norm=normalizer, cmap='magma')
+            colormapped_disp = (mapper.to_rgba(disp_np[i])[:, :, :3] * 255).astype(np.uint8)
+            self.writer.add_image(f"Qualitative Images/Epoch: {self.epoch + 1}", transforms.ToTensor()(colormapped_disp), i)
 
     def add_metrics_to_tensorboard(self, metrics, labels):
         """
@@ -493,7 +523,6 @@ class Trainer:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="ddsr options")
-    
     parser.add_argument("--config_path",
                         type=str,
                         help="path to the config",
@@ -503,7 +532,7 @@ if __name__ == "__main__":
                         type=int,
                         help="epoch to continue training from",
                         default=0)
-    
     opt = parser.parse_args()
+    
     test = Trainer(opt.config_path, opt.epoch)
     test.train()
