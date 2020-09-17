@@ -35,7 +35,6 @@ def compute_errors(gt, pred, length):
     """Computation of error metrics between predicted and ground truth depths. Taken from Monodepth2
     """
     metrics = np.empty(length, dtype=np.float64)
-    print("Ground Truth Maximum:", np.max(gt))
     thresh = np.maximum((gt / pred), (pred / gt))
     a1 = (thresh < 1.25).mean()
     a2 = (thresh < 1.25 ** 2).mean()
@@ -172,8 +171,8 @@ def run_metrics(log_dir, epoch):
 
     mean_errors = errors.mean(0)
 
-    print("\n  " + ("{:>8} | " * len(labels)).format(*labels))
-    print(("&{: 8.3f}  " * len(labels)).format(*mean_errors.tolist()) + "\\\\")
+    print("\n  " + ("{:>11} | " * len(labels)).format(*labels))
+    print(("&{: 11.3f}  " * len(labels)).format(*mean_errors.tolist()) + "\\\\")
     print("\n-> Done!")
     return mean_errors.tolist(), labels
 
