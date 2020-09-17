@@ -169,7 +169,7 @@ def run_metrics(log_dir, epoch):
     med = np.median(ratios)
     print(" Scaling ratios | med: {:0.3f} | std: {:0.3f}".format(med, np.std(ratios / med)))
 
-    mean_errors = errors.mean(0)
+    mean_errors = np.nanmean(errors, 0)
 
     print("\n  " + ("{:>11} | " * len(labels)).format(*labels))
     print(("&{: 11.3f}  " * len(labels)).format(*mean_errors.tolist()) + "\\\\")
