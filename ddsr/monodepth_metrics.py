@@ -32,10 +32,10 @@ def get_labels():
     return labels
 
 
-def compute_errors(gt, pred, length):
+def compute_errors(gt, pred):
     """Computation of error metrics between predicted and ground truth depths. Taken from Monodepth2
     """
-    metrics = np.empty(length, dtype=np.float64)
+    metrics = np.empty(7 + len(BINS) * 2, dtype=np.float64)
     thresh = np.maximum((gt / pred), (pred / gt))
     a1 = (thresh < 1.25).mean()
     a2 = (thresh < 1.25 ** 2).mean()
@@ -135,7 +135,7 @@ def run_metrics(log_dir, epoch):
     image_len = pred_disps.shape[0]
 
     ratios = np.empty(image_len, dtype=np.float32)
-    errors = np.empty((image_len, len(labels)), dtype=np.float64)
+    errors = np.empty((image_len, 7 + len(BINS) * 2), dtype=np.float64)
     for i in range(image_len):
 
         gt_depth = gt_depths[i]
@@ -165,7 +165,7 @@ def run_metrics(log_dir, epoch):
         pred_depth[pred_depth < MIN_DEPTH] = MIN_DEPTH
         pred_depth[pred_depth > MAX_DEPTH] = MAX_DEPTH
 
-        errors[i] = compute_errors(gt_depth, pred_depth, len(labels))
+        errors[i] = compute_errors(gt_depth, pred_depth)
 
     total_metric_time = time.time() - start_metric_time
     med = np.median(ratios)

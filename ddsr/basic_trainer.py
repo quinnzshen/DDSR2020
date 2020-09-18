@@ -198,6 +198,7 @@ class Trainer:
                 metrics_list = ["epoch", "training_time"]
                 metrics_list.extend(get_labels())
                 self.metrics_writer.writerow(metrics_list)
+                self.metric_labels = metrics_list[1:]
        
         # Depth boundaries
         self.min_depth = self.config["min_depth"]
@@ -217,7 +218,7 @@ class Trainer:
             if self.metrics:
                 metrics, metric_labels = run_metrics(self.log_dir, self.epoch+1)
                 metrics.insert(0, time_taken)
-                metric_labels.insert("training_time")
+                metric_labels.insert(0, "training_time")
                 self.add_metrics_to_tensorboard(metrics, metric_labels)
                 metrics = [round(num, 3) for num in metrics]
                 metrics.insert(0, self.epoch+1)
