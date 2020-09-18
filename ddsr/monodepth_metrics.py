@@ -5,6 +5,7 @@ import numpy as np
 import os
 import cv2
 import torch
+import time
 from torch.utils.data import DataLoader
 import yaml
 from third_party.DensenetEncoder import DensenetEncoder
@@ -25,7 +26,7 @@ def get_labels():
     Gets the lables for the metrics
     :return [list]: List of strings representing the respective metrics
     """
-    labels = ["abs_rel", "sq_rel", "rmse", "rmse_log", "a1", "a2", "a3"]
+    labels = ["metric_time", "abs_rel", "sq_rel", "rmse", "rmse_log", "a1", "a2", "a3"]
     for i in BINS:
         labels.extend(["abs_rel_" + str(i), "a1_" + str(i)])
     return labels
@@ -109,7 +110,7 @@ def run_metrics(log_dir, epoch):
 
     print("-> Computing predictions with size {}x{}".format(
         dims[1], dims[0]))
-
+    start_metric_time = time.time()
     with torch.no_grad():
         for batch in dataloader:
             inputs = batch["stereo_left_image"].to(device).float()
@@ -166,15 +167,17 @@ def run_metrics(log_dir, epoch):
 
         errors[i] = compute_errors(gt_depth, pred_depth, len(labels))
 
+    total_metric_time = time.time() - start_metric_time
     med = np.median(ratios)
     print(" Scaling ratios | med: {:0.3f} | std: {:0.3f}".format(med, np.std(ratios / med)))
 
-    mean_errors = np.nanmean(errors, 0)
+    mean_errors = np.nanmean(errors, 0).tolist()
+    mean_errors.insert(0, total_metric_time)
 
     print("\n  " + ("{:>11} | " * len(labels)).format(*labels))
-    print(("&{: 11.3f}  " * len(labels)).format(*mean_errors.tolist()) + "\\\\")
+    print(("&{: 11.3f}  " * len(labels)).format(*mean_errors) + "\\\\")
     print("\n-> Done!")
-    return mean_errors.tolist(), labels
+    return mean_errors, labels
 
 
 if __name__ == "__main__":

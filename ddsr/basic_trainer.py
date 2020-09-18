@@ -195,7 +195,7 @@ class Trainer:
             else:
                 self.metrics_file = open(os.path.join(self.log_dir, "metrics.csv"),"w", newline='')
                 self.metrics_writer = csv.writer(self.metrics_file, delimiter=',')
-                metrics_list = ["epoch"]
+                metrics_list = ["epoch", "training_time"]
                 metrics_list.extend(get_labels())
                 self.metrics_writer.writerow(metrics_list)
        
@@ -209,13 +209,15 @@ class Trainer:
         Saves the model's weights at the end of training
         """
         for self.epoch in range(self.start_epoch, self.num_epochs):
-            self.run_epoch()
+            time_taken = self.run_epoch()
             self.save_model()
             if self.qualitative:
                 images = generate_qualitative(self.log_dir, self.epoch+1)
                 self.add_qualitative_to_tensorboard(images)
             if self.metrics:
                 metrics, metric_labels = run_metrics(self.log_dir, self.epoch+1)
+                metrics.insert(0, time_taken)
+                metric_labels.insert("training_time")
                 self.add_metrics_to_tensorboard(metrics, metric_labels)
                 metrics = [round(num, 3) for num in metrics]
                 metrics.insert(0, self.epoch+1)
@@ -268,6 +270,7 @@ class Trainer:
 
         print(f"Validation Loss: {total_loss}")
         print(f"Time spent: {val_end_time - val_start_time}\n")
+        return train_end_time - train_start_time
 
     def process_batch(self, batch_idx, batch, dataset_length, name, backprop):
         """
