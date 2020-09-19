@@ -64,10 +64,11 @@ def compute_errors(gt, pred, length):
     return metrics
 
 
-def run_metrics(log_dir, epoch):
+def run_metrics(log_dir, epoch, eigen):
     """Computes metrics based on a specified directory containing a config and an epoch number. Adapted from Monodepth2
     :param [str] log_dir: Path to the config directory that the model was trained on
     :param [int] epoch: Epoch number corresponding to the model that metrics will be evaluated on
+    :param [boolean] eigen: Setting to True --> eigen (Lidar data), False --> improved GT maps
     """
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     MIN_DEPTH = 0.001
@@ -144,7 +145,9 @@ def run_metrics(log_dir, epoch):
         pred_disp = pred_disps[i]
         pred_disp = cv2.resize(pred_disp, (gt_width, gt_height))
         pred_depth = 1 / pred_disp
+        mask = gt_depth > 0
 
+        """
         mask = np.logical_and(gt_depth > MIN_DEPTH, gt_depth < MAX_DEPTH)
 
         crop = np.array([0.40810811 * gt_height, 0.99189189 * gt_height,
@@ -152,7 +155,7 @@ def run_metrics(log_dir, epoch):
         crop_mask = np.zeros(mask.shape)
         crop_mask[crop[0]:crop[1], crop[2]:crop[3]] = 1
         mask = np.logical_and(mask, crop_mask)
-
+        """
         pred_depth = pred_depth[mask]
         gt_depth = gt_depth[mask]
 
