@@ -5,6 +5,7 @@ import numpy as np
 import os
 import cv2
 import torch
+import time
 from torch.utils.data import DataLoader
 import yaml
 from third_party.DensenetEncoder import DensenetEncoder
@@ -25,16 +26,16 @@ def get_labels():
     Gets the lables for the metrics
     :return [list]: List of strings representing the respective metrics
     """
-    labels = ["abs_rel", "sq_rel", "rmse", "rmse_log", "a1", "a2", "a3"]
+    labels = ["metric_time", "abs_rel", "sq_rel", "rmse", "rmse_log", "a1", "a2", "a3"]
     for i in BINS:
         labels.extend(["abs_rel_" + str(i), "a1_" + str(i)])
     return labels
 
 
-def compute_errors(gt, pred, length):
+def compute_errors(gt, pred):
     """Computation of error metrics between predicted and ground truth depths. Taken from Monodepth2
     """
-    metrics = np.empty(length, dtype=np.float64)
+    metrics = np.empty(7 + len(BINS) * 2, dtype=np.float64)
     thresh = np.maximum((gt / pred), (pred / gt))
     a1 = (thresh < 1.25).mean()
     a2 = (thresh < 1.25 ** 2).mean()
@@ -110,7 +111,7 @@ def run_metrics(log_dir, epoch, eigen):
 
     print("-> Computing predictions with size {}x{}".format(
         dims[1], dims[0]))
-
+    start_metric_time = time.time()
     with torch.no_grad():
         for batch in dataloader:
             inputs = batch["stereo_left_image"].to(device).float()
@@ -139,7 +140,7 @@ def run_metrics(log_dir, epoch, eigen):
     image_len = pred_disps.shape[0]
 
     ratios = np.empty(image_len, dtype=np.float32)
-    errors = np.empty((image_len, len(labels)), dtype=np.float64)
+    errors = np.empty((image_len, 7 + len(BINS) * 2), dtype=np.float64)
     for i in range(image_len):
         gt_depth = gt_depths[i]
         gt_height, gt_width = gt_depth.shape[:2]
@@ -171,17 +172,19 @@ def run_metrics(log_dir, epoch, eigen):
         pred_depth[pred_depth < MIN_DEPTH] = MIN_DEPTH
         pred_depth[pred_depth > MAX_DEPTH] = MAX_DEPTH
 
-        errors[i] = compute_errors(gt_depth, pred_depth, len(labels))
+        errors[i] = compute_errors(gt_depth, pred_depth)
 
+    total_metric_time = time.time() - start_metric_time
     med = np.median(ratios)
     print(" Scaling ratios | med: {:0.3f} | std: {:0.3f}".format(med, np.std(ratios / med)))
 
-    mean_errors = np.nanmean(errors, 0)
+    mean_errors = np.nanmean(errors, 0).tolist()
+    mean_errors.insert(0, total_metric_time)
 
     print("\n  " + ("{:>11} | " * len(labels)).format(*labels))
-    print(("&{: 11.3f}  " * len(labels)).format(*mean_errors.tolist()) + "\\\\")
+    print(("&{: 11.3f}  " * len(labels)).format(*mean_errors) + "\\\\")
     print("\n-> Done!")
-    return mean_errors.tolist(), labels
+    return mean_errors, labels
 
 
 if __name__ == "__main__":

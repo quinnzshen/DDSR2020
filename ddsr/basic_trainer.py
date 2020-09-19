@@ -205,7 +205,7 @@ class Trainer:
                 self.eigen_benchmark_metrics_file = open(os.path.join(self.log_dir, "eigen_benchmark_metrics.csv"),"w", newline='')
                 self.eigen_benchmark_metrics_writer = csv.writer(self.eigen_benchmark_metrics_file, delimiter=',')
                 
-                metrics_list = ["epoch"]
+                metrics_list = ["epoch", "training_time"]
                 metrics_list.extend(get_labels())
                 self.eigen_metrics_writer.writerow(metrics_list)
                 self.eigen_benchmark_metrics_writer.writerow(metrics_list)
@@ -220,7 +220,7 @@ class Trainer:
         Saves the model's weights at the end of training
         """
         for self.epoch in range(self.start_epoch, self.num_epochs):
-            self.run_epoch()
+            time_taken = self.run_epoch()
             self.save_model()
             if self.qualitative:
                 images = generate_qualitative(self.log_dir, self.epoch+1)
@@ -230,6 +230,7 @@ class Trainer:
                 eigen_metrics, eigen_metric_labels = run_metrics(self.log_dir, self.epoch+1, eigen=True)
                 self.add_metrics_to_tensorboard(eigen_metrics, eigen_metric_labels, eigen=True)
                 eigen_metrics = [round(num, 3) for num in eigen_metrics]
+                eigen_metrics.insert(0, time_taken)
                 eigen_metrics.insert(0, self.epoch+1)
                 self.eigen_metrics_writer.writerow(eigen_metrics)
                 
@@ -237,6 +238,7 @@ class Trainer:
                 eigen_benchmark_metrics, eigen_benchmark_metric_labels = run_metrics(self.log_dir, self.epoch+1, eigen=False)
                 self.add_metrics_to_tensorboard(eigen_benchmark_metrics, eigen_benchmark_metric_labels, eigen=False)
                 eigen_benchmark_metrics = [round(num, 3) for num in eigen_benchmark_metrics]
+                eigen_benchmark_metrics.insert(0, time_taken)
                 eigen_benchmark_metrics.insert(0, self.epoch+1)
                 self.eigen_benchmark_metrics_writer.writerow(eigen_benchmark_metrics)
         self.writer.close()
@@ -287,6 +289,7 @@ class Trainer:
 
         print(f"Validation Loss: {total_loss}")
         print(f"Time spent: {val_end_time - val_start_time}\n")
+        return train_end_time - train_start_time
 
     def process_batch(self, batch_idx, batch, dataset_length, name, backprop):
         """
