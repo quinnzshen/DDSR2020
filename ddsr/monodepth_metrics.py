@@ -67,7 +67,7 @@ def run_metrics(log_dir, epoch, eigen):
     """Computes metrics based on a specified directory containing a config and an epoch number. Adapted from Monodepth2
     :param [str] log_dir: Path to the config directory that the model was trained on
     :param [int] epoch: Epoch number corresponding to the model that metrics will be evaluated on
-    :param [boolean] eigen: Setting to True --> eigen (Lidar data), False --> improved GT maps
+    :param [bool] eigen: Setting to True --> eigen (Lidar data), False --> improved GT maps
     """
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     MIN_DEPTH = 0.001
@@ -141,7 +141,6 @@ def run_metrics(log_dir, epoch, eigen):
     ratios = np.empty(image_len, dtype=np.float32)
     errors = np.empty((image_len, len(labels)), dtype=np.float64)
     for i in range(image_len):
-
         gt_depth = gt_depths[i]
         gt_height, gt_width = gt_depth.shape[:2]
 

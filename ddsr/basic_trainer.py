@@ -190,14 +190,26 @@ class Trainer:
         self.metrics = self.config["metrics"]
         if self.metrics:
             if self.start_epoch > 0:
-                self.metrics_file = open(os.path.join(self.log_dir, "metrics.csv"),"a", newline='')
-                self.metrics_writer = csv.writer(self.metrics_file, delimiter=',')
+                # Standard Eigen Split -- Uses LiDAR data
+                self.eigen_metrics_file = open(os.path.join(self.log_dir, "eigen_metrics.csv"),"a", newline='')
+                self.eigen_metrics_writer = csv.writer(self.eigen_metrics_file, delimiter=',')
+                
+                # Eigen Benchmark Split -- Uses ground truth KITTI data
+                self.eigen_benchmark_metrics_file = open(os.path.join(self.log_dir, "eigen_benchmark_metrics.csv"),"a", newline='')
+                self.eigen_benchmark_metrics_writer = csv.writer(self.eigen_benchmark_metrics_file, delimiter=',')
             else:
-                self.metrics_file = open(os.path.join(self.log_dir, "metrics.csv"),"w", newline='')
-                self.metrics_writer = csv.writer(self.metrics_file, delimiter=',')
+                # Standard Eigen Split -- Uses LiDAR data
+                self.eigen_metrics_file = open(os.path.join(self.log_dir, "eigen_metrics.csv"),"w", newline='')
+                self.eigen_metrics_writer = csv.writer(self.eigen_metrics_file, delimiter=',')
+                
+                # Eigen Benchmark Split -- Uses ground truth KITTI data
+                self.eigen_benchmark_metrics_file = open(os.path.join(self.log_dir, "eigen_benchmark_metrics.csv"),"w", newline='')
+                self.eigen_benchmark_metrics_writer = csv.writer(self.eigen_benchmark_metrics_file, delimiter=',')
+                
                 metrics_list = ["epoch"]
                 metrics_list.extend(get_labels())
-                self.metrics_writer.writerow(metrics_list)
+                self.eigen_metrics_writer.writerow(metrics_list)
+                self.eigen_benchmark_metrics_writer.writerow(metrics_list)
        
         # Depth boundaries
         self.min_depth = self.config["min_depth"]
@@ -215,11 +227,19 @@ class Trainer:
                 images = generate_qualitative(self.log_dir, self.epoch+1)
                 self.add_qualitative_to_tensorboard(images)
             if self.metrics:
-                metrics, metric_labels = run_metrics(self.log_dir, self.epoch+1, True)
-                self.add_metrics_to_tensorboard(metrics, metric_labels)
-                metrics = [round(num, 3) for num in metrics]
-                metrics.insert(0, self.epoch+1)
-                self.metrics_writer.writerow(metrics)
+                # Standard Eigen Split -- Uses LiDAR data
+                eigen_metrics, eigen_metric_labels = run_metrics(self.log_dir, self.epoch+1, eigen=True)
+                self.add_metrics_to_tensorboard(eigen_metrics, eigen_metric_labels, eigen=True)
+                eigen_metrics = [round(num, 3) for num in eigen_metrics]
+                eigen_metrics.insert(0, self.epoch+1)
+                self.eigen_metrics_writer.writerow(eigen_metrics)
+                
+                # Eigen Benchmark Split -- Uses ground truth KITTI data
+                eigen_benchmark_metrics, eigen_benchmark_metric_labels = run_metrics(self.log_dir, self.epoch+1, eigen=False)
+                self.add_metrics_to_tensorboard(eigen_benchmark_metrics, eigen_benchmark_metric_labels, eigen=False)
+                eigen_benchmark_metrics = [round(num, 3) for num in eigen_benchmark_metrics]
+                eigen_benchmark_metrics.insert(0, self.epoch+1)
+                self.eigen_benchmark_metrics_writer.writerow(eigen_benchmark_metrics)
         self.writer.close()
         self.metrics_file.close()
         print('Model saved.')
@@ -510,14 +530,18 @@ class Trainer:
             colormapped_disp = (mapper.to_rgba(disp_np[i])[:, :, :3] * 255).astype(np.uint8)
             self.writer.add_image(f"Qualitative Images/Epoch: {self.epoch + 1}", transforms.ToTensor()(colormapped_disp), i)
 
-    def add_metrics_to_tensorboard(self, metrics, labels):
+    def add_metrics_to_tensorboard(self, metrics, labels, eigen):
         """
         Adds metrics to tensorboard with given metric values and their corresponding values
         :param [list] metrics: A list of floats representing each metric
         :param [list] labels: A list of strings (same length as metrics) that describe the title of the metric
+        :param [bool] eigen: Setting to True --> eigen (Lidar data), False --> improved GT maps        
         """
+        name = "Eigen "
+        if eigen == False:
+            name = "Eigen Benchmark "
         for i in range(len(metrics)):
-            self.writer.add_scalar("metrics/" + labels[i], metrics[i], self.epoch)
+            self.writer.add_scalar(name + "Metrics/" + labels[i], metrics[i], self.epoch)
 
 
 if __name__ == "__main__":

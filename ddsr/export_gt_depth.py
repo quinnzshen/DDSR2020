@@ -31,20 +31,18 @@ def export_gt_depths_eigen_benchmark(split_path, gt_depth_dir, output_dir, use_e
             reproj = filter_to_fov(filter_to_plane(project_points_on_image(velo, cam_from_velo)), (375, 1242, 3))
             gt_depth = np.zeros((375, 1242))
             gt_depth[reproj[:,1], reproj[:,0]] = reproj[:,2]
+            print(gt_depth.shape)
         else:
             folder = "/".join(folder.strip("/").split('/')[1:])
             gt_depth_path = os.path.join(gt_depth_dir, folder, "proj_depth",
                                              "groundtruth", "image_02", "{:010d}.png".format(frame_id))
             gt_depth = np.array(pil.open(gt_depth_path)).astype(np.float32) / 256
-    
-    gt_depths.append(gt_depth.astype(np.float32))
+        gt_depths.append(gt_depth.astype(np.float32))
     
     if use_eigen:
         output_path = os.path.join(output_dir, "gt_eigen_lidar.npz")
     else:
         output_path = os.path.join(output_dir, "gt_depths.npz")
-
-
 
     print("Saving to {}".format(output_path))
 
