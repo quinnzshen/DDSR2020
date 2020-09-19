@@ -64,10 +64,11 @@ def compute_errors(gt, pred):
     return metrics
 
 
-def run_metrics(log_dir, epoch):
+def run_metrics(log_dir, epoch, eigen):
     """Computes metrics based on a specified directory containing a config and an epoch number. Adapted from Monodepth2
     :param [str] log_dir: Path to the config directory that the model was trained on
     :param [int] epoch: Epoch number corresponding to the model that metrics will be evaluated on
+    :param [bool] eigen: Setting to True --> eigen (Lidar data), False --> improved GT maps
     """
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     MIN_DEPTH = 0.001
@@ -125,8 +126,12 @@ def run_metrics(log_dir, epoch):
             pred_disps.append(pred_disp)
 
     pred_disps = np.concatenate(pred_disps)
+    
+    if eigen == True:
+            gt_path = os.path.join(config["gt_path"], "gt_eigen_lidar.npz")
+    else:
+            gt_path = os.path.join(config["gt_path"], "gt_depths.npz")
 
-    gt_path = os.path.join(config["gt_path"], "gt_depths.npz")
     gt_depths = np.load(gt_path, fix_imports=True, encoding='latin1', allow_pickle=True)["data"]
 
     print("-> Evaluating")
@@ -137,7 +142,6 @@ def run_metrics(log_dir, epoch):
     ratios = np.empty(image_len, dtype=np.float32)
     errors = np.empty((image_len, 7 + len(BINS) * 2), dtype=np.float64)
     for i in range(image_len):
-
         gt_depth = gt_depths[i]
         gt_height, gt_width = gt_depth.shape[:2]
 
@@ -145,13 +149,16 @@ def run_metrics(log_dir, epoch):
         pred_disp = cv2.resize(pred_disp, (gt_width, gt_height))
         pred_depth = 1 / pred_disp
 
-        mask = np.logical_and(gt_depth > MIN_DEPTH, gt_depth < MAX_DEPTH)
-
-        crop = np.array([0.40810811 * gt_height, 0.99189189 * gt_height,
-                         0.03594771 * gt_width, 0.96405229 * gt_width]).astype(np.int32)
-        crop_mask = np.zeros(mask.shape)
-        crop_mask[crop[0]:crop[1], crop[2]:crop[3]] = 1
-        mask = np.logical_and(mask, crop_mask)
+        if eigen == True:
+            mask = np.logical_and(gt_depth > MIN_DEPTH, gt_depth < MAX_DEPTH)
+    
+            crop = np.array([0.40810811 * gt_height, 0.99189189 * gt_height,
+                             0.03594771 * gt_width, 0.96405229 * gt_width]).astype(np.int32)
+            crop_mask = np.zeros(mask.shape)
+            crop_mask[crop[0]:crop[1], crop[2]:crop[3]] = 1
+            mask = np.logical_and(mask, crop_mask)
+        else:
+            mask = gt_depth > 0
 
         pred_depth = pred_depth[mask]
         gt_depth = gt_depth[mask]
@@ -188,5 +195,9 @@ if __name__ == "__main__":
     parser.add_argument("--epoch",
                         type=int,
                         help="epoch number")
+    parser.add_argument("--eigen",
+                        type=int,
+                        help="determines whether to use eigen lidar or kitti maps",
+                        default=False)
     opt = parser.parse_args()
-    run_metrics(opt.log_dir, opt.epoch)
+    run_metrics(opt.log_dir, opt.epoch, opt.eigen)

@@ -52,7 +52,7 @@ def reproject_source_to_target(tgt_intrinsic, src_intrinsic, lidar_point_coord_c
 
 def plot_sparse_img_and_surrounding_lidar(front_lidar_points_image_plane, pixel_coords, colors):
     """
-    This function sparsely plots and image and the lidar points surrounding it.
+    This function sparsely plots an image and the lidar points surrounding it.
     :param [numpy.array] front_lidar_points_image_plane: [N, 3] contains the pixel coordinates of all of the lidar points that 
     are in front of the velodyne sensor.
     :param [numpy.array] pixel_coords: [N, 2] contains the coordinates of the pixels of the image that are to be plotted, each row 
