@@ -126,8 +126,12 @@ def run_metrics(log_dir, epoch, eigen):
             pred_disps.append(pred_disp)
 
     pred_disps = np.concatenate(pred_disps)
+    
+    if eigen == True:
+            gt_path = os.path.join(config["gt_path"], "gt_eigen_lidar.npz")
+    else:
+            gt_path = os.path.join(config["gt_path"], "gt_depths.npz")
 
-    gt_path = os.path.join(config["gt_path"], "gt_depths.npz")
     gt_depths = np.load(gt_path, fix_imports=True, encoding='latin1', allow_pickle=True)["data"]
 
     print("-> Evaluating")
@@ -145,17 +149,18 @@ def run_metrics(log_dir, epoch, eigen):
         pred_disp = pred_disps[i]
         pred_disp = cv2.resize(pred_disp, (gt_width, gt_height))
         pred_depth = 1 / pred_disp
-        mask = gt_depth > 0
 
-        """
-        mask = np.logical_and(gt_depth > MIN_DEPTH, gt_depth < MAX_DEPTH)
+        if eigen == True:
+            mask = np.logical_and(gt_depth > MIN_DEPTH, gt_depth < MAX_DEPTH)
+    
+            crop = np.array([0.40810811 * gt_height, 0.99189189 * gt_height,
+                             0.03594771 * gt_width, 0.96405229 * gt_width]).astype(np.int32)
+            crop_mask = np.zeros(mask.shape)
+            crop_mask[crop[0]:crop[1], crop[2]:crop[3]] = 1
+            mask = np.logical_and(mask, crop_mask)
+        else:
+            mask = gt_depth > 0
 
-        crop = np.array([0.40810811 * gt_height, 0.99189189 * gt_height,
-                         0.03594771 * gt_width, 0.96405229 * gt_width]).astype(np.int32)
-        crop_mask = np.zeros(mask.shape)
-        crop_mask[crop[0]:crop[1], crop[2]:crop[3]] = 1
-        mask = np.logical_and(mask, crop_mask)
-        """
         pred_depth = pred_depth[mask]
         gt_depth = gt_depth[mask]
 
@@ -189,5 +194,9 @@ if __name__ == "__main__":
     parser.add_argument("--epoch",
                         type=int,
                         help="epoch number")
+    parser.add_argument("--eigen",
+                        type=int,
+                        help="determines whether to use eigen lidar or kitti maps",
+                        default=False)
     opt = parser.parse_args()
-    run_metrics(opt.log_dir, opt.epoch)
+    run_metrics(opt.log_dir, opt.epoch, opt.eigen)

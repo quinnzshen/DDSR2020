@@ -40,7 +40,7 @@ def export_gt_depths_eigen_benchmark(split_path, gt_depth_dir, output_dir, use_e
     gt_depths.append(gt_depth.astype(np.float32))
     
     if use_eigen:
-        output_path = os.path.join(output_dir, "gt_lidar.npz")
+        output_path = os.path.join(output_dir, "gt_eigen_lidar.npz")
     else:
         output_path = os.path.join(output_dir, "gt_depths.npz")
 

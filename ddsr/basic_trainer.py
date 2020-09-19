@@ -215,7 +215,7 @@ class Trainer:
                 images = generate_qualitative(self.log_dir, self.epoch+1)
                 self.add_qualitative_to_tensorboard(images)
             if self.metrics:
-                metrics, metric_labels = run_metrics(self.log_dir, self.epoch+1)
+                metrics, metric_labels = run_metrics(self.log_dir, self.epoch+1, True)
                 self.add_metrics_to_tensorboard(metrics, metric_labels)
                 metrics = [round(num, 3) for num in metrics]
                 metrics.insert(0, self.epoch+1)
