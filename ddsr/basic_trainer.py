@@ -17,7 +17,7 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from torchvision import transforms
 import yaml
-#from tensorflow.image import decode_jpeg
+from tensorflow.image import decode_jpeg
 
 from collate import Collator
 from kitti_dataset import KittiDataset
@@ -83,7 +83,6 @@ class Trainer:
         self.train_dataset = KittiDataset.init_from_config(train_config_path)
         self.train_dataloader = DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True,
                                            collate_fn=self.collate, num_workers=self.num_workers)
-
         val_config_path = self.config["valid_config_path"]
         self.val_dataset = KittiDataset.init_from_config(val_config_path)
         self.val_dataloader = DataLoader(self.val_dataset, batch_size=self.batch_size, shuffle=False,
@@ -489,8 +488,8 @@ class Trainer:
         plt.savefig(buf, format="jpg")
         plt.close(figure)
         buf.seek(0)
-       # loss = torch.from_numpy(decode_jpeg(buf.getvalue()).numpy())
-       # loss = loss.permute(2, 0, 1)
+        loss = torch.from_numpy(decode_jpeg(buf.getvalue()).numpy())
+        loss = loss.permute(2, 0, 1)
 
         # Add image and disparity map to tensorboard
         self.writer.add_image(f"{name} Images/Epoch: {self.epoch + 1}",
@@ -502,9 +501,9 @@ class Trainer:
         self.writer.add_image(f"{name} Automasks/Epoch: {self.epoch + 1}",
                               automask,
                               img_num)
-       # self.writer.add_image(f"{name} Losses/Epoch: {self.epoch + 1}",
-       #                       loss,
-       #                       img_num)
+        self.writer.add_image(f"{name} Losses/Epoch: {self.epoch + 1}",
+                              loss,
+                              img_num)
         reproj_index = 0
         if self.use_stereo:
             self.writer.add_image(f"{name} Stereo Reprojection/Epoch: {self.epoch + 1}",

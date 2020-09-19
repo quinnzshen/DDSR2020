@@ -82,6 +82,7 @@ def color_target_points_with_source(velo_points_tgt, src_image, coord2image, rel
     # Expands the given points by one column to fit the point index tracker
     tracked_points = np.empty((velo_points_tgt.shape[0], 5), dtype=velo_points_tgt.dtype)
     tracked_points[:, 4] = np.arange(tracked_points.shape[0])
+    
     # Transforms points into source frame
     tracked_points[:, :4] = velo_points_tgt @ rel_pose_mat.T
 
@@ -96,18 +97,12 @@ def color_target_points_with_source(velo_points_tgt, src_image, coord2image, rel
 
     # Transfers the colors that points were associated with in the source frame
     tgt_points_color[velo_colors[:, 3], 4:] = velo_colors[:, :3]
+    
     # Filters out points that didn't recieve a color
     tgt_points_color = tgt_points_color[~np.isnan(tgt_points_color[:, 4])]
-    # Filters out points not in the camera image
     tgt_points_color = filter_to_fov(filter_to_plane(tgt_points_color), src_image.shape)
 
-    # tgt_points_color = filter_to_plane(tgt_points_color)
-    # out_image = color_image(tgt_points_color, src_image.shape)
-
     return tgt_points_color, filter_to_plane(tgt_points_image)
-
-    # Plots points
-    # plot_sparse_img_and_surrounding_lidar(filter_to_plane(tgt_points_image), tgt_points_color[:, :4], tgt_points_color[:, 4:] / 255)
 
 
 def calc_transformation_matrix(rotation, translation):
