@@ -78,8 +78,12 @@ def run_metrics(log_dir, epoch, eigen):
     config_path = os.path.join(log_dir, "config.yml")
     with open(config_path) as file:
         config = yaml.load(file, Loader=yaml.Loader)
-
-    dataset = KittiDataset.init_from_config(config["test_config_path"])
+    
+    if eigen:
+        dataset = KittiDataset.init_from_config(config["lidar_test_config_path"])
+    else:    
+        dataset = KittiDataset.init_from_config(config["gt_depthmap_test_config_path"])
+        
     dataloader = DataLoader(dataset, config["batch_size"], shuffle=False, collate_fn=Collator(config["height"], config["width"]), num_workers=config["num_workers"])
     
     if config.get("use_densenet"):

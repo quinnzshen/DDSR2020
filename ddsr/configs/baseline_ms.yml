@@ -15,7 +15,8 @@ num_workers: 12
 use_stereo: True
 train_config_path: configs/datasets/eigen_zhou_train_dataset.yml
 valid_config_path: configs/datasets/eigen_zhou_validation_dataset.yml
-test_config_path: configs/datasets/eigen_zhou_test_dataset.yml
+lidar_test_config_path: configs/datasets/eigen_test_dataset.yml
+gt_depthmap_test_config_path: configs/datasets/eigen_benchmark_test_dataset.yml
 qual_config_path: configs/datasets/qualitative_dataset.yml
 log_dir: experiments/baseline_m
 gt_path: data/kitti_gt

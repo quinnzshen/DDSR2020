@@ -15,7 +15,8 @@ num_workers: 0
 use_stereo: False
 train_config_path: configs/datasets/basic_train_dataset.yml
 valid_config_path: configs/datasets/basic_validation_dataset.yml
-test_config_path: configs/datasets/basic_test_dataset.yml
+lidar_test_config_path: configs/datasets/basic_test_dataset.yml
+gt_depthmap_test_config_path: configs/datasets/basic_test_dataset.yml 
 qual_config_path: configs/datasets/basic_qualitative_dataset.yml
 log_dir: experiments/basic_model
 gt_path: data/gt_example
