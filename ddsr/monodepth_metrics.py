@@ -208,4 +208,7 @@ if __name__ == "__main__":
                         help="determines whether to use lidar or gt kitti depth maps",
                         default=False)
     opt = parser.parse_args()
-    run_metrics(opt.log_dir, opt.epoch, opt.use_lidar)
+    use_lidar = True
+    if opt.use_lidar != "True":
+        use_lidar = False
+    run_metrics(opt.log_dir, opt.epoch, use_lidar)
