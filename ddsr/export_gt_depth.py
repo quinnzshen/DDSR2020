@@ -62,8 +62,7 @@ if __name__ == "__main__":
                              help = "path to directory containing exported ground truth depth maps",
                              default = "data/kitti_gt")
     parser.add_argument("--use_lidar",
-                             type = bool,
-                             help = "path to directory containing exported ground truth depth maps",
-                             default = False)
+                        action='store_true',
+                        help="Activating his flag uses lidar instead of gt kitti depth maps")
     opt = parser.parse_args()
     export_gt_depths(opt.split_path, opt.gt_depth_dir, opt.output_dir, opt.use_lidar)
