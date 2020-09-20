@@ -80,6 +80,7 @@ def run_metrics(log_dir, epoch, use_lidar):
         config = yaml.load(file, Loader=yaml.Loader)
     
     if use_lidar == True:
+        print("hi")
         dataset = KittiDataset.init_from_config(config["lidar_test_config_path"])
     else:    
         dataset = KittiDataset.init_from_config(config["gt_depthmap_test_config_path"])
