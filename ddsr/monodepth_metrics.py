@@ -205,8 +205,7 @@ if __name__ == "__main__":
                         type=int,
                         help="epoch number")
     parser.add_argument("--use_lidar",
-                        type=bool,
-                        help="Activating his flag uses lidar instead of gt kitti depth maps",
-                        default=False)
+                        action='store_true',
+                        help="Activating his flag uses lidar instead of gt kitti depth maps")
     opt = parser.parse_args()
     run_metrics(opt.log_dir, opt.epoch, opt.use_lidar)
