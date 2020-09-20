@@ -170,7 +170,7 @@ def run_metrics(log_dir, epoch, use_lidar):
         pred_depth = pred_depth[mask]
         gt_depth = gt_depth[mask]
 
-        if config["use_stereo"]:
+        if config["use_stereo"] == True:
             pred_depth *= STEREO_SCALE_FACTOR
         else:
             ratio = np.median(gt_depth) / np.median(pred_depth)
