@@ -79,7 +79,7 @@ def run_metrics(log_dir, epoch, use_lidar):
     with open(config_path) as file:
         config = yaml.load(file, Loader=yaml.Loader)
     
-    if use_lidar:
+    if use_lidar == True:
         dataset = KittiDataset.init_from_config(config["lidar_test_config_path"])
     else:    
         dataset = KittiDataset.init_from_config(config["gt_depthmap_test_config_path"])
@@ -138,7 +138,7 @@ def run_metrics(log_dir, epoch, use_lidar):
 
     gt_depths = np.load(gt_path, fix_imports=True, encoding='latin1', allow_pickle=True)["data"]
     
-    if use_lidar:
+    if use_lidar == True:
         print("-> Evaluating from LiDAR data")
     else:
         print("-> Evaluating from KITTI ground truth depth maps")
