@@ -27,7 +27,7 @@ def export_gt_depths_eigen_benchmark(split_path, gt_depth_dir, output_dir, use_e
             velo_filename = os.path.join(calib_dir, folder,
                                          "velodyne_points/data", "{:010d}.bin".format(frame_id))
             velo = load_lidar_points(velo_filename)
-            cam_from_velo = compute_image_from_velodyne_matrices(os.path.join(gt_depth_dir, os.path.split(os.path.split(folder)[0])[0]))["stereo_left"]
+            cam_from_velo = compute_image_from_velodyne_matrices(os.path.join(gt_depth_dir, os.path.split(folder)[0]))["stereo_left"]
             reproj = filter_to_fov(filter_to_plane(project_points_on_image(velo, cam_from_velo)), (375, 1242, 3))
             gt_depth = np.zeros((375, 1242))
             gt_depth[reproj[:,1], reproj[:,0]] = reproj[:,2]
