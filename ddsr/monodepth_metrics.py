@@ -196,7 +196,7 @@ if __name__ == "__main__":
                         type=int,
                         help="epoch number")
     parser.add_argument("--eigen",
-                        type=int,
+                        type=bool,
                         help="determines whether to use eigen lidar or kitti maps",
                         default=False)
     opt = parser.parse_args()
