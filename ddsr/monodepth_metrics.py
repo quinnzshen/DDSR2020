@@ -177,6 +177,7 @@ def run_metrics(log_dir, epoch, use_lidar):
             ratio = np.median(gt_depth) / np.median(pred_depth)
             ratios[i] = ratio
             pred_depth *= ratio
+        
         pred_depth[pred_depth < MIN_DEPTH] = MIN_DEPTH
         pred_depth[pred_depth > MAX_DEPTH] = MAX_DEPTH
 
@@ -205,10 +206,7 @@ if __name__ == "__main__":
                         help="epoch number")
     parser.add_argument("--use_lidar",
                         type=bool,
-                        help="determines whether to use lidar or gt kitti depth maps",
+                        help="Activating his flag uses lidar instead of gt kitti depth maps",
                         default=False)
     opt = parser.parse_args()
-    use_lidar = True
-    if opt.use_lidar != "True":
-        use_lidar = False
-    run_metrics(opt.log_dir, opt.epoch, use_lidar)
+    run_metrics(opt.log_dir, opt.epoch, opt.use_lidar)
