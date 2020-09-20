@@ -8,7 +8,7 @@ import PIL.Image as pil
 from overlay_lidar_utils import project_points_on_image, filter_to_plane, filter_to_fov
 from kitti_utils import load_lidar_points, compute_image_from_velodyne_matrices
 
-def export_gt_depths_eigen_benchmark(split_path, gt_depth_dir, output_dir, use_eigen):
+def export_gt_depths(split_path, gt_depth_dir, output_dir, use_lidar):
 
     split_folder = split_path
 
@@ -22,7 +22,7 @@ def export_gt_depths_eigen_benchmark(split_path, gt_depth_dir, output_dir, use_e
     for line in lines:
         folder, frame_id, _ = line.split()
         frame_id = int(frame_id)
-        if use_eigen:
+        if use_lidar:
             calib_dir = gt_depth_dir
             velo_filename = os.path.join(calib_dir, folder,
                                          "velodyne_points/data", "{:010d}.bin".format(frame_id))
@@ -38,10 +38,10 @@ def export_gt_depths_eigen_benchmark(split_path, gt_depth_dir, output_dir, use_e
             gt_depth = np.array(pil.open(gt_depth_path)).astype(np.float32) / 256
         gt_depths.append(gt_depth.astype(np.float32))
     
-    if use_eigen:
-        output_path = os.path.join(output_dir, "gt_eigen_lidar.npz")
+    if use_lidar:
+        output_path = os.path.join(output_dir, "gt_lidar.npz")
     else:
-        output_path = os.path.join(output_dir, "gt_depths.npz")
+        output_path = os.path.join(output_dir, "gt_depthmaps.npz")
 
     print("Saving to {}".format(output_path))
 
@@ -61,9 +61,9 @@ if __name__ == "__main__":
                              type = str,
                              help = "path to directory containing exported ground truth depth maps",
                              default = "data/kitti_gt")
-    parser.add_argument("--use_eigen",
+    parser.add_argument("--use_lidar",
                              type = bool,
                              help = "path to directory containing exported ground truth depth maps",
                              default = False)
     opt = parser.parse_args()
-    export_gt_depths_eigen_benchmark(opt.split_path, opt.gt_depth_dir, opt.output_dir, opt.use_eigen)
+    export_gt_depths(opt.split_path, opt.gt_depth_dir, opt.output_dir, opt.use_lidar)
