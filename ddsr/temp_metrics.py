@@ -5,11 +5,15 @@ import numpy as np
 import os
 import cv2
 import torch
+import time
 from torch.utils.data import DataLoader
 import yaml
+from third_party.DensenetEncoder import DensenetEncoder
 from third_party.monodepth2.ResnetEncoder import ResnetEncoder
 from third_party.monodepth2.DepthDecoder import DepthDecoder
 from third_party.monodepth2.layers import disp_to_depth
+from fpn import FPN
+
 
 cv2.setNumThreads(0)
 
@@ -51,36 +55,48 @@ def run_metrics(log_dir, epoch):
             
     weights_folder = os.path.join(log_dir, "models", f'weights_{epoch-1}')
     print("-> Loading weights from {weights_folder}")
-    encoder_path = os.path.join(weights_folder, "depth_encoder.pth")
-    decoder_path = os.path.join(weights_folder, "depth_decoder.pth")
-
-    encoder_dict = torch.load(encoder_path)
 
     dataset = KittiDataset.init_from_config(config["gt_depthmap_test_config_path"])
     dataloader = DataLoader(dataset, config["batch_size"], shuffle=False, collate_fn=Collator(config["height"], config["width"]), num_workers=config["num_workers"])
 
-    encoder = ResnetEncoder(config["encoder_layers"], False)
-    depth_decoder = DepthDecoder(encoder.num_ch_enc)
+    if config.get("use_densenet"):
+        models = {"depth_encoder": DensenetEncoder(config["densenet_layers"], False)}
+    else:
+        models = {"depth_encoder": ResnetEncoder(config["resnet_layers"], False)}
+    decoder_num_ch = models["depth_encoder"].num_ch_enc
+    
+    if config.get("use_fpn"):
+        models["fpn"] = FPN(decoder_num_ch)
+        decoder_num_ch = models["fpn"].num_ch_pyramid
+    models["depth_decoder"] = DepthDecoder(decoder_num_ch)
 
-    model_dict = encoder.state_dict()
-    encoder.load_state_dict({k: v for k, v in encoder_dict.items() if k in model_dict})
-    depth_decoder.load_state_dict(torch.load(decoder_path))
+    weights_folder = os.path.join(log_dir, "models", f'weights_{epoch - 1}')
+    print(f'-> Loading weights from {weights_folder}')
 
-    encoder.cuda()
-    encoder.eval()
-    depth_decoder.cuda()
-    depth_decoder.eval()
+    for model_name in models:
+        preset_path = os.path.join(weights_folder, f"{model_name}.pth")
+        model_dict = models[model_name].state_dict()
+        preset_dict = torch.load(preset_path)
+        if model_name == "depth_encoder":
+            dims = (preset_dict["height"], preset_dict["width"])
+        model_dict.update({k: v for k, v in preset_dict.items() if k in model_dict})
+        models[model_name].load_state_dict(model_dict)
+        models[model_name].cuda()
+        models[model_name].eval()
 
     pred_disps = []
 
     print("-> Computing predictions with size {}x{}".format(
-        encoder_dict['width'], encoder_dict['height']))
+        dims[1], dims[0]))
 
     with torch.no_grad():
         for batch in dataloader:
             inputs = batch["stereo_left_image"].to(device).float()
 
-            output = depth_decoder(encoder(inputs))
+            if config.get("use_fpn"):
+                output = models["depth_decoder"](models["fpn"](models["depth_encoder"](inputs)))
+            else:
+                output = models["depth_decoder"](models["depth_encoder"](inputs))
 
             pred_disp, _ = disp_to_depth(output[("disp", 0)], config["min_depth"], config["max_depth"])
             pred_disp = pred_disp.cpu()[:, 0].numpy()
