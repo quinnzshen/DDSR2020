@@ -3,7 +3,7 @@ pretrained: True
 num_scales: 4
 learning_rate: 0.0001
 scheduler_step_size: 15
-weight_decay: 0.5
+weight_decay: 0.1
 width: 1024
 height: 320
 min_depth: 0.1
