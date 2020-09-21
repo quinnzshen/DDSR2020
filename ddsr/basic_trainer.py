@@ -242,7 +242,9 @@ class Trainer:
                 kitti_gt_maps_metrics.insert(0, self.epoch+1)
                 self.kitti_gt_maps_metrics_writer.writerow(kitti_gt_maps_metrics)
         self.writer.close()
-        self.metrics_file.close()
+        if self.metrics:
+            self.lidar_metrics_file.close()
+            self.kitti_gt_maps_metrics_file.close()
         print('Model saved.')
 
     def run_epoch(self):
