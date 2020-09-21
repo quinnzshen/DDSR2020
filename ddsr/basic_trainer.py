@@ -542,8 +542,10 @@ class Trainer:
         name = "Lidar "
         if use_lidar == False:
             name = "KITTI Depth Map "
-        for i in range(len(metrics)):
+        for i in range(8):
             self.writer.add_scalar(name + "Metrics/" + labels[i], metrics[i], self.epoch)
+        for i in range(8, len(metrics)):
+            self.writer.add_scalar(name + "Metrics (Binned)/" + labels[i], metrics[i], self.epoch)
 
 
 if __name__ == "__main__":
