@@ -83,7 +83,6 @@ class Trainer:
         self.train_dataset = KittiDataset.init_from_config(train_config_path)
         self.train_dataloader = DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True,
                                            collate_fn=self.collate, num_workers=self.num_workers)
-
         val_config_path = self.config["valid_config_path"]
         self.val_dataset = KittiDataset.init_from_config(val_config_path)
         self.val_dataloader = DataLoader(self.val_dataset, batch_size=self.batch_size, shuffle=False,
@@ -190,14 +189,26 @@ class Trainer:
         self.metrics = self.config["metrics"]
         if self.metrics:
             if self.start_epoch > 0:
-                self.metrics_file = open(os.path.join(self.log_dir, "metrics.csv"),"a", newline='')
-                self.metrics_writer = csv.writer(self.metrics_file, delimiter=',')
+                # Uses LiDAR data
+                self.lidar_metrics_file = open(os.path.join(self.log_dir, "lidar_metrics.csv"),"a", newline='')
+                self.lidar_metrics_writer = csv.writer(self.lidar_metrics_file, delimiter=',')
+                
+                # Uses ground truth KITTI depth maps
+                self.kitti_gt_maps_metrics_file = open(os.path.join(self.log_dir, "kitti_gt_maps_metrics.csv"),"a", newline='')
+                self.kitti_gt_maps_metrics_writer = csv.writer(self.kitti_gt_maps_metrics_file, delimiter=',')
             else:
-                self.metrics_file = open(os.path.join(self.log_dir, "metrics.csv"),"w", newline='')
-                self.metrics_writer = csv.writer(self.metrics_file, delimiter=',')
-                metrics_list = ["epoch"]
+                # Uses LiDAR data
+                self.lidar_metrics_file = open(os.path.join(self.log_dir, "lidar_metrics.csv"),"w", newline='')
+                self.lidar_metrics_writer = csv.writer(self.lidar_metrics_file, delimiter=',')
+                
+                # Uses ground truth KITTI depth maps
+                self.kitti_gt_maps_metrics_file = open(os.path.join(self.log_dir, "kitti_gt_maps_metrics.csv"),"w", newline='')
+                self.kitti_gt_maps_metrics_writer = csv.writer(self.kitti_gt_maps_metrics_file, delimiter=',')
+                
+                metrics_list = ["epoch", "training_time"]
                 metrics_list.extend(get_labels())
-                self.metrics_writer.writerow(metrics_list)
+                self.lidar_metrics_writer.writerow(metrics_list)
+                self.kitti_gt_maps_metrics_writer.writerow(metrics_list)
        
         # Depth boundaries
         self.min_depth = self.config["min_depth"]
@@ -209,17 +220,27 @@ class Trainer:
         Saves the model's weights at the end of training
         """
         for self.epoch in range(self.start_epoch, self.num_epochs):
-            self.run_epoch()
+            time_taken = self.run_epoch()
             self.save_model()
             if self.qualitative:
                 images = generate_qualitative(self.log_dir, self.epoch+1)
                 self.add_qualitative_to_tensorboard(images)
             if self.metrics:
-                metrics, metric_labels = run_metrics(self.log_dir, self.epoch+1)
-                self.add_metrics_to_tensorboard(metrics, metric_labels)
-                metrics = [round(num, 3) for num in metrics]
-                metrics.insert(0, self.epoch+1)
-                self.metrics_writer.writerow(metrics)
+                # Uses LiDAR data
+                lidar_metrics, lidar_metric_labels = run_metrics(self.log_dir, self.epoch+1, use_lidar=True)
+                self.add_metrics_to_tensorboard(lidar_metrics, lidar_metric_labels, use_lidar=True)
+                lidar_metrics = [round(num, 3) for num in lidar_metrics]
+                lidar_metrics.insert(0, time_taken)
+                lidar_metrics.insert(0, self.epoch+1)
+                self.lidar_metrics_writer.writerow(lidar_metrics)
+                
+                # Uses ground truth KITTI depth maps
+                kitti_gt_maps_metrics, kitti_gt_maps_metric_labels = run_metrics(self.log_dir, self.epoch+1, use_lidar=False)
+                self.add_metrics_to_tensorboard(kitti_gt_maps_metrics, kitti_gt_maps_metric_labels, use_lidar=False)
+                kitti_gt_maps_metrics = [round(num, 3) for num in kitti_gt_maps_metrics]
+                kitti_gt_maps_metrics.insert(0, time_taken)
+                kitti_gt_maps_metrics.insert(0, self.epoch+1)
+                self.kitti_gt_maps_metrics_writer.writerow(kitti_gt_maps_metrics)
         self.writer.close()
         self.metrics_file.close()
         print('Model saved.')
@@ -268,6 +289,7 @@ class Trainer:
 
         print(f"Validation Loss: {total_loss}")
         print(f"Time spent: {val_end_time - val_start_time}\n")
+        return train_end_time - train_start_time
 
     def process_batch(self, batch_idx, batch, dataset_length, name, backprop):
         """
@@ -510,14 +532,20 @@ class Trainer:
             colormapped_disp = (mapper.to_rgba(disp_np[i])[:, :, :3] * 255).astype(np.uint8)
             self.writer.add_image(f"Qualitative Images/Epoch: {self.epoch + 1}", transforms.ToTensor()(colormapped_disp), i)
 
-    def add_metrics_to_tensorboard(self, metrics, labels):
+    def add_metrics_to_tensorboard(self, metrics, labels, use_lidar):
         """
         Adds metrics to tensorboard with given metric values and their corresponding values
         :param [list] metrics: A list of floats representing each metric
         :param [list] labels: A list of strings (same length as metrics) that describe the title of the metric
+        :param [bool] use_lidar: Setting to True -->  Lidar data (eigen), False --> improved GT maps (eigen_benchmark)
         """
-        for i in range(len(metrics)):
-            self.writer.add_scalar("metrics/" + labels[i], metrics[i], self.epoch)
+        name = "Lidar "
+        if use_lidar == False:
+            name = "KITTI Depth Map "
+        for i in range(8):
+            self.writer.add_scalar(name + "Metrics/" + labels[i], metrics[i], self.epoch)
+        for i in range(8, len(metrics)):
+            self.writer.add_scalar(name + "Metrics (Binned)/" + labels[i], metrics[i], self.epoch)
 
 
 if __name__ == "__main__":

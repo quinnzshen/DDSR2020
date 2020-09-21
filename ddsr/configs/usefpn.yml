@@ -4,8 +4,8 @@ num_scales: 4
 learning_rate: 0.0001
 scheduler_step_size: 10
 weight_decay: 0.1
-width: 1280
-height: 384
+width: 1024
+height: 320
 min_depth: 0.1
 max_depth: 100
 num_epochs: 24
@@ -15,7 +15,8 @@ num_workers: 12
 use_stereo: False
 train_config_path: configs/datasets/eigen_zhou_train_dataset.yml
 valid_config_path: configs/datasets/eigen_zhou_validation_dataset.yml
-test_config_path: configs/datasets/eigen_zhou_test_dataset.yml
+lidar_test_config_path: configs/datasets/eigen_test_dataset.yml
+gt_depthmap_test_config_path: configs/datasets/eigen_benchmark_test_dataset.yml
 qual_config_path: configs/datasets/qualitative_dataset.yml
 log_dir: experiments/use_fpn
 gt_path: data/kitti_gt
