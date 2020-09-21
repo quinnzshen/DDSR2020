@@ -241,8 +241,12 @@ class Trainer:
                 eigen_benchmark_metrics.insert(0, time_taken)
                 eigen_benchmark_metrics.insert(0, self.epoch+1)
                 self.eigen_benchmark_metrics_writer.writerow(eigen_benchmark_metrics)
+        
         self.writer.close()
-        self.metrics_file.close()
+        if self.metrics:
+            self.eigen_metrics_file.close()
+            self.eigen_benchmark_metrics_file.close()
+
         print('Model saved.')
 
     def run_epoch(self):
