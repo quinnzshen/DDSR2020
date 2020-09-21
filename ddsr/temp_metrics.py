@@ -51,7 +51,7 @@ def run_metrics(log_dir, epoch):
             
     weights_folder = os.path.join(log_dir, "models", f'weights_{epoch-1}')
     print("-> Loading weights from {weights_folder}")
-    encoder_path = os.path.join(weights_folder, "resnet_encoder.pth")
+    encoder_path = os.path.join(weights_folder, "depth_encoder.pth")
     decoder_path = os.path.join(weights_folder, "depth_decoder.pth")
 
     encoder_dict = torch.load(encoder_path)
