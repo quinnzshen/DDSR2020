@@ -56,7 +56,7 @@ def run_metrics(log_dir, epoch):
 
     encoder_dict = torch.load(encoder_path)
 
-    dataset = KittiDataset.init_from_config(config["test_config_path"])
+    dataset = KittiDataset.init_from_config(config["gt_depthmap_test_config_path"])
     dataloader = DataLoader(dataset, config["batch_size"], shuffle=False, collate_fn=Collator(config["height"], config["width"]), num_workers=config["num_workers"])
 
     encoder = ResnetEncoder(config["encoder_layers"], False)
