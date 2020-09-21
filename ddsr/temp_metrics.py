@@ -91,7 +91,7 @@ def run_metrics(log_dir, epoch):
 
     with torch.no_grad():
         for batch in dataloader:
-            inputs = batch["stereo_left_image"].to(device).float()
+            inputs = batch["stereo_left_image"].to(device).float() * 255.0
 
             if config.get("use_fpn"):
                 output = models["depth_decoder"](models["fpn"](models["depth_encoder"](inputs)))
