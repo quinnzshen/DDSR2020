@@ -1,0 +1,6 @@
+root_directory: data/kitti_data
+dataset_paths:
+  - splits/eigen_test.txt
+previous_frames: 0
+next_frames: 0
+is_jpeg: True

@@ -189,26 +189,26 @@ class Trainer:
         self.metrics = self.config["metrics"]
         if self.metrics:
             if self.start_epoch > 0:
-                # Standard Eigen Split -- Uses LiDAR data
-                self.eigen_metrics_file = open(os.path.join(self.log_dir, "eigen_metrics.csv"),"a", newline='')
-                self.eigen_metrics_writer = csv.writer(self.eigen_metrics_file, delimiter=',')
+                # Uses LiDAR data
+                self.lidar_metrics_file = open(os.path.join(self.log_dir, "lidar_metrics.csv"),"a", newline='')
+                self.lidar_metrics_writer = csv.writer(self.lidar_metrics_file, delimiter=',')
                 
-                # Eigen Benchmark Split -- Uses ground truth KITTI data
-                self.eigen_benchmark_metrics_file = open(os.path.join(self.log_dir, "eigen_benchmark_metrics.csv"),"a", newline='')
-                self.eigen_benchmark_metrics_writer = csv.writer(self.eigen_benchmark_metrics_file, delimiter=',')
+                # Uses ground truth KITTI depth maps
+                self.kitti_gt_maps_metrics_file = open(os.path.join(self.log_dir, "kitti_gt_maps_metrics.csv"),"a", newline='')
+                self.kitti_gt_maps_metrics_writer = csv.writer(self.kitti_gt_maps_metrics_file, delimiter=',')
             else:
-                # Standard Eigen Split -- Uses LiDAR data
-                self.eigen_metrics_file = open(os.path.join(self.log_dir, "eigen_metrics.csv"),"w", newline='')
-                self.eigen_metrics_writer = csv.writer(self.eigen_metrics_file, delimiter=',')
+                # Uses LiDAR data
+                self.lidar_metrics_file = open(os.path.join(self.log_dir, "lidar_metrics.csv"),"w", newline='')
+                self.lidar_metrics_writer = csv.writer(self.lidar_metrics_file, delimiter=',')
                 
-                # Eigen Benchmark Split -- Uses ground truth KITTI data
-                self.eigen_benchmark_metrics_file = open(os.path.join(self.log_dir, "eigen_benchmark_metrics.csv"),"w", newline='')
-                self.eigen_benchmark_metrics_writer = csv.writer(self.eigen_benchmark_metrics_file, delimiter=',')
+                # Uses ground truth KITTI depth maps
+                self.kitti_gt_maps_metrics_file = open(os.path.join(self.log_dir, "kitti_gt_maps_metrics.csv"),"w", newline='')
+                self.kitti_gt_maps_metrics_writer = csv.writer(self.kitti_gt_maps_metrics_file, delimiter=',')
                 
                 metrics_list = ["epoch", "training_time"]
                 metrics_list.extend(get_labels())
-                self.eigen_metrics_writer.writerow(metrics_list)
-                self.eigen_benchmark_metrics_writer.writerow(metrics_list)
+                self.lidar_metrics_writer.writerow(metrics_list)
+                self.kitti_gt_maps_metrics_writer.writerow(metrics_list)
        
         # Depth boundaries
         self.min_depth = self.config["min_depth"]
@@ -226,21 +226,21 @@ class Trainer:
                 images = generate_qualitative(self.log_dir, self.epoch+1)
                 self.add_qualitative_to_tensorboard(images)
             if self.metrics:
-                # Standard Eigen Split -- Uses LiDAR data
-                eigen_metrics, eigen_metric_labels = run_metrics(self.log_dir, self.epoch+1, eigen=True)
-                self.add_metrics_to_tensorboard(eigen_metrics, eigen_metric_labels, eigen=True)
-                eigen_metrics = [round(num, 3) for num in eigen_metrics]
-                eigen_metrics.insert(0, time_taken)
-                eigen_metrics.insert(0, self.epoch+1)
-                self.eigen_metrics_writer.writerow(eigen_metrics)
+                # Uses LiDAR data
+                lidar_metrics, lidar_metric_labels = run_metrics(self.log_dir, self.epoch+1, use_lidar=True)
+                self.add_metrics_to_tensorboard(lidar_metrics, lidar_metric_labels, use_lidar=True)
+                lidar_metrics = [round(num, 3) for num in lidar_metrics]
+                lidar_metrics.insert(0, time_taken)
+                lidar_metrics.insert(0, self.epoch+1)
+                self.lidar_metrics_writer.writerow(lidar_metrics)
                 
-                # Eigen Benchmark Split -- Uses ground truth KITTI data
-                eigen_benchmark_metrics, eigen_benchmark_metric_labels = run_metrics(self.log_dir, self.epoch+1, eigen=False)
-                self.add_metrics_to_tensorboard(eigen_benchmark_metrics, eigen_benchmark_metric_labels, eigen=False)
-                eigen_benchmark_metrics = [round(num, 3) for num in eigen_benchmark_metrics]
-                eigen_benchmark_metrics.insert(0, time_taken)
-                eigen_benchmark_metrics.insert(0, self.epoch+1)
-                self.eigen_benchmark_metrics_writer.writerow(eigen_benchmark_metrics)
+                # Uses ground truth KITTI depth maps
+                kitti_gt_maps_metrics, kitti_gt_maps_metric_labels = run_metrics(self.log_dir, self.epoch+1, use_lidar=False)
+                self.add_metrics_to_tensorboard(kitti_gt_maps_metrics, kitti_gt_maps_metric_labels, use_lidar=False)
+                kitti_gt_maps_metrics = [round(num, 3) for num in kitti_gt_maps_metrics]
+                kitti_gt_maps_metrics.insert(0, time_taken)
+                kitti_gt_maps_metrics.insert(0, self.epoch+1)
+                self.kitti_gt_maps_metrics_writer.writerow(kitti_gt_maps_metrics)
         self.writer.close()
         self.metrics_file.close()
         print('Model saved.')
@@ -532,18 +532,20 @@ class Trainer:
             colormapped_disp = (mapper.to_rgba(disp_np[i])[:, :, :3] * 255).astype(np.uint8)
             self.writer.add_image(f"Qualitative Images/Epoch: {self.epoch + 1}", transforms.ToTensor()(colormapped_disp), i)
 
-    def add_metrics_to_tensorboard(self, metrics, labels, eigen):
+    def add_metrics_to_tensorboard(self, metrics, labels, use_lidar):
         """
         Adds metrics to tensorboard with given metric values and their corresponding values
         :param [list] metrics: A list of floats representing each metric
         :param [list] labels: A list of strings (same length as metrics) that describe the title of the metric
-        :param [bool] eigen: Setting to True --> eigen (Lidar data), False --> improved GT maps        
+        :param [bool] use_lidar: Setting to True -->  Lidar data (eigen), False --> improved GT maps (eigen_benchmark)
         """
-        name = "Eigen "
-        if eigen == False:
-            name = "Eigen Benchmark "
-        for i in range(len(metrics)):
+        name = "Lidar "
+        if use_lidar == False:
+            name = "KITTI Depth Map "
+        for i in range(8):
             self.writer.add_scalar(name + "Metrics/" + labels[i], metrics[i], self.epoch)
+        for i in range(8, len(metrics)):
+            self.writer.add_scalar(name + "Metrics (Binned)/" + labels[i], metrics[i], self.epoch)
 
 
 if __name__ == "__main__":
