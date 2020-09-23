@@ -4,20 +4,22 @@ import numpy as np
 
 
 class FPN(nn.Module):
-    def __init__(self, num_ch_enc):
+    def __init__(self, num_ch_enc, num_ch_out):
         """
         Initializes a feature pyramid network based on the implementation described in the paper 
         Feature Pyramid Networks for Object Detection (https://arxiv.org/pdf/1612.03144.pdf)
         :param [np.array] num_ch_enc: [N], contains the number of channels of each layer for the output of the pyramid.
         """
         super(FPN, self).__init__()
-        self.upsampler = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=False)
-        self.num_ch_pyramid = np.roll(num_ch_enc, -1)
-        self.num_ch_pyramid[-1] = self.num_ch_pyramid[-2]
-        self.convs = []
-        for i in range(len(num_ch_enc) - 1):
-            self.convs.append(nn.Conv2d(num_ch_enc[i], num_ch_enc[i+1], 1))
-        self.fpn = nn.ModuleList(self.convs)
+        self.upsampler = nn.Upsample(scale_factor=2, mode='nearest', align_corners=False)
+        self.num_ch_pyramid = [num_ch_out] * len(num_ch_enc)
+        # self.convs = []
+        self.layers = nn.ModuleDict({str(len(num_ch_enc) - 1) + "_1x1conv": nn.Conv2d(num_ch_enc[len(num_ch_enc) - 1], num_ch_out, 1)})
+        for i in range(len(num_ch_enc) - 2, -1, -1):
+            self.layers[str(i - 1) + "_3x3conv"] = nn.Conv2d(num_ch_enc[i], num_ch_out, 3)
+            self.layers[str(i) + "_1x1conv"] = nn.Conv2d(num_ch_enc[i], num_ch_out, 1)
+        #     self.convs.append(nn.Conv2d(num_ch_enc[i], num_ch_enc[i+1], 1))
+        # self.fpn = nn.ModuleList(self.convs)
 
     def forward(self, input_features):
         """
