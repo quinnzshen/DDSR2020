@@ -8,7 +8,8 @@ class FPN(nn.Module):
         """
         Initializes a feature pyramid network based on the implementation described in the paper 
         Feature Pyramid Networks for Object Detection (https://arxiv.org/pdf/1612.03144.pdf)
-        :param [np.array] num_ch_enc: [N], contains the number of channels of each layer for the output of the pyramid.
+        :param [np.array] num_ch_enc: [N], contains the number of channels of each layer of the encoder output
+        :param [int] num_ch_out: The number of output channels for each layer of the FPN
         """
         super(FPN, self).__init__()
         self.upsampler = nn.Upsample(scale_factor=2, mode='nearest')
@@ -30,7 +31,6 @@ class FPN(nn.Module):
         for i in range(len(input_features) - 1, -1, -1):
             curr_layer = self.layers[str(i) + "_1conv"](input_features[i])
             if i != len(input_features) - 1:
-                print(pyramid[i+1].shape, self.upsampler(pyramid[i+1]).shape)
                 curr_layer += self.upsampler(pyramid[i+1])
             pyramid[i] = self.layers[str(i) + "_3conv"](curr_layer)
         return pyramid
