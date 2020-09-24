@@ -119,7 +119,10 @@ class Trainer:
         
         # FPN
         if self.config.get("use_fpn"):
-            self.models["fpn"] = FPN(decoder_num_ch).to(self.device)
+            num_ch_fpn = self.config.get("fpn_channels")
+            if not num_ch_fpn:
+                num_ch_fpn = 256
+            self.models["fpn"] = FPN(decoder_num_ch, num_ch_fpn).to(self.device)
             decoder_num_ch = self.models["fpn"].num_ch_pyramid
         
         # Decoder Setup
@@ -542,7 +545,7 @@ class Trainer:
         :param [bool] use_lidar: Setting to True -->  Lidar data (eigen), False --> improved GT maps (eigen_benchmark)
         """
         name = "Lidar "
-        if use_lidar == False:
+        if not use_lidar:
             name = "KITTI Depth Map "
         for i in range(8):
             self.writer.add_scalar(name + "Metrics/" + labels[i], metrics[i], self.epoch)
