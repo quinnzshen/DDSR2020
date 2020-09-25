@@ -117,7 +117,7 @@ def get_timestamp_nsec(sample_path, idx):
             count += 1
 
 
-def get_nearby_frames_data(path_name, idx, previous_frames, next_frames, is_jpeg):
+def get_nearby_frames_data(path_name, idx, previous_frames, next_frames, xywh, is_jpeg):
     """
     Given a specific index, return a dictionary containing information about the frame n frames before and after the target index
     in the dataset.
@@ -133,7 +133,7 @@ def get_nearby_frames_data(path_name, idx, previous_frames, next_frames, is_jpeg
         if relative_idx == 0:
             continue
         try:
-            nearby_frames[relative_idx] = {'camera_data': get_camera_data(path_name, idx + relative_idx, is_jpeg),
+            nearby_frames[relative_idx] = {'camera_data': get_camera_data(path_name, idx + relative_idx, xywh, is_jpeg),
                                            'pose': get_relative_pose_between_consecutive_frames(path_name, idx, idx+relative_idx)}
         except FileNotFoundError:
             nearby_frames[relative_idx] = {"camera_data": {},
@@ -141,7 +141,7 @@ def get_nearby_frames_data(path_name, idx, previous_frames, next_frames, is_jpeg
     return nearby_frames
 
 
-def get_camera_data(path_name, idx, is_jpeg=True):
+def get_camera_data(path_name, idx, xywh, is_jpeg):
     """
     Gets the basic camera information given the path name to the scene and the frame number within
     that scene.
@@ -163,9 +163,10 @@ def get_camera_data(path_name, idx, is_jpeg=True):
 
         timestamp_path = os.path.join(path_name, f"{camera_path}/timestamps.txt")
         camera_image = torch.from_numpy(np.array(Image.open(camera_image_path))).float() / 255.0
+        if xywh[2]:
+            camera_image = camera_image[xywh[1]:xywh[1]+xywh[3], xywh[0]:xywh[0]+xywh[2]]
         timestamp = get_timestamp_nsec(timestamp_path, idx)
         camera_data[f"{camera_name}_image"] = camera_image
-        camera_data[f"{camera_name}_shape"] = camera_image.shape
         camera_data[f"{camera_name}_capture_time_nsec"] = timestamp
 
     return camera_data

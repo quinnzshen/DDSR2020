@@ -3,6 +3,7 @@ import yaml
 import pandas as pd
 
 import os
+import random
 
 from kitti_utils import get_camera_data, get_lidar_data, get_nearby_frames_data, get_camera_intrinsic_dict, \
     get_relative_rotation_stereo, get_relative_translation_stereo, compute_image_from_velodyne_matrices, \
@@ -23,6 +24,9 @@ class KittiDataset(Dataset):
         self.previous_frames = previous_frames
         self.next_frames = next_frames
         self.is_jpeg = is_jpeg
+
+        self.width = 0
+        self.height = 0
         self.dataset_index = dataset_index[
             (dataset_index["frames_from_begin"] >= previous_frames) &
             (dataset_index["frames_from_end"] >= next_frames)
@@ -45,6 +49,10 @@ class KittiDataset(Dataset):
                    previous_frames=config["previous_frames"],
                    next_frames=config["next_frames"],
                    is_jpeg=config["is_jpeg"])
+
+    def set_crop_size(self, h, w):
+        self.height = h
+        self.width = w
 
     def __len__(self):
         """
@@ -71,16 +79,24 @@ class KittiDataset(Dataset):
         path_name = os.path.join(self.root_dir, os.path.normpath(self.dataset_index["path"][idx]))
         calib_dir = os.path.dirname(path_name)
         idx = int(self.dataset_index["frames_from_begin"][idx])
-        nearby_frames_data = get_nearby_frames_data(path_name, idx, self.previous_frames, self.next_frames, self.is_jpeg)
+        crops = [0, 0, self.width, self.height]
+        if self.width:
+            cam_data = get_camera_data(path_name, idx, self.is_jpeg)
+            cam_shape = cam_data["stereo_left_image"].shape
+            crops[0] = random.randrange(cam_shape[1] - self.width + 1)
+            crops[1] = random.randrange(cam_shape[0] - self.height + 1)
+
+        nearby_frames_data = get_nearby_frames_data(path_name, idx, self.previous_frames, self.next_frames, crops, self.is_jpeg)
         # Taking information from the directory and putting it into the sample dictionary
         sample = {
-            **get_camera_data(path_name, idx, self.is_jpeg),
+            **get_camera_data(path_name, idx, crops, self.is_jpeg),
             # **get_lidar_data(path_name, idx),
             **{'nearby_frames': nearby_frames_data},
             # **{'image_from_velodyne_matrices': compute_image_from_velodyne_matrices(calib_dir)},
             **{'intrinsics': get_camera_intrinsic_dict(calib_dir)},
             **{'rel_pose_stereo': rel_pose_from_rotation_matrix_translation_vector(
                 get_relative_translation_stereo(calib_dir), get_relative_rotation_stereo(calib_dir))},
+            "crops": crops,
             # **{'pose': get_pose(path_name, idx)}
         }
         return sample
