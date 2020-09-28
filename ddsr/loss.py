@@ -151,11 +151,13 @@ def calc_loss(inputs, outputs, scale=0, smooth_term=0.001):
 
 
 class GenerateReprojections(nn.Module):
-    def __init__(self, height, width, default_batch_size):
+    def __init__(self, height, width, default_batch_size, default_height=375, default_width=1242):
         super(GenerateReprojections, self).__init__()
 
         self.h = height
         self.w = width
+        self.def_h = default_height
+        self.def_w = default_width
         self.batch_size = default_batch_size
 
         meshgrid = torch.meshgrid([
@@ -167,19 +169,22 @@ class GenerateReprojections(nn.Module):
         self.ones = nn.Parameter(torch.ones(self.batch_size, 1, width * height), requires_grad=False)
         self.img_indices = nn.Parameter(torch.cat([img_coords, self.ones], 1), requires_grad=False)
 
-    def forward(self, src_images, depths, poses, tgt_intr, src_intr, local_batch_size):
+    def forward(self, src_images, depths, poses, tgt_intr, src_intr, crop_dim, local_batch_size):
         reprojected = []
         tgt_intr_inv = tgt_intr.inverse()
+        target_indices = self.img_indices[:local_batch_size]
+        target_indices[:, 0] += crop_dim[:, 0]
+        target_indices[:, 1] += crop_dim[:, 1]
         for i in range(len(poses)):
-            world_coords = depths.view(local_batch_size, 1, -1) * (tgt_intr_inv[:, :3, :3] @ self.img_indices[:local_batch_size])
+            world_coords = depths.view(local_batch_size, 1, -1) * (tgt_intr_inv[:, :3, :3] @ target_indices)
             world_coords = torch.cat([world_coords, self.ones[:local_batch_size]], dim=1)
             src_coords = (src_intr[i] @ poses[i][:, :3]) @ world_coords
 
             src_coords = src_coords[:, :2] / (src_coords[:, 2].unsqueeze(1) + 1e-7)
             src_coords = src_coords.view(local_batch_size, 2, self.h, self.w)
             src_coords = src_coords.permute(0, 2, 3, 1)
-            src_coords[..., 0] /= self.w - 1
-            src_coords[..., 1] /= self.h - 1
+            src_coords[..., 0] /= self.def_w - 1
+            src_coords[..., 1] /= self.def_h - 1
             src_coords = (src_coords - 0.5) * 2
 
             reprojected.append(F.grid_sample(src_images[i], src_coords, padding_mode="border", align_corners=False))

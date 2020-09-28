@@ -87,7 +87,7 @@ class KittiDataset(Dataset):
             crops[0] = random.randrange(cam_shape[1] - self.width + 1)
             crops[1] = random.randrange(cam_shape[0] - self.height + 1)
 
-        nearby_frames_data = get_nearby_frames_data(path_name, idx, self.previous_frames, self.next_frames, crops, self.is_jpeg)
+        nearby_frames_data = get_nearby_frames_data(path_name, idx, self.previous_frames, self.next_frames, self.is_jpeg)
         # Taking information from the directory and putting it into the sample dictionary
         sample = {
             **get_camera_data(path_name, idx, crops, self.is_jpeg),

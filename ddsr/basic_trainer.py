@@ -74,6 +74,14 @@ class Trainer:
         # Image dimensions
         self.width = self.config["width"]
         self.height = self.config["height"]
+        self.DEFHEIGHT = 375
+        self.DEFWIDTH = 1242
+
+        # Stereo
+        self.use_stereo = self.config["use_stereo"]
+
+        # Number of scales
+        self.num_scales = self.config["num_scales"]
 
         # Dataloader Setup
         self.collate = Collator(self.height, self.width)
@@ -81,30 +89,29 @@ class Trainer:
 
         train_config_path = self.config["train_config_path"]
         self.train_dataset = KittiDataset.init_from_config(train_config_path)
-        self.train_dataset.set_crop_size(self.height, self.width)
         self.train_dataloader = DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True,
-                                           collate_fn=self.collate, num_workers=self.num_workers)
+                                           collate_fn=self.collate, num_workers=self.num_workers, pin_memory=True)
         val_config_path = self.config["valid_config_path"]
         self.val_dataset = KittiDataset.init_from_config(val_config_path)
         self.val_dataloader = DataLoader(self.val_dataset, batch_size=self.batch_size, shuffle=False,
-                                         collate_fn=self.collate, num_workers=self.num_workers)
+                                         collate_fn=self.collate, num_workers=self.num_workers, pin_memory=True)
         self.qualitative = self.config.get("qual_config_path")
         if self.qualitative:
             self.qual_dataset = KittiDataset.init_from_config(self.qualitative)
             self.qual_dataloader = DataLoader(self.qual_dataset, batch_size=self.batch_size, shuffle=False,
-                                              collate_fn=self.collate, num_workers=self.num_workers)
+                                              collate_fn=self.collate, num_workers=self.num_workers, pin_memory=True)
 
-
+        if self.config.get("crop"):
+            if self.use_stereo:
+                raise NotImplementedError
+            self.train_dataset.set_crop_size(self.height, self.width)
+            self.val_dataset.set_crop_size(self.height, self.width)
+            if self.qualitative:
+                self.qual_dataset.set_crop_size(self.height, self.width)
 
         # Neighboring frames
         self.prev_frames = self.train_dataset.previous_frames
         self.next_frames = self.train_dataset.next_frames
-
-        # Stereo
-        self.use_stereo = self.config["use_stereo"]
-
-        # Number of scales
-        self.num_scales = self.config["num_scales"]
 
         # Model setup
         self.models = {}
@@ -175,9 +182,13 @@ class Trainer:
         # Setting up reprojection
         self.gen_reproj = []
         for i in range(self.num_scales):
-            h = self.height // (2 ** i)
-            w = self.width // (2 ** i)
-            self.gen_reproj.append(GenerateReprojections(h, w, self.batch_size).to(self.device))
+            scale_factor = 2 ** i
+            h = self.height // scale_factor
+            w = self.width // scale_factor
+            if self.config.get("crop"):
+                self.gen_reproj.append(GenerateReprojections(h, w, self.batch_size, self.DEFHEIGHT//scale_factor, self.DEFWIDTH//scale_factor).to(self.device))
+            else:
+                self.gen_reproj.append(GenerateReprojections(h, w, self.batch_size, h, w).to(self.device))
 
         # Writer for tensorboard
         self.writer = SummaryWriter(log_dir=os.path.join(self.log_dir, "tensorboard"))
@@ -347,10 +358,14 @@ class Trainer:
         poses = torch.stack(poses_list, dim=0)
 
         # Loading intrinsics
+        shapes = batch["stereo_left_orig_shape"][:, :2].to(self.device).float()
         tgt_intrinsics = batch["intrinsics"]["stereo_left"].to(self.device)
         if self.use_stereo:
             src_intrinsics_stereo = batch["intrinsics"]["stereo_right"].to(self.device)
-        shapes = batch["stereo_left_orig_shape"][:, :2].to(self.device).float()
+        if self.config.get("crop"):
+            crops = batch["crops"].to(self.device)
+            # TODO find way to crop based on xywh list, batch-wise
+            sources_cropped = sources
 
         losses = []
         automasks = []
@@ -359,8 +374,15 @@ class Trainer:
         total_loss = 0
 
         for scale in range(self.num_scales):
-            h = self.height // (2 ** scale)
-            w = self.width // (2 ** scale)
+            scale_factor = 2 ** scale
+            h = self.height // scale_factor
+            w = self.width // scale_factor
+            if self.config.get("crop"):
+                default_h = self.DEFHEIGHT // scale_factor
+                default_w = self.DEFWIDTH // scale_factor
+                crops_scale = crops // scale_factor
+            else:
+                crops_scale = torch.tensor([[0, 0]]).to(self.device)
 
             # Convert disparity to depth
             disp = outputs[("disp", scale)]
@@ -368,28 +390,32 @@ class Trainer:
             _, depths = disp_to_depth(disp, self.min_depth, self.max_depth)
 
             # Input scaling
-            inputs_scale = F.interpolate(inputs, [h, w], mode="bilinear", align_corners=False).to(self.device)
+            inputs_scale = F.interpolate(inputs, [h, w], mode="bilinear", align_corners=False)
 
             # Sources and pose scaling
-            sources_scale = []
-            for image in sources:
-                sources_scale.append(F.interpolate(image, [h, w], mode="bilinear", align_corners=False).to(self.device))
+            if self.config.get("crop"):
+                sources_scale = [F.interpolate(img, [default_h, default_w], mode="bilinear", align_corners=False) for img in sources]
+                sources_scale_cropped = [F.interpolate(img, [h, w], mode="bilinear", align_corners=False) for img in sources_cropped]
+                sources_scale_cropped = torch.stack(sources_scale_cropped, dim=0)
+            else:
+                sources_scale = [F.interpolate(img, [h, w], mode="bilinear", align_corners=False) for img in sources]
             sources_scale = torch.stack(sources_scale, dim=0)
 
             # Intrinsics and scaling
-            out_shape = torch.tensor([h, w]).to(self.device)
-            shapes_scale = out_shape / shapes
+            if self.config.get("crop"):
+                scale_ratio = torch.tensor([default_h, default_w]).to(self.device) / shapes
+            else:
+                scale_ratio = torch.tensor([h, w]).to(self.device) / shapes
             tgt_intrinsics_scale = torch.clone(tgt_intrinsics)
-            tgt_intrinsics_scale[:, 0] = tgt_intrinsics_scale[:, 0] * shapes_scale[:, 1].reshape(-1, 1)
-            tgt_intrinsics_scale[:, 1] = tgt_intrinsics_scale[:, 1] * shapes_scale[:, 0].reshape(-1, 1)
+            tgt_intrinsics_scale[:, 0] = tgt_intrinsics_scale[:, 0] * scale_ratio[:, 1].reshape(-1, 1)
+            tgt_intrinsics_scale[:, 1] = tgt_intrinsics_scale[:, 1] * scale_ratio[:, 0].reshape(-1, 1)
 
             if self.use_stereo:
                 src_intrinsics_stereo_scale = torch.clone(src_intrinsics_stereo)
-
                 src_intrinsics_stereo_scale[:, 0] = src_intrinsics_stereo_scale[:, 0] * \
-                                                    shapes_scale[:, 1].reshape(-1, 1)
+                                                    scale_ratio[:, 1].reshape(-1, 1)
                 src_intrinsics_stereo_scale[:, 1] = src_intrinsics_stereo_scale[:, 1] * \
-                                                    shapes_scale[:, 0].reshape(-1, 1)
+                                                    scale_ratio[:, 0].reshape(-1, 1)
                 intrinsics_list = [src_intrinsics_stereo_scale]
             else:
                 intrinsics_list = [tgt_intrinsics_scale]
@@ -401,7 +427,7 @@ class Trainer:
 
             # Reprojection
             reprojected = self.gen_reproj[scale](sources_scale, depths, poses, tgt_intrinsics_scale,
-                                                 src_intrinsics_scale, local_batch_size)
+                                                 src_intrinsics_scale, crops_scale, local_batch_size)
             reprojected = torch.stack(reprojected, dim=0)
 
             # Compute Losses            
