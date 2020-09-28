@@ -62,8 +62,8 @@ class Collator(object):
             if 'stereo_right_image' in elem.keys():
                 resize_list = ['stereo_right_image', 'stereo_left_image']
                 for d in batch:
-                    if "nearby_frames" in elem.keys():
-                        d["shapes"] = torch.tensor(d[resize_list[0]].shape[:2])
+                    # if "nearby_frames" in elem.keys():
+                    #     d["shapes"] = torch.tensor(d[resize_list[0]].shape[:2])
                     for key in resize_list:
                         d[key] = F.interpolate(
                             (d[key].permute(2, 0, 1).float().unsqueeze(0)),

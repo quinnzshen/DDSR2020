@@ -1,4 +1,5 @@
 from torch.utils.data import Dataset
+import torch
 import yaml
 import pandas as pd
 
@@ -79,9 +80,9 @@ class KittiDataset(Dataset):
         path_name = os.path.join(self.root_dir, os.path.normpath(self.dataset_index["path"][idx]))
         calib_dir = os.path.dirname(path_name)
         idx = int(self.dataset_index["frames_from_begin"][idx])
-        crops = [0, 0, self.width, self.height]
+        crops = torch.tensor([0, 0, self.width, self.height], dtype=torch.short)
         if self.width:
-            cam_data = get_camera_data(path_name, idx, self.is_jpeg)
+            cam_data = get_camera_data(path_name, idx, is_jpeg=self.is_jpeg)
             cam_shape = cam_data["stereo_left_image"].shape
             crops[0] = random.randrange(cam_shape[1] - self.width + 1)
             crops[1] = random.randrange(cam_shape[0] - self.height + 1)

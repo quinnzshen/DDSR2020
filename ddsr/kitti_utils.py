@@ -141,7 +141,7 @@ def get_nearby_frames_data(path_name, idx, previous_frames, next_frames, xywh, i
     return nearby_frames
 
 
-def get_camera_data(path_name, idx, xywh, is_jpeg):
+def get_camera_data(path_name, idx, xywh=(0, 0, 0, 0), is_jpeg=False):
     """
     Gets the basic camera information given the path name to the scene and the frame number within
     that scene.
@@ -162,11 +162,13 @@ def get_camera_data(path_name, idx, xywh, is_jpeg):
             camera_image_path = os.path.join(path_name, f"{camera_path}/data/{idx:010}.png")
 
         timestamp_path = os.path.join(path_name, f"{camera_path}/timestamps.txt")
-        camera_image = torch.from_numpy(np.array(Image.open(camera_image_path))).float() / 255.0
+        camera_image = torch.from_numpy(np.array(Image.open(camera_image_path))) / 255.
         if xywh[2]:
             camera_image = camera_image[xywh[1]:xywh[1]+xywh[3], xywh[0]:xywh[0]+xywh[2]]
         timestamp = get_timestamp_nsec(timestamp_path, idx)
         camera_data[f"{camera_name}_image"] = camera_image
+        camera_data[f"{camera_name}_orig_shape"] = torch.tensor(camera_image.shape)
+        # print(type(camera_image.shape))
         camera_data[f"{camera_name}_capture_time_nsec"] = timestamp
 
     return camera_data

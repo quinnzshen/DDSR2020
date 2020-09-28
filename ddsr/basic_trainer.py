@@ -81,6 +81,7 @@ class Trainer:
 
         train_config_path = self.config["train_config_path"]
         self.train_dataset = KittiDataset.init_from_config(train_config_path)
+        self.train_dataset.set_crop_size(self.height, self.width)
         self.train_dataloader = DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True,
                                            collate_fn=self.collate, num_workers=self.num_workers)
         val_config_path = self.config["valid_config_path"]
@@ -92,6 +93,8 @@ class Trainer:
             self.qual_dataset = KittiDataset.init_from_config(self.qualitative)
             self.qual_dataloader = DataLoader(self.qual_dataset, batch_size=self.batch_size, shuffle=False,
                                               collate_fn=self.collate, num_workers=self.num_workers)
+
+
 
         # Neighboring frames
         self.prev_frames = self.train_dataset.previous_frames
@@ -347,7 +350,7 @@ class Trainer:
         tgt_intrinsics = batch["intrinsics"]["stereo_left"].to(self.device)
         if self.use_stereo:
             src_intrinsics_stereo = batch["intrinsics"]["stereo_right"].to(self.device)
-        shapes = batch["shapes"].to(self.device).float()
+        shapes = batch["stereo_left_orig_shape"][:, :2].to(self.device).float()
 
         losses = []
         automasks = []
