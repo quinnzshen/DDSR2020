@@ -134,7 +134,7 @@ def get_nearby_frames_data(path_name, idx, previous_frames, next_frames, is_jpeg
             continue
         try:
             nearby_frames[relative_idx] = {'camera_data': get_camera_data(path_name, idx + relative_idx, is_jpeg),
-                                           'pose': get_relative_pose_between_consecutive_frames(path_name, idx, idx+relative_idx)}
+                                           'pose': pose_from_oxts_between_consec_frames(get_imu_dataframe(path_name), idx, idx+relative_idx)}
         except FileNotFoundError:
             nearby_frames[relative_idx] = {"camera_data": {},
                                            "pose": {}}
@@ -339,3 +339,92 @@ def get_pose(scene_path, frame):
     pose[:3, 3] = rel_translation
 
     return pose
+
+def rotx(t):
+    """Rotation about the x-axis."""
+    c = np.cos(t)
+    s = np.sin(t)
+    return np.array([[1,  0,  0],
+                     [0,  c, -s],
+                     [0,  s,  c]])
+
+
+def roty(t):
+    """Rotation about the y-axis."""
+    c = np.cos(t)
+    s = np.sin(t)
+    return np.array([[c,  0,  s],
+                     [0,  1,  0],
+                     [-s, 0,  c]])
+
+
+def rotz(t):
+    """Rotation about the z-axis."""
+    c = np.cos(t)
+    s = np.sin(t)
+    return np.array([[c, -s,  0],
+                     [s,  c,  0],
+                     [0,  0,  1]])
+
+def transform_from_rot_trans(R, t):
+    """Transforation matrix from rotation matrix and translation vector."""
+    R = R.reshape(3, 3)
+    t = t.reshape(3, 1)
+    return np.vstack((np.hstack([R, t]), [0, 0, 0, 1]))
+
+def pose_from_oxts_between_consec_frames(imu_dataframe, source_idx, target_idx):
+        er = 6378137.  # earth radius (approx.) in meters
+
+        # compute scale from first lat value
+        scale = np.cos(float(imu_dataframe["lat"][target_idx]) * np.pi / 180.)
+
+        tx = scale * float(imu_dataframe["lon"][source_idx]) * np.pi * er / 180.
+        ty = scale * er * \
+            np.log(np.tan((90. + float(imu_dataframe["lat"][source_idx])) * np.pi / 360.))
+        tz = float(imu_dataframe["alt"][source_idx])
+        t = np.array([tx, ty, tz])
+
+        # We want the initial position to be the origin, but keep the ENU
+        # coordinate system
+        tx_0 = scale * float(imu_dataframe["lon"][target_idx]) * np.pi * er / 180.
+        ty_0 = scale * er * \
+                np.log(np.tan((90. + float(imu_dataframe["lat"][target_idx])) * np.pi / 360.))
+        tz_0 = float(imu_dataframe["alt"][target_idx])
+        t_0 = np.array([tx_0, ty_0, tz_0])
+            
+        # Use the Euler angles to get the rotation matrix
+        Rx = rotx(float(imu_dataframe["roll"][source_idx]))
+        Ry = roty(float(imu_dataframe["pitch"][source_idx]))
+        Rz = rotz(float(imu_dataframe["yaw"][source_idx]))
+        R = Rz.dot(Ry.dot(Rx))
+
+        # Combine the translation and rotation into a homogeneous transform
+        pose = transform_from_rot_trans(R, t - t_0)
+        """
+        # compute scale from first lat value
+        scale = np.cos(float(imu_dataframe["lat"][target]) * np.pi / 180.)
+
+        tx = scale * float(imu_dataframe["lon"][source]) * np.pi * er / 180.
+        ty = scale * er * \
+            np.log(np.tan((90. + float(imu_dataframe["lat"][source])) * np.pi / 360.))
+        tz = float(imu_dataframe["alt"][source])
+        t = np.array([tx, ty, tz])
+
+        # We want the initial position to be the origin, but keep the ENU
+        # coordinate system
+        tx_0 = scale * float(imu_dataframe["lon"][target]) * np.pi * er / 180.
+        ty_0 = scale * er * \
+                np.log(np.tan((90. + float(imu_dataframe["lat"][target])) * np.pi / 360.))
+        tz_0 = float(imu_dataframe["alt"][target])
+        t_0 = np.array([tx_0, ty_0, tz_0])
+            
+        # Use the Euler angles to get the rotation matrix
+        Rx = rotx(float(imu_dataframe["roll"][source]))
+        Ry = roty(float(imu_dataframe["pitch"][source]))
+        Rz = rotz(float(imu_dataframe["yaw"][source]))
+        R = Rz.dot(Ry.dot(Rx))
+
+        # Combine the translation and rotation into a homogeneous transform
+        pose = transform_from_rot_trans(R, t - t_0)
+        """
+        return pose

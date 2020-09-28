@@ -17,7 +17,7 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from torchvision import transforms
 import yaml
-from tensorflow.image import decode_jpeg
+#from tensorflow.image import decode_jpeg
 
 from collate import Collator
 from kitti_dataset import KittiDataset
@@ -128,7 +128,7 @@ class Trainer:
         # Decoder Setup
         self.models['depth_decoder'] = DepthDecoder(num_ch_enc=decoder_num_ch,
                                                     scales=range(self.num_scales)).to(self.device)
-        
+        """
         # Pose Network
         self.models["pose_encoder"] = ResnetEncoder(
             self.config["resnet_layers"],
@@ -141,7 +141,8 @@ class Trainer:
             num_input_features=1,
             num_frames_to_predict_for=2
         ).to(self.device)
-        
+        """
+
         # Loading pretrained weights
         if self.start_epoch > 0:
             weights_folder = os.path.join(self.log_dir, "models", f'weights_{self.start_epoch-1}')
@@ -327,7 +328,8 @@ class Trainer:
             if i == 0:
                 continue
             sources_list.append(batch["nearby_frames"][i]["camera_data"]["stereo_left_image"].float().to(self.device))
-
+            poses_list.append(batch["nearby_frames"][i]["pose"].float().to(self.device))
+            """
             if i < 0:
                 pose_inputs = [
                     batch["nearby_frames"][i]["camera_data"]["stereo_left_image"].float().to(self.device),
@@ -341,6 +343,7 @@ class Trainer:
             pose_features = [self.models["pose_encoder"](torch.cat(pose_inputs, 1))]
             axisangle, translation = self.models["pose_decoder"](pose_features)
             poses_list.append(transformation_from_parameters(axisangle[:, 0], translation[:, 0], invert=(i < 0)))
+            """
 
         # Stacking source images and pose data
         sources = torch.stack(sources_list, dim=0)
@@ -496,8 +499,8 @@ class Trainer:
         plt.savefig(buf, format="jpg")
         plt.close(figure)
         buf.seek(0)
-        loss = torch.from_numpy(decode_jpeg(buf.getvalue()).numpy())
-        loss = loss.permute(2, 0, 1)
+        #loss = torch.from_numpy(decode_jpeg(buf.getvalue()).numpy())
+        #loss = loss.permute(2, 0, 1)
 
         # Add image and disparity map to tensorboard
         self.writer.add_image(f"{name} Images/Epoch: {self.epoch + 1}",
@@ -509,9 +512,9 @@ class Trainer:
         self.writer.add_image(f"{name} Automasks/Epoch: {self.epoch + 1}",
                               automask,
                               img_num)
-        self.writer.add_image(f"{name} Losses/Epoch: {self.epoch + 1}",
-                              loss,
-                              img_num)
+        #self.writer.add_image(f"{name} Losses/Epoch: {self.epoch + 1}",
+        #                      loss,
+        #                      img_num)
         reproj_index = 0
         if self.use_stereo:
             self.writer.add_image(f"{name} Stereo Reprojection/Epoch: {self.epoch + 1}",
