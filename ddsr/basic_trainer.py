@@ -515,13 +515,20 @@ class Trainer:
         reproj_index = 0
         if self.use_stereo:
             self.writer.add_image(f"{name} Stereo Reprojection/Epoch: {self.epoch + 1}",
-                                  reproj[0], img_num)
+                                  reproj[reproj_index], img_num)
             reproj_index += 1
-
-        self.writer.add_image(f"{name} Backward Reprojection/Epoch: {self.epoch + 1}",
+        
+        for i in range(-self.prev_frames, self.next_frames + 1):
+            if i == 0:
+                continue
+            elif i < 0:
+                self.writer.add_image(f"{name} Backward Reprojection {abs(i)}/Epoch: {self.epoch + 1}",
+                              reproj[reproj_index], img_num)   
+                reproj_index += 1
+            elif i > 0:
+                self.writer.add_image(f"{name} Forward Reprojection {abs(i)}/Epoch: {self.epoch + 1}",
                               reproj[reproj_index], img_num)
-        self.writer.add_image(f"{name} Forward Reprojection/Epoch: {self.epoch + 1}",
-                              reproj[reproj_index+1], img_num)
+                reproj_index += 1
 
     def add_qualitative_to_tensorboard(self, qualitative):
         """
