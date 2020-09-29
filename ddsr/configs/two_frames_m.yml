@@ -9,7 +9,7 @@ height: 320
 min_depth: 0.1
 max_depth: 100
 num_epochs: 20
-batch_size: 10
+batch_size: 9
 tensorboard_step: 1000
 num_workers: 12
 use_stereo: False
