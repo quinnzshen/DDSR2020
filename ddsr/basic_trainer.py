@@ -30,6 +30,7 @@ from third_party.monodepth2.PoseDecoder import PoseDecoder
 from third_party.monodepth2.layers import transformation_from_parameters, disp_to_depth
 from qualitative_depth import generate_qualitative
 from third_party.DensenetEncoder import DensenetEncoder
+from utils import crop_batch
 
 
 LOSS_VIS_SIZE = (10, 4)
@@ -108,6 +109,8 @@ class Trainer:
             self.val_dataset.set_crop_size(self.height, self.width)
             if self.qualitative:
                 self.qual_dataset.set_crop_size(self.height, self.width)
+            self.collate.height = self.DEFHEIGHT
+            self.collate.width = self.DEFWIDTH
 
         # Neighboring frames
         self.prev_frames = self.train_dataset.previous_frames
@@ -318,7 +321,7 @@ class Trainer:
         :return [tensor] losses: A 0-dimensional tensor containing the loss of the batch
         """
         # Predict disparity map
-        inputs = batch["stereo_left_image"].to(self.device).float()
+        inputs = batch["stereo_left_image"].to(self.device)
         local_batch_size = len(inputs)
         features = self.models['depth_encoder'](inputs)
         if self.config.get("use_fpn"):
@@ -327,27 +330,36 @@ class Trainer:
         else:
             outputs = self.models['depth_decoder'](features)
 
+        if self.config.get("crop"):
+            crops = batch["crops"].to(self.device)
+            sources_cropped = []
+
         # Loading source images and pose data
         sources_list = []
         poses_list = []
         if self.use_stereo:
-            sources_list.append(batch["stereo_right_image"].float().to(self.device))
+            # Add cropping here for stereo
+            sources_list.append(batch["stereo_right_image"].to(self.device))
             poses_list.append(batch["rel_pose_stereo"].to(self.device))
 
         for i in range(-self.prev_frames, self.next_frames + 1):
             if i == 0:
                 continue
-            sources_list.append(batch["nearby_frames"][i]["camera_data"]["stereo_left_image"].float().to(self.device))
+            neighbor_frames = batch["nearby_frames"][i]["camera_data"]["stereo_left_image"].to(self.device)
+            sources_list.append(neighbor_frames)
+            if self.config.get("crop"):
+                neighbor_frames = crop_batch(neighbor_frames, crops)
+                sources_cropped.append(neighbor_frames)
 
             if i < 0:
                 pose_inputs = [
-                    batch["nearby_frames"][i]["camera_data"]["stereo_left_image"].float().to(self.device),
+                    neighbor_frames,
                     inputs
                 ]
             else:
                 pose_inputs = [
                     inputs,
-                    batch["nearby_frames"][i]["camera_data"]["stereo_left_image"].float().to(self.device)
+                    neighbor_frames
                 ]
             pose_features = [self.models["pose_encoder"](torch.cat(pose_inputs, 1))]
             axisangle, translation = self.models["pose_decoder"](pose_features)
@@ -356,16 +368,14 @@ class Trainer:
         # Stacking source images and pose data
         sources = torch.stack(sources_list, dim=0)
         poses = torch.stack(poses_list, dim=0)
+        if self.config.get("crop"):
+            sources_cropped = torch.stack(sources_cropped)
 
         # Loading intrinsics
         shapes = batch["stereo_left_orig_shape"][:, :2].to(self.device).float()
         tgt_intrinsics = batch["intrinsics"]["stereo_left"].to(self.device)
         if self.use_stereo:
             src_intrinsics_stereo = batch["intrinsics"]["stereo_right"].to(self.device)
-        if self.config.get("crop"):
-            crops = batch["crops"].to(self.device)
-            # TODO find way to crop based on xywh list, batch-wise
-            sources_cropped = sources
 
         losses = []
         automasks = []
@@ -430,9 +440,13 @@ class Trainer:
                                                  src_intrinsics_scale, crops_scale, local_batch_size)
             reprojected = torch.stack(reprojected, dim=0)
 
+            sources_input = sources_scale
+            if self.config.get("crop"):
+                sources_input = sources_scale_cropped
+
             # Compute Losses            
             loss_inputs = {"targets": inputs_scale,
-                           "sources": sources_scale}
+                           "sources": sources_input}
             loss_outputs = {"reproj": reprojected,
                             "disparities": disp}
 
@@ -571,7 +585,7 @@ class Trainer:
         :param [bool] use_lidar: Setting to True -->  Lidar data (eigen), False --> improved GT maps (eigen_benchmark)
         """
         name = "Lidar "
-        if use_lidar == False:
+        if not use_lidar:
             name = "KITTI Depth Map "
         for i in range(8):
             self.writer.add_scalar(name + "Metrics/" + labels[i], metrics[i], self.epoch)

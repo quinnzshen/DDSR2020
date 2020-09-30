@@ -1,4 +1,5 @@
 import torch
+import numpy as np
 
 
 def crop_batch(batch, xywh):
@@ -9,7 +10,11 @@ def crop_batch(batch, xywh):
     crop, and specifying the width and height of the batch.
     :return [torch.Tensor]: Cropped batch of shape [batch_size, channels, new_H, new_W]
     """
-    out_batch = torch.empty_like(batch)
+    if torch.is_tensor(batch):
+        out_batch = torch.empty_like(batch)
+    else:
+        out_batch = np.empty_like(batch)
+
     out_batch = out_batch[:, :, :xywh[0, 3], :xywh[0, 2]]
     endxy = xywh[:, :2] + xywh[:, 2:]
     for i in range(len(batch)):

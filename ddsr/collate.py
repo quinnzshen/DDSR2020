@@ -11,7 +11,7 @@ default_collate_err_msg_format = (
 
 
 class Collator(object):
-    def __init__(self, height, width):
+    def __init__(self, height, width, cropping=False):
         """
         Creates an instance of TrainerCollator
         :param [int] height: image height used in training
@@ -61,13 +61,16 @@ class Collator(object):
                     [d.pop(key) for key in rem_list]
             if 'stereo_right_image' in elem.keys():
                 resize_list = ['stereo_right_image', 'stereo_left_image']
-                for d in batch:
-                    # if "nearby_frames" in elem.keys():
-                    #     d["shapes"] = torch.tensor(d[resize_list[0]].shape[:2])
-                    for key in resize_list:
-                        d[key] = F.interpolate(
-                            (d[key].permute(2, 0, 1).float().unsqueeze(0)),
-                            [self.height, self.width], mode="bilinear", align_corners=False).squeeze(0)
+                if "crops" in elem.keys():
+                    for d in batch:
+                        for key in resize_list:
+                            d[key] = d[key].permute(2, 0, 1)
+                else:
+                    for d in batch:
+                        for key in resize_list:
+                            d[key] = F.interpolate(
+                                (d[key].permute(2, 0, 1).unsqueeze(0)),
+                                [self.height, self.width], mode="bilinear", align_corners=False).squeeze(0)
             return {**{key: self([d[key] for d in batch]) for key in elem}}
         elif isinstance(elem, tuple) and hasattr(elem, '_fields'):  # namedtuple
             return elem_type(*(self(samples) for samples in zip(*batch)))

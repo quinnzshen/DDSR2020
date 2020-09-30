@@ -97,7 +97,9 @@ class KittiDataset(Dataset):
             **{'intrinsics': get_camera_intrinsic_dict(calib_dir)},
             **{'rel_pose_stereo': rel_pose_from_rotation_matrix_translation_vector(
                 get_relative_translation_stereo(calib_dir), get_relative_rotation_stereo(calib_dir))},
-            "crops": crops,
             # **{'pose': get_pose(path_name, idx)}
         }
+        if self.width:
+            sample["crops"] = crops
+
         return sample

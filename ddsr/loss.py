@@ -173,6 +173,7 @@ class GenerateReprojections(nn.Module):
         reprojected = []
         tgt_intr_inv = tgt_intr.inverse()
         target_indices = self.img_indices[:local_batch_size]
+        crop_dim = crop_dim.unsqueeze(2)
         target_indices[:, 0] += crop_dim[:, 0]
         target_indices[:, 1] += crop_dim[:, 1]
         for i in range(len(poses)):

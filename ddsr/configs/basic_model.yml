@@ -22,3 +22,4 @@ log_dir: experiments/basic_model
 gt_path: data/gt_example
 metrics: True
 use_fpn: False
+crop: True
