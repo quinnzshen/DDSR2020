@@ -10,6 +10,9 @@ from third_party.monodepth2.ResnetEncoder import ResnetEncoder
 from third_party.monodepth2.DepthDecoder import DepthDecoder
 from fpn import FPN
 
+DEFHEIGHT = 375
+DEFWIDTH = 1242
+
 
 def generate_qualitative(log_dir, epoch):
     """
@@ -26,8 +29,16 @@ def generate_qualitative(log_dir, epoch):
         config = yaml.load(file, Loader=yaml.Loader)
 
     dataset = KittiDataset.init_from_config(config["qual_config_path"])
+    collator = Collator(config["height"], config["width"])
+
+    if config.get("crop"):
+        dataset.set_crop_size(config["height"], config["width"])
+        collator.height = DEFHEIGHT
+        collator.width = DEFWIDTH
+
     dataloader = DataLoader(dataset, config["batch_size"], shuffle=False,
-                            collate_fn=Collator(config["height"], config["width"]), num_workers=config["num_workers"])
+                            collate_fn=collator, num_workers=config["num_workers"])
+
     if config.get("use_densenet"):
         models = {"depth_encoder": DensenetEncoder(config["densenet_layers"], False)}
     else:
