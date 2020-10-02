@@ -23,3 +23,6 @@ gt_path: data/kitti_gt
 metrics: True
 use_fpn: True
 fpn_channels: 64
+dataset_config:
+  crop: False
+  color: RGB
