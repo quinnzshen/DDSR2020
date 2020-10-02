@@ -164,10 +164,7 @@ def get_camera_data(path_name, idx, color="RGB", is_jpeg=True):
             camera_image_path = os.path.join(path_name, f"{camera_path}/data/{idx:010}.png")
 
         timestamp_path = os.path.join(path_name, f"{camera_path}/timestamps.txt")
-        camera_image = np.array(Image.open(camera_image_path)) / 255.
-
-        if color == "HSV":
-            camera_image = cv2.cvtColor(camera_image, cv2.COLOR_RGB2HSV)
+        camera_image = np.array(Image.open(camera_image_path), dtype=np.float32) / 255.
 
         timestamp = get_timestamp_nsec(timestamp_path, idx)
         camera_data[f"{camera_name}_image"] = torch.from_numpy(camera_image)
