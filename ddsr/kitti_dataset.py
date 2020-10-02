@@ -23,6 +23,7 @@ class KittiDataset(Dataset):
         self.previous_frames = previous_frames
         self.next_frames = next_frames
         self.is_jpeg = is_jpeg
+        self.color = "RGB"
         self.dataset_index = dataset_index[
             (dataset_index["frames_from_begin"] >= previous_frames) &
             (dataset_index["frames_from_end"] >= next_frames)
@@ -45,6 +46,9 @@ class KittiDataset(Dataset):
                    previous_frames=config["previous_frames"],
                    next_frames=config["next_frames"],
                    is_jpeg=config["is_jpeg"])
+
+    def set_other_config(self, color="RGB"):
+        self.color = color
 
     def __len__(self):
         """
@@ -71,10 +75,10 @@ class KittiDataset(Dataset):
         path_name = os.path.join(self.root_dir, os.path.normpath(self.dataset_index["path"][idx]))
         calib_dir = os.path.dirname(path_name)
         idx = int(self.dataset_index["frames_from_begin"][idx])
-        nearby_frames_data = get_nearby_frames_data(path_name, idx, self.previous_frames, self.next_frames, self.is_jpeg)
+        nearby_frames_data = get_nearby_frames_data(path_name, idx, self.previous_frames, self.next_frames, color=self.color, is_jpeg=self.is_jpeg)
         # Taking information from the directory and putting it into the sample dictionary
         sample = {
-            **get_camera_data(path_name, idx, self.is_jpeg),
+            **get_camera_data(path_name, idx, color=self.color, is_jpeg=self.is_jpeg),
             # **get_lidar_data(path_name, idx),
             **{'nearby_frames': nearby_frames_data},
             # **{'image_from_velodyne_matrices': compute_image_from_velodyne_matrices(calib_dir)},
