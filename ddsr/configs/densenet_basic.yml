@@ -24,3 +24,6 @@ metrics: True
 use_fpn: False
 use_densenet: True
 densenet_layers: 121
+dataset_config:
+  crop: False
+  color: RGB

@@ -22,3 +22,6 @@ log_dir: experiments/basic_model
 gt_path: data/gt_example
 metrics: True
 use_fpn: False
+dataset_config:
+  crop: False
+  color: RGB
