@@ -13,7 +13,7 @@ DATAFRAME_COLUMNS = ["path", "frames_from_begin", "frames_from_end"]
 
 
 class KittiDataset(Dataset):
-    def __init__(self, root_dir, dataset_index, previous_frames, next_frames, is_jpeg):
+    def __init__(self, root_dir, dataset_index, previous_frames, next_frames, is_jpeg, crop=False, color="RGB"):
         """
         Initializes the Dataset, given the root directory of the data and a dataframe of the paths to the dataset.
         :param root_dir [str]: string containing the path to the root directory
@@ -23,14 +23,15 @@ class KittiDataset(Dataset):
         self.previous_frames = previous_frames
         self.next_frames = next_frames
         self.is_jpeg = is_jpeg
-        self.color = "RGB"
+        self.crop = crop
+        self.color = color
         self.dataset_index = dataset_index[
             (dataset_index["frames_from_begin"] >= previous_frames) &
             (dataset_index["frames_from_end"] >= next_frames)
             ].reset_index(drop=True)
 
     @classmethod
-    def init_from_config(cls, config_path):
+    def init_from_config(cls, config_path, glob_config_dict={}):
         """
         Creates an instance of the class using a config file. The config file supplies the paths to the text files
         containing the all the paths to the data.
@@ -45,10 +46,8 @@ class KittiDataset(Dataset):
                    dataset_index=dataset_index,
                    previous_frames=config["previous_frames"],
                    next_frames=config["next_frames"],
-                   is_jpeg=config["is_jpeg"])
-
-    def set_other_config(self, color="RGB"):
-        self.color = color
+                   is_jpeg=config["is_jpeg"],
+                   **glob_config_dict)
 
     def __len__(self):
         """
