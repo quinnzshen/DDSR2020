@@ -54,10 +54,6 @@ class KittiDataset(Dataset):
                    is_jpeg=config["is_jpeg"],
                    **glob_config_dict)
 
-    def set_crop_size(self, h, w):
-        self.height = h
-        self.width = w
-
     def __len__(self):
         """
         Returns the total frame count in the dataset.
@@ -84,7 +80,7 @@ class KittiDataset(Dataset):
         calib_dir = os.path.dirname(path_name)
         idx = int(self.dataset_index["frames_from_begin"][idx])
         crops = torch.tensor([0, 0, self.width, self.height], dtype=torch.short)
-        if self.width:
+        if self.crop:
             cam_data = get_camera_data(path_name, idx, is_jpeg=self.is_jpeg)
             cam_shape = cam_data["stereo_left_image"].shape
             crops[0] = random.randrange(cam_shape[1] - self.width + 1)

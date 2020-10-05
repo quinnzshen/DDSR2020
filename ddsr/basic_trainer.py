@@ -86,8 +86,8 @@ class Trainer:
 
         # Dataloader Setup
         self.data_config = self.config["dataset_config"]
-        self.data_config["height"] = self.height
-        self.data_config["width"] = self.width
+        self.data_config["height"] = self.height * self.config.get("crop", False)
+        self.data_config["width"] = self.width * self.config.get("crop", False)
         self.collate = Collator(self.height, self.width)
         self.num_workers = self.config["num_workers"]
 
@@ -105,13 +105,9 @@ class Trainer:
             self.qual_dataloader = DataLoader(self.qual_dataset, batch_size=self.batch_size, shuffle=False,
                                               collate_fn=self.collate, num_workers=self.num_workers, pin_memory=True)
 
-        if self.config.get("crop"):
+        if self.data_config.get("crop"):
             if self.use_stereo:
                 raise NotImplementedError
-            self.train_dataset.set_crop_size(self.height, self.width)
-            self.val_dataset.set_crop_size(self.height, self.width)
-            if self.qualitative:
-                self.qual_dataset.set_crop_size(self.height, self.width)
             self.collate.height = self.DEFHEIGHT
             self.collate.width = self.DEFWIDTH
 
@@ -194,7 +190,7 @@ class Trainer:
             scale_factor = 2 ** i
             h = self.height // scale_factor
             w = self.width // scale_factor
-            if self.config.get("crop"):
+            if self.data_config.get("crop"):
                 self.gen_reproj.append(GenerateReprojections(h, w, self.batch_size, self.DEFHEIGHT//scale_factor, self.DEFWIDTH//scale_factor).to(self.device))
             else:
                 self.gen_reproj.append(GenerateReprojections(h, w, self.batch_size, h, w).to(self.device))
@@ -336,7 +332,7 @@ class Trainer:
         else:
             outputs = self.models['depth_decoder'](features)
 
-        if self.config.get("crop"):
+        if self.data_config.get("crop"):
             crops = batch["crops"].to(self.device)
             sources_cropped = []
 
@@ -353,7 +349,7 @@ class Trainer:
                 continue
             neighbor_frames = batch["nearby_frames"][i]["camera_data"]["stereo_left_image"].to(self.device)
             sources_list.append(neighbor_frames)
-            if self.config.get("crop"):
+            if self.data_config.get("crop"):
                 neighbor_frames = crop_batch(neighbor_frames, crops)
                 sources_cropped.append(neighbor_frames)
 
@@ -374,7 +370,7 @@ class Trainer:
         # Stacking source images and pose data
         sources = torch.stack(sources_list, dim=0)
         poses = torch.stack(poses_list, dim=0)
-        if self.config.get("crop"):
+        if self.data_config.get("crop"):
             sources_cropped = torch.stack(sources_cropped)
 
         # Loading intrinsics
@@ -393,7 +389,7 @@ class Trainer:
             scale_factor = 2 ** scale
             h = self.height // scale_factor
             w = self.width // scale_factor
-            if self.config.get("crop"):
+            if self.data_config.get("crop"):
                 default_h = self.DEFHEIGHT // scale_factor
                 default_w = self.DEFWIDTH // scale_factor
                 crops_scale = crops // scale_factor
@@ -409,7 +405,7 @@ class Trainer:
             inputs_scale = F.interpolate(inputs, [h, w], mode="bilinear", align_corners=False)
 
             # Sources and pose scaling
-            if self.config.get("crop"):
+            if self.data_config.get("crop"):
                 sources_scale = [F.interpolate(img, [default_h, default_w], mode="bilinear", align_corners=False) for img in sources]
                 sources_scale_cropped = [F.interpolate(img, [h, w], mode="bilinear", align_corners=False) for img in sources_cropped]
                 sources_scale_cropped = torch.stack(sources_scale_cropped, dim=0)
@@ -418,7 +414,7 @@ class Trainer:
             sources_scale = torch.stack(sources_scale, dim=0)
 
             # Intrinsics and scaling
-            if self.config.get("crop"):
+            if self.data_config.get("crop"):
                 scale_ratio = torch.tensor([default_h, default_w]).to(self.device) / shapes
             else:
                 scale_ratio = torch.tensor([h, w]).to(self.device) / shapes
@@ -447,7 +443,7 @@ class Trainer:
             reprojected = torch.stack(reprojected, dim=0)
 
             sources_input = sources_scale
-            if self.config.get("crop"):
+            if self.data_config.get("crop"):
                 sources_input = sources_scale_cropped
 
             # Compute Losses            
