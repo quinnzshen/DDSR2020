@@ -105,7 +105,10 @@ def run_metrics(log_dir, epoch, use_lidar):
     decoder_num_ch = models["depth_encoder"].num_ch_enc
 
     if config.get("use_fpn"):
-        models["fpn"] = FPN(decoder_num_ch)
+        num_ch_fpn = config.get("fpn_channels")
+        if not num_ch_fpn:
+            num_ch_fpn = 256
+        models["fpn"] = FPN(decoder_num_ch, num_ch_fpn)
         decoder_num_ch = models["fpn"].num_ch_pyramid
     models["depth_decoder"] = DepthDecoder(decoder_num_ch)
 

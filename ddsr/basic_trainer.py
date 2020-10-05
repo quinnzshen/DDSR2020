@@ -85,20 +85,23 @@ class Trainer:
         self.num_scales = self.config["num_scales"]
 
         # Dataloader Setup
+        self.data_config = self.config["dataset_config"]
+        self.data_config["height"] = self.height
+        self.data_config["width"] = self.width
         self.collate = Collator(self.height, self.width)
         self.num_workers = self.config["num_workers"]
 
         train_config_path = self.config["train_config_path"]
-        self.train_dataset = KittiDataset.init_from_config(train_config_path)
+        self.train_dataset = KittiDataset.init_from_config(train_config_path, self.data_config)
         self.train_dataloader = DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True,
                                            collate_fn=self.collate, num_workers=self.num_workers, pin_memory=True)
         val_config_path = self.config["valid_config_path"]
-        self.val_dataset = KittiDataset.init_from_config(val_config_path)
+        self.val_dataset = KittiDataset.init_from_config(val_config_path, self.data_config)
         self.val_dataloader = DataLoader(self.val_dataset, batch_size=self.batch_size, shuffle=False,
                                          collate_fn=self.collate, num_workers=self.num_workers, pin_memory=True)
         self.qualitative = self.config.get("qual_config_path")
         if self.qualitative:
-            self.qual_dataset = KittiDataset.init_from_config(self.qualitative)
+            self.qual_dataset = KittiDataset.init_from_config(self.qualitative, self.data_config)
             self.qual_dataloader = DataLoader(self.qual_dataset, batch_size=self.batch_size, shuffle=False,
                                               collate_fn=self.collate, num_workers=self.num_workers, pin_memory=True)
 
@@ -132,7 +135,10 @@ class Trainer:
         
         # FPN
         if self.config.get("use_fpn"):
-            self.models["fpn"] = FPN(decoder_num_ch).to(self.device)
+            num_ch_fpn = self.config.get("fpn_channels")
+            if not num_ch_fpn:
+                num_ch_fpn = 256
+            self.models["fpn"] = FPN(decoder_num_ch, num_ch_fpn).to(self.device)
             decoder_num_ch = self.models["fpn"].num_ch_pyramid
         
         # Decoder Setup
