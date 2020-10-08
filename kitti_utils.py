@@ -240,7 +240,7 @@ def get_camera_intrinsic_dict(calibration_dir):
 
         # Get camera number by slicing last 2 characters off of camera_name string.
         cam_num = camera_path[-2:]
-        intrinsic_matrix = torch.from_numpy(cam2cam[f"K_{cam_num}"].reshape(3, 3)).float()
+        intrinsic_matrix = torch.from_numpy(cam2cam[f"P_rect_{cam_num}"].reshape(3, 4)[:,:3]).float()
         camera_intrinsic_dict.update({KITTICameraNames(camera_name).name: intrinsic_matrix})
     return camera_intrinsic_dict
 
