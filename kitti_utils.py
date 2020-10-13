@@ -3,6 +3,7 @@ from __future__ import absolute_import, division, print_function
 import numpy as np
 from PIL import Image
 import torch
+from collections import Counter
 
 import os
 import pandas as pd
@@ -31,7 +32,9 @@ def load_lidar_points(filename):
     :param [string] filename: File path for 3d point cloud data.
     :return [np.array]: [N, 4] N lidar points represented as (X, Y, Z, reflectivity) points.
     """
-    return np.fromfile(filename, dtype=np.float32).reshape(-1, 4)
+    points = np.fromfile(filename, dtype=np.float32).reshape(-1, 4)
+    points[:, 3] = 1.0  # homogeneous
+    return points
 
 
 def read_calibration_file(path):
@@ -91,7 +94,60 @@ def compute_image_from_velodyne_matrices(calibration_dir):
 
     return camera_image_from_velodyne_dict
 
+def generate_depth_map(calibration_dir, velo, cam):
+    """
+    Generate a depth map from velodyne data
+    Adapted from Monodepth2
+    """
+    # Based on code from monodepth2 repo.
 
+    # Load cam_to_cam calib file.
+    cam2cam = read_calibration_file(os.path.join(calibration_dir, 'calib_cam_to_cam.txt'))
+    
+    # Load velo_to_cam file.
+    velo2cam = read_calibration_file(os.path.join(calibration_dir, 'calib_velo_to_cam.txt'))
+    velo2cam = np.hstack((velo2cam['R'].reshape(3, 3), velo2cam['T'][..., np.newaxis]))
+    velo2cam = np.vstack((velo2cam, np.array([0, 0, 0, 1.0])))
+        
+    im_shape = cam2cam["S_rect_02"][::-1].astype(np.int32)
+    
+    R_cam2rect = np.eye(4)
+    R_cam2rect[:3, :3] = cam2cam["R_rect_00"].reshape(3, 3)
+    P_rect = cam2cam['P_rect_0'+str(cam)].reshape(3, 4)
+    camera_image_from_velodyne = np.dot(np.dot(P_rect, R_cam2rect), velo2cam)
+    
+    velo = velo[velo[:, 0] >= 0, :]
+    
+    velo_pts_im = np.dot(camera_image_from_velodyne, velo.T).T       
+    velo_pts_im[:, :2] = velo_pts_im[:, :2] / velo_pts_im[:, 2][..., np.newaxis]
+    
+    velo_pts_im[:, 2] = velo[:, 0]
+    
+    velo_pts_im[:, 0] = np.round(velo_pts_im[:, 0]) - 1
+    velo_pts_im[:, 1] = np.round(velo_pts_im[:, 1]) - 1
+    val_inds = (velo_pts_im[:, 0] >= 0) & (velo_pts_im[:, 1] >= 0)
+    val_inds = val_inds & (velo_pts_im[:, 0] < im_shape[1]) & (velo_pts_im[:, 1] < im_shape[0])
+    velo_pts_im = velo_pts_im[val_inds, :]
+    
+    depth = np.zeros((im_shape[:2]))
+    depth[velo_pts_im[:, 1].astype(np.int), velo_pts_im[:, 0].astype(np.int)] = velo_pts_im[:, 2]
+    
+    # find the duplicate points and choose the closest depth
+    inds = sub2ind(depth.shape, velo_pts_im[:, 1], velo_pts_im[:, 0])
+    dupe_inds = [item for item, count in Counter(inds).items() if count > 1]
+    for dd in dupe_inds:
+        pts = np.where(inds == dd)[0]
+        x_loc = int(velo_pts_im[pts[0], 0])
+        y_loc = int(velo_pts_im[pts[0], 1])
+        depth[y_loc, x_loc] = velo_pts_im[pts, 2].min()
+    depth[depth < 0] = 0
+    
+    return depth
+def sub2ind(matrixSize, rowSub, colSub):
+    """Convert row, col matrix subscripts to linear indices
+    """
+    m, n = matrixSize
+    return rowSub * (n-1) + colSub - 1
 def iso_string_to_nanoseconds(time_string):
     """
     Converts a line in the format provided by timestamps.txt to the number of nanoseconds since EPOCH
@@ -339,3 +395,10 @@ def get_pose(scene_path, frame):
     pose[:3, 3] = rel_translation
 
     return pose
+
+def get_stereo_pose():
+    stereo_T = np.eye(4, dtype=np.float32)
+    baseline_sign = 1
+    side_sign = -1
+    stereo_T[0, 3] = side_sign * baseline_sign * 0.1
+    return torch.from_numpy(stereo_T)

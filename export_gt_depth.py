@@ -5,8 +5,7 @@ import numpy as np
 import os
 import PIL.Image as pil
 
-from overlay_lidar_utils import project_points_on_image, filter_to_plane, filter_to_fov
-from kitti_utils import load_lidar_points, compute_image_from_velodyne_matrices
+from kitti_utils import load_lidar_points, generate_depth_map
 
 def export_gt_depths(split_path, gt_depth_dir, output_dir, use_lidar):
 
@@ -27,10 +26,8 @@ def export_gt_depths(split_path, gt_depth_dir, output_dir, use_lidar):
             velo_filename = os.path.join(calib_dir, folder,
                                          "velodyne_points/data", "{:010d}.bin".format(frame_id))
             velo = load_lidar_points(velo_filename)
-            cam_from_velo = compute_image_from_velodyne_matrices(os.path.join(gt_depth_dir, os.path.split(folder)[0]))["stereo_left"]
-            reproj = filter_to_fov(filter_to_plane(project_points_on_image(velo, cam_from_velo)), (375, 1242, 3))
-            gt_depth = np.zeros((375, 1242))
-            gt_depth[reproj[:,1], reproj[:,0]] = reproj[:,2]
+            gt_depth = generate_depth_map(os.path.join(gt_depth_dir, os.path.split(folder)[0]), velo, 2)
+
         else:
             folder = "/".join(folder.strip("/").split('/')[1:])
             gt_depth_path = os.path.join(gt_depth_dir, folder, "proj_depth",

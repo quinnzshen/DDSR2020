@@ -1,0 +1,28 @@
+resnet_layers: 18
+pretrained: True
+num_scales: 4
+learning_rate: 0.0001
+scheduler_step_size: 15
+weight_decay: 0.1
+width: 1024
+height: 320
+min_depth: 0.1
+max_depth: 100
+num_epochs: 25
+batch_size: 1
+tensorboard_step: 3
+num_workers: 0
+use_stereo: True
+no_monocular: True
+train_config_path: configs/datasets/basic_train_dataset.yml
+valid_config_path: configs/datasets/basic_validation_dataset.yml
+lidar_test_config_path: configs/datasets/basic_test_dataset.yml
+gt_depthmap_test_config_path: configs/datasets/basic_test_dataset.yml 
+qual_config_path: configs/datasets/basic_qualitative_dataset.yml
+log_dir: experiments/basic_model
+gt_path: data/gt_example
+metrics: True
+use_fpn: False
+dataset_config:
+  crop: False
+  color: RGB

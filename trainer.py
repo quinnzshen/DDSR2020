@@ -95,8 +95,12 @@ class Trainer:
                                               collate_fn=self.collate, num_workers=self.num_workers)
 
         # Neighboring frames
-        self.prev_frames = self.train_dataset.previous_frames
-        self.next_frames = self.train_dataset.next_frames
+        if self.config.get("no_monocular"):
+             self.prev_frames = 0
+             self.next_frames = 0
+        else:
+            self.prev_frames = self.train_dataset.previous_frames
+            self.next_frames = self.train_dataset.next_frames
 
         # Stereo
         self.use_stereo = self.config["use_stereo"]
@@ -131,17 +135,18 @@ class Trainer:
                                                     scales=range(self.num_scales)).to(self.device)
         
         # Pose Network
-        self.models["pose_encoder"] = ResnetEncoder(
-            self.config["resnet_layers"],
-            pretrained=self.pretrained,
-            num_input_images=2
-        ).to(self.device)
-        
-        self.models["pose_decoder"] = PoseDecoder(
-            self.models["pose_encoder"].num_ch_enc,
-            num_input_features=1,
-            num_frames_to_predict_for=2
-        ).to(self.device)
+        if not self.config.get("no_monocular"):
+            self.models["pose_encoder"] = ResnetEncoder(
+                self.config["resnet_layers"],
+                pretrained=self.pretrained,
+                num_input_images=2
+            ).to(self.device)
+
+            self.models["pose_decoder"] = PoseDecoder(
+                self.models["pose_encoder"].num_ch_enc,
+                num_input_features=1,
+                num_frames_to_predict_for=2
+            ).to(self.device)
         
         # Loading pretrained weights
         if self.start_epoch > 0:
@@ -519,10 +524,11 @@ class Trainer:
                                   reproj[0], img_num)
             reproj_index += 1
 
-        self.writer.add_image(f"{name} Backward Reprojection/Epoch: {self.epoch + 1}",
-                              reproj[reproj_index], img_num)
-        self.writer.add_image(f"{name} Forward Reprojection/Epoch: {self.epoch + 1}",
-                              reproj[reproj_index+1], img_num)
+        if not self.config.get("no_monocular"):
+            self.writer.add_image(f"{name} Backward Reprojection/Epoch: {self.epoch + 1}",
+                                  reproj[reproj_index], img_num)
+            self.writer.add_image(f"{name} Forward Reprojection/Epoch: {self.epoch + 1}",
+                                  reproj[reproj_index+1], img_num)
 
     def add_qualitative_to_tensorboard(self, qualitative):
         """
