@@ -186,8 +186,13 @@ def run_metrics(log_dir, epoch, use_lidar):
         errors[i] = compute_errors(gt_depth, pred_depth)
 
     total_metric_time = time.time() - start_metric_time
-    med = np.median(ratios)
-    print(" Scaling ratios | med: {:0.3f} | std: {:0.3f}".format(med, np.std(ratios / med)))
+    
+    if config["use_stereo"]:
+        print("   Stereo evaluation - "
+                  "disabling median scaling, scaling by {}".format(STEREO_SCALE_FACTOR))
+    else:
+        med = np.median(ratios)
+        print(" Scaling ratios | med: {:0.3f} | std: {:0.3f}".format(med, np.std(ratios / med)))
 
     mean_errors = np.nanmean(errors, 0).tolist()
     mean_errors.insert(0, total_metric_time)
