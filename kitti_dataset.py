@@ -26,7 +26,7 @@ class KittiDataset(Dataset):
             ].reset_index(drop=True)
 
     @classmethod
-    def init_from_config(cls, config_path, glob_config_dict={}):
+    def init_from_config(cls, config_path, crop, color):
         """
         Creates an instance of the class using a config file. The config file supplies the paths to the text files
         containing the all the paths to the data.
@@ -42,7 +42,8 @@ class KittiDataset(Dataset):
                    previous_frames=config["previous_frames"],
                    next_frames=config["next_frames"],
                    is_jpeg=config["is_jpeg"],
-                   **glob_config_dict)
+                   crop=crop,
+                   color=color)
 
     def __len__(self):
         """

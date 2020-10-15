@@ -71,36 +71,36 @@ class Trainer:
             self.num_epochs = self.start_epoch + self.config["num_epochs"]
         self.batch_size = self.config["batch_size"]
 
-        # Image dimensions
-        self.width = self.config["width"]
-        self.height = self.config["height"]
+        # Image properties
+        self.image_config = self.config["image"]
+        self.width = self.image_config["width"]
+        self.height = self.image_config["height"]
 
         # Dataloader Setup
-        self.data_config = self.config["dataset_config"]
         self.collate = Collator(self.height, self.width)
         self.num_workers = self.config["num_workers"]
+        self.dataset_config_paths = self.config["dataset_config_paths"]
 
-        train_config_path = self.config["train_config_path"]
-        self.train_dataset = KittiDataset.init_from_config(train_config_path, self.data_config)
+        self.train_dataset = KittiDataset.init_from_config(self.dataset_config_paths["train"], self.image_config["crop"], self.image_config["color"])
         self.train_dataloader = DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True,
                                            collate_fn=self.collate, num_workers=self.num_workers)
-        val_config_path = self.config["valid_config_path"]
-        self.val_dataset = KittiDataset.init_from_config(val_config_path, self.data_config)
+        self.val_dataset = KittiDataset.init_from_config(self.dataset_config_paths["val"], self.image_config["crop"], self.image_config["color"])
         self.val_dataloader = DataLoader(self.val_dataset, batch_size=self.batch_size, shuffle=False,
                                          collate_fn=self.collate, num_workers=self.num_workers)
-        self.qualitative = self.config.get("qual_config_path")
+        
+        self.qualitative = self.dataset_config_paths.get("qual")
         if self.qualitative:
-            self.qual_dataset = KittiDataset.init_from_config(self.qualitative, self.data_config)
+            self.qual_dataset = KittiDataset.init_from_config(self.dataset_config_paths["qual"], self.image_config["crop"], self.image_config["color"])
             self.qual_dataloader = DataLoader(self.qual_dataset, batch_size=self.batch_size, shuffle=False,
                                               collate_fn=self.collate, num_workers=self.num_workers)
 
         # Neighboring frames
-        if self.config.get("no_monocular"):
-             self.prev_frames = 0
-             self.next_frames = 0
-        else:
+        if self.config["use_monocular"]:
             self.prev_frames = self.train_dataset.previous_frames
             self.next_frames = self.train_dataset.next_frames
+        else:
+            self.prev_frames = 0
+            self.next_frames = 0
 
         # Stereo
         self.use_stereo = self.config["use_stereo"]
@@ -110,21 +110,21 @@ class Trainer:
 
         # Model setup
         self.models = {}
-        self.pretrained = self.config["pretrained"]
         
         # Encoder Setup
-        if self.config.get("use_densenet"):
-            self.models['depth_encoder'] = DensenetEncoder(self.config["densenet_layers"], pretrained=self.pretrained).to(
+        self.depth_network_config = self.config["depth_network"]
+        if self.depth_network_config.get("densenet"):
+            self.models['depth_encoder'] = DensenetEncoder(self.depth_network_config["layers"], pretrained=self.depth_network_config["pretrained"]).to(
                 self.device)
         else:
-            self.models['depth_encoder'] = ResnetEncoder(self.config["resnet_layers"], pretrained=self.pretrained).to(
+            self.models['depth_encoder'] = ResnetEncoder(self.depth_network_config["layers"], pretrained=self.depth_network_config["pretrained"]).to(
                 self.device)
         self.num_scales = self.config["num_scales"]
         decoder_num_ch = self.models["depth_encoder"].num_ch_enc
         
         # FPN
-        if self.config.get("use_fpn"):
-            num_ch_fpn = self.config.get("fpn_channels")
+        if self.depth_network_config.get("fpn"):
+            num_ch_fpn = self.depth_network_config.get("fpn_channels")
             if not num_ch_fpn:
                 num_ch_fpn = 256
             self.models["fpn"] = FPN(decoder_num_ch, num_ch_fpn).to(self.device)
@@ -135,12 +135,22 @@ class Trainer:
                                                     scales=range(self.num_scales)).to(self.device)
         
         # Pose Network
-        if not self.config.get("no_monocular"):
-            self.models["pose_encoder"] = ResnetEncoder(
-                self.config["resnet_layers"],
-                pretrained=self.pretrained,
-                num_input_images=2
-            ).to(self.device)
+        if self.config.get("use_monocular"):
+            
+            self.pose_network_config = self.config["pose_network"]
+            
+            if self.pose_network_config.get("densenet"):
+                self.models["pose_encoder"] = DensenetEncoder(
+                    self.pose_network_config["layers"],
+                    pretrained=self.pose_network["pretrained"],
+                    num_input_images=2
+                ).to(self.device)
+            else:
+                self.models["pose_encoder"] = ResnetEncoder(
+                    self.pose_network_config["layers"],
+                    pretrained=self.pose_network_config["pretrained"],
+                    num_input_images=2
+                ).to(self.device)
 
             self.models["pose_decoder"] = PoseDecoder(
                 self.models["pose_encoder"].num_ch_enc,
@@ -524,7 +534,7 @@ class Trainer:
                                   reproj[0], img_num)
             reproj_index += 1
 
-        if not self.config.get("no_monocular"):
+        if self.config.get("use_monocular"):
             self.writer.add_image(f"{name} Backward Reprojection/Epoch: {self.epoch + 1}",
                                   reproj[reproj_index], img_num)
             self.writer.add_image(f"{name} Forward Reprojection/Epoch: {self.epoch + 1}",
@@ -565,7 +575,7 @@ if __name__ == "__main__":
     parser.add_argument("--config_path",
                         type=str,
                         help="path to the config",
-                        default="configs/basic_model.yml")
+                        default="configs/basic_m.yml")
     
     parser.add_argument("--epoch",
                         type=int,
