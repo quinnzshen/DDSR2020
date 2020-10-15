@@ -20,6 +20,7 @@ import yaml
 from tensorflow.image import decode_jpeg
 
 from collate import Collator
+from DensenetEncoder import DensenetEncoder
 from kitti_dataset import KittiDataset
 from loss import calc_loss, GenerateReprojections
 from monodepth_metrics import run_metrics, get_labels
@@ -29,8 +30,6 @@ from fpn import FPN
 from third_party.monodepth2.PoseDecoder import PoseDecoder
 from third_party.monodepth2.layers import transformation_from_parameters, disp_to_depth
 from qualitative_depth import generate_qualitative
-from third_party.DensenetEncoder import DensenetEncoder
-
 
 LOSS_VIS_SIZE = (10, 4)
 LOSS_VIS_CMAP = "cividis"

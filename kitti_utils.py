@@ -94,6 +94,7 @@ def compute_image_from_velodyne_matrices(calibration_dir):
 
     return camera_image_from_velodyne_dict
 
+
 def generate_depth_map(calibration_dir, velo, cam):
     """
     Generate a depth map from velodyne data
@@ -143,11 +144,15 @@ def generate_depth_map(calibration_dir, velo, cam):
     depth[depth < 0] = 0
     
     return depth
+
+
 def sub2ind(matrixSize, rowSub, colSub):
-    """Convert row, col matrix subscripts to linear indices
+    """Convert row, col matrix subscripts to linear indices (from Monodepth2)
     """
     m, n = matrixSize
     return rowSub * (n-1) + colSub - 1
+
+
 def iso_string_to_nanoseconds(time_string):
     """
     Converts a line in the format provided by timestamps.txt to the number of nanoseconds since EPOCH

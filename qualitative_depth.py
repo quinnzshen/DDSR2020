@@ -4,8 +4,8 @@ import torch
 from torch.utils.data import DataLoader
 import yaml
 from collate import Collator
+from DensenetEncoder import DensenetEncoder
 from kitti_dataset import KittiDataset
-from third_party.DensenetEncoder import DensenetEncoder
 from third_party.monodepth2.ResnetEncoder import ResnetEncoder
 from third_party.monodepth2.DepthDecoder import DepthDecoder
 from fpn import FPN
