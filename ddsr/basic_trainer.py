@@ -47,7 +47,7 @@ class Trainer:
         
         # Epoch to continue training from (0 if new model)
         self.start_epoch = start_epoch
-        print("STARTING INIT")
+        # print("STARTING INIT")
         # Load data from config
         with open(config_path) as file:
             self.config = yaml.load(file, Loader=yaml.Loader)
@@ -203,7 +203,7 @@ class Trainer:
         self.min_depth = self.config["min_depth"]
         self.max_depth = self.config["max_depth"]
 
-        print("END INIT")
+        # print("END INIT")
 
     def train(self):
         """
@@ -233,17 +233,17 @@ class Trainer:
         # Training
         train_start_time = time.time()
 
-        print(f"Training epoch {self.epoch + 1}", end=", ")
+        # print(f"Training epoch {self.epoch + 1}", end=", ")
 
         for model_name in self.models:
             self.models[model_name].train()
         
         self.steps_until_write = total_loss = count = 0
         for batch_idx, batch in enumerate(self.train_dataloader):
-            print("STARTING BATCH:", batch_idx)
+            # print("STARTING BATCH:", batch_idx)
             count += 1
             total_loss += self.process_batch(batch_idx, batch, len(self.train_dataset), "Training", True).item()
-            print("ENDING BATCH:", batch_idx)
+            # print("ENDING BATCH:", batch_idx)
         total_loss /= count
 
         self.lr_scheduler.step()
@@ -286,14 +286,14 @@ class Trainer:
         # Predict disparity map
         inputs = batch["stereo_left_image"].to(self.device).float()
         local_batch_size = len(inputs)
-        print("start prediction")
+        # print("start prediction")
         features = self.models['depth_encoder'](inputs)
         if self.config.get("use_fpn"):
             pyramid = self.models["fpn"](features)
             outputs = self.models["depth_decoder"](pyramid)
         else:
             outputs = self.models['depth_decoder'](features)
-        print("end prediction")
+        # print("end prediction")
         # Loading source images and pose data
         sources_list = []
         poses_list = []
@@ -387,9 +387,9 @@ class Trainer:
                            "sources": sources_scale}
             loss_outputs = {"reproj": reprojected,
                             "disparities": disp}
-            print("Calc loss")
+            # print("Calc loss")
             loss, automask, min_loss = calc_loss(loss_inputs, loss_outputs, scale)
-            print("end calc loss")
+            # print("end calc loss")
             losses.append(loss)
             automasks.append(automask)
             min_losses.append(min_loss)
@@ -398,13 +398,13 @@ class Trainer:
             total_loss += losses[scale]
 
         total_loss /= self.num_scales
-        print("BACKPROP")
+        # print("BACKPROP")
         # Backpropagation
         if backprop:
             self.optimizer.zero_grad()
             total_loss.backward()
             self.optimizer.step()
-        print("end backprop || START ADDing to tensorboard")
+        # print("end backprop || START ADDing to tensorboard")
         # Add image, disparity map, and loss to tensorboard
         curr_idx = 0
         while curr_idx < local_batch_size:
