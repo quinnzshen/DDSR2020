@@ -8,7 +8,7 @@ import torch
 import time
 from torch.utils.data import DataLoader
 import yaml
-from third_party.DensenetEncoder import DensenetEncoder
+from DensenetEncoder import DensenetEncoder
 from third_party.monodepth2.ResnetEncoder import ResnetEncoder
 from third_party.monodepth2.DepthDecoder import DepthDecoder
 from third_party.monodepth2.layers import disp_to_depth
@@ -80,20 +80,22 @@ def run_metrics(log_dir, epoch, use_lidar):
         config = yaml.load(file, Loader=yaml.Loader)
     
     if use_lidar == True:
-        dataset = KittiDataset.init_from_config(config["lidar_test_config_path"])
+        dataset = KittiDataset.init_from_config(config["dataset_config_paths"]["test_lidar"], config["image"]["crop"], config["image"]["color"])
     else:    
-        dataset = KittiDataset.init_from_config(config["gt_depthmap_test_config_path"])
+        dataset = KittiDataset.init_from_config(config["dataset_config_paths"]["test_gt_map"], config["image"]["crop"], config["image"]["color"])
         
-    dataloader = DataLoader(dataset, config["batch_size"], shuffle=False, collate_fn=Collator(config["height"], config["width"]), num_workers=config["num_workers"])
+    dataloader = DataLoader(dataset, config["batch_size"], shuffle=False, collate_fn=Collator(config["image"]["height"], config["image"]["width"]), num_workers=config["num_workers"])
     
-    if config.get("use_densenet"):
-        models = {"depth_encoder": DensenetEncoder(config["densenet_layers"], False)}
+    depth_network_config = config["depth_network"]
+    
+    if depth_network_config.get("densenet"):
+        models = {"depth_encoder": DensenetEncoder(depth_network_config["layers"], False)}
     else:
-        models = {"depth_encoder": ResnetEncoder(config["resnet_layers"], False)}
+        models = {"depth_encoder": ResnetEncoder(depth_network_config["layers"], False)}
     decoder_num_ch = models["depth_encoder"].num_ch_enc
     
-    if config.get("use_fpn"):
-        num_ch_fpn = config.get("fpn_channels")
+    if depth_network_config.get("fpn"):
+        num_ch_fpn = depth_network_config.get("fpn_channels")
         if not num_ch_fpn:
             num_ch_fpn = 256
         models["fpn"] = FPN(decoder_num_ch, num_ch_fpn)
@@ -135,9 +137,9 @@ def run_metrics(log_dir, epoch, use_lidar):
     pred_disps = np.concatenate(pred_disps)
     
     if use_lidar == True:
-            gt_path = os.path.join(config["gt_path"], "gt_lidar.npz")
+            gt_path = os.path.join(config["gt_dir"], "gt_lidar.npz")
     else:
-            gt_path = os.path.join(config["gt_path"], "gt_depthmaps.npz")
+            gt_path = os.path.join(config["gt_dir"], "gt_depthmaps.npz")
 
     gt_depths = np.load(gt_path, fix_imports=True, encoding='latin1', allow_pickle=True)["data"]
     
