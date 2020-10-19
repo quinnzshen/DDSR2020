@@ -34,7 +34,7 @@ image:
 
 dataset_config_paths:
   train: configs/datasets/eigen_zhou_train_dataset.yml
-  valid: configs/datasets/eigen_zhou_validation_dataset.yml
+  val: configs/datasets/eigen_zhou_validation_dataset.yml
   test_lidar: configs/datasets/eigen_test_dataset.yml
   test_gt_map: configs/datasets/eigen_benchmark_test_dataset.yml
   qual: configs/datasets/qualitative_dataset.yml
