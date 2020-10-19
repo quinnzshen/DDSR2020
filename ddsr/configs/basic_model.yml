@@ -24,4 +24,4 @@ metrics: True
 use_fpn: False
 dataset_config:
   crop: False
-  color: RGB
+  color: HSV

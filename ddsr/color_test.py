@@ -10,7 +10,7 @@ pilimage = np.array(Image.open("data/kitti_example/2011_09_26/2011_09_26_drive_0
 
 d = get_camera_data("data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync", 11, is_jpeg=False)
 image = np.array(d["stereo_left_image"])
-image2 = (np.array(d["stereo_left_image"]) * 255)
+image2 = (np.array(d["stereo_left_image"]) * 255).astype(np.uint8)
 
 himage = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
 himage2 = cv2.cvtColor(image2, cv2.COLOR_RGB2HSV)
@@ -29,7 +29,8 @@ print(himage2.max(0).max(0))
 cv2.imshow("ble", cv2.cvtColor(himage, cv2.COLOR_HSV2BGR))
 cv2.waitKey(0)
 
-
+cv2.imshow("ble2", cv2.cvtColor(himage2, cv2.COLOR_HSV2BGR))
+cv2.waitKey(0)
 
 
 
