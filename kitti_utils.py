@@ -180,7 +180,7 @@ def get_timestamp_nsec(sample_path, idx):
             count += 1
 
 
-def get_nearby_frames_data(path_name, idx, previous_frames, next_frames, color="RGB", is_jpeg=True):
+def get_nearby_frames_data(path_name, idx, previous_frames, next_frames, is_jpeg=True):
     """
     Given a specific index, return a dictionary containing information about the frame n frames before and after the target index
     in the dataset.
@@ -196,7 +196,7 @@ def get_nearby_frames_data(path_name, idx, previous_frames, next_frames, color="
         if relative_idx == 0:
             continue
         try:
-            nearby_frames[relative_idx] = {'camera_data': get_camera_data(path_name, idx + relative_idx, color=color, is_jpeg=is_jpeg),
+            nearby_frames[relative_idx] = {'camera_data': get_camera_data(path_name, idx + relative_idx, is_jpeg=is_jpeg),
                                            'pose': get_relative_pose_between_consecutive_frames(path_name, idx, idx+relative_idx)}
         except FileNotFoundError:
             nearby_frames[relative_idx] = {"camera_data": {},
@@ -204,7 +204,7 @@ def get_nearby_frames_data(path_name, idx, previous_frames, next_frames, color="
     return nearby_frames
 
 
-def get_camera_data(path_name, idx, color="RGB", is_jpeg=True):
+def get_camera_data(path_name, idx, is_jpeg=True):
     """
     Gets the basic camera information given the path name to the scene and the frame number within
     that scene.
@@ -226,9 +226,6 @@ def get_camera_data(path_name, idx, color="RGB", is_jpeg=True):
 
         timestamp_path = os.path.join(path_name, f"{camera_path}/timestamps.txt")
         camera_image = np.array(Image.open(camera_image_path), dtype=np.float32) / 255.
-        if color == "HSV":
-            camera_image = cv2.cvtColor(camera_image, cv2.COLOR_RGB2HSV)
-            camera_image[:, :, 0] *= np.pi / 180
 
         timestamp = get_timestamp_nsec(timestamp_path, idx)
         camera_data[f"{camera_name}_image"] = torch.from_numpy(camera_image)

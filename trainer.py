@@ -20,6 +20,7 @@ import yaml
 from tensorflow.image import decode_jpeg
 
 from collate import Collator
+from color_utils import *
 from DensenetEncoder import DensenetEncoder
 from kitti_dataset import KittiDataset
 from loss import calc_loss, GenerateReprojections
@@ -57,7 +58,7 @@ class Trainer:
             date_time = datetime.now().strftime("%Y_%m_%d-%I_%M_%S_%p")
             self.log_dir = self.config["log_dir"] + "_" + date_time
             os.mkdir(self.log_dir)
-            shutil.copyfileobj(open(config_path, "r"), open(os.path.join(self.log_dir, "config.yml"),"w+"))
+            shutil.copyfileobj(open(config_path, "r"), open(os.path.join(self.log_dir, "config.yml"), "w+"))
 
         # GPU/CPU setup
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -80,18 +81,14 @@ class Trainer:
         self.num_workers = self.config["num_workers"]
         self.dataset_config_paths = self.config["dataset_config_paths"]
 
-        self.train_dataset = KittiDataset.init_from_config(self.dataset_config_paths["train"], self.image_config["crop"], self.image_config["color"])
+        self.train_dataset = KittiDataset.init_from_config(self.dataset_config_paths["train"], self.image_config["crop"])
         self.train_dataloader = DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True,
                                            collate_fn=self.collate, num_workers=self.num_workers)
-        self.val_dataset = KittiDataset.init_from_config(self.dataset_config_paths["val"], self.image_config["crop"], self.image_config["color"])
+        self.val_dataset = KittiDataset.init_from_config(self.dataset_config_paths["val"], self.image_config["crop"])
         self.val_dataloader = DataLoader(self.val_dataset, batch_size=self.batch_size, shuffle=False,
                                          collate_fn=self.collate, num_workers=self.num_workers)
         
         self.qualitative = self.dataset_config_paths.get("qual")
-        if self.qualitative:
-            self.qual_dataset = KittiDataset.init_from_config(self.dataset_config_paths["qual"], self.image_config["crop"], self.image_config["color"])
-            self.qual_dataloader = DataLoader(self.qual_dataset, batch_size=self.batch_size, shuffle=False,
-                                              collate_fn=self.collate, num_workers=self.num_workers)
 
         # Neighboring frames
         if self.config["use_monocular"]:
@@ -113,10 +110,10 @@ class Trainer:
         # Encoder Setup
         self.depth_network_config = self.config["depth_network"]
         if self.depth_network_config.get("densenet"):
-            self.models['depth_encoder'] = DensenetEncoder(self.depth_network_config["layers"], pretrained=self.depth_network_config["pretrained"]).to(
+            self.models['depth_encoder'] = DensenetEncoder(self.depth_network_config["layers"], pretrained=self.depth_network_config["pretrained"], color=self.image_config["color"]).to(
                 self.device)
         else:
-            self.models['depth_encoder'] = ResnetEncoder(self.depth_network_config["layers"], pretrained=self.depth_network_config["pretrained"]).to(
+            self.models['depth_encoder'] = ResnetEncoder(self.depth_network_config["layers"], pretrained=self.depth_network_config["pretrained"], color=self.image_config["color"]).to(
                 self.device)
         self.num_scales = self.config["num_scales"]
         decoder_num_ch = self.models["depth_encoder"].num_ch_enc
@@ -322,9 +319,14 @@ class Trainer:
         :return [tensor] losses: A 0-dimensional tensor containing the loss of the batch
         """
         # Predict disparity map
-        inputs = batch["stereo_left_image"].to(self.device).float()
-        local_batch_size = len(inputs)
-        features = self.models['depth_encoder'](inputs)
+        pure_inputs = batch["stereo_left_image"].to(self.device)
+        local_batch_size = len(pure_inputs)
+
+        input_inputs = pure_inputs
+        if self.image_config["color"] == "HSV":
+            input_inputs = rgb_to_hsv(pure_inputs)
+
+        features = self.models['depth_encoder'](input_inputs)
         if self.config.get("use_fpn"):
             pyramid = self.models["fpn"](features)
             outputs = self.models["depth_decoder"](pyramid)
@@ -341,17 +343,22 @@ class Trainer:
         for i in range(-self.prev_frames, self.next_frames + 1):
             if i == 0:
                 continue
-            sources_list.append(batch["nearby_frames"][i]["camera_data"]["stereo_left_image"].float().to(self.device))
+            pure_neighbor_frames = batch["nearby_frames"][i]["camera_data"]["stereo_left_image"].to(self.device)
+            sources_list.append(pure_neighbor_frames)
+
+            input_neighbor_frames = pure_neighbor_frames
+            if self.image_config["color"] == "HSV":
+                input_neighbor_frames = rgb_to_hsv(pure_neighbor_frames)
 
             if i < 0:
                 pose_inputs = [
-                    batch["nearby_frames"][i]["camera_data"]["stereo_left_image"].float().to(self.device),
-                    inputs
+                    input_neighbor_frames,
+                    input_inputs
                 ]
             else:
                 pose_inputs = [
-                    inputs,
-                    batch["nearby_frames"][i]["camera_data"]["stereo_left_image"].float().to(self.device)
+                    input_inputs,
+                    input_neighbor_frames
                 ]
             pose_features = [self.models["pose_encoder"](torch.cat(pose_inputs, 1))]
             axisangle, translation = self.models["pose_decoder"](pose_features)
@@ -383,7 +390,7 @@ class Trainer:
             _, depths = disp_to_depth(disp, self.min_depth, self.max_depth)
 
             # Input scaling
-            inputs_scale = F.interpolate(inputs, [h, w], mode="bilinear", align_corners=False).to(self.device)
+            inputs_scale = F.interpolate(pure_inputs, [h, w], mode="bilinear", align_corners=False).to(self.device)
 
             # Sources and pose scaling
             sources_scale = []
@@ -448,7 +455,7 @@ class Trainer:
             curr_idx += self.steps_until_write
             if curr_idx < local_batch_size:
                 self.add_img_disparity_loss_to_tensorboard(
-                    outputs[("disp", 0)][curr_idx], inputs[curr_idx], automasks[0][curr_idx].unsqueeze(0),
+                    outputs[("disp", 0)][curr_idx], pure_inputs[curr_idx], automasks[0][curr_idx].unsqueeze(0),
                     min_losses[0][curr_idx], reprojections[0][:, curr_idx],
                     self.batch_size * batch_idx + curr_idx + 1, name
                 )
