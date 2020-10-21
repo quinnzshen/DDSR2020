@@ -13,15 +13,15 @@ def rgb_to_hsv(rgb_images):
         out[:, 2] = v[0]
 
         out[:, 1] = 1 - mins[0] / v[0]
-        out[:, 1, torch.isnan(out[:, 1]).squeeze(0)] = 0
+        out[:, 1][torch.isnan(out[:, 1])] = 0
 
-        rgb_max_mask = ((v[1] == 0).squeeze(0), (v[1] == 1).squeeze(0), (v[1] == 2).squeeze(0))
-        out[:, 0, rgb_max_mask[0]] = rgb_images[:, 1, rgb_max_mask[0]] - rgb_images[:, 2, rgb_max_mask[0]]
-        out[:, 0, rgb_max_mask[1]] = rgb_images[:, 2, rgb_max_mask[1]] - rgb_images[:, 0, rgb_max_mask[1]]
-        out[:, 0, rgb_max_mask[2]] = rgb_images[:, 0, rgb_max_mask[2]] - rgb_images[:, 1, rgb_max_mask[2]]
+        rgb_max_mask = (v[1] == 0, v[1] == 1, v[1] == 2)
+        out[:, 0][rgb_max_mask[0]] = rgb_images[:, 1][rgb_max_mask[0]] - rgb_images[:, 2][rgb_max_mask[0]]
+        out[:, 0][rgb_max_mask[1]] = rgb_images[:, 2][rgb_max_mask[1]] - rgb_images[:, 0][rgb_max_mask[1]]
+        out[:, 0][rgb_max_mask[2]] = rgb_images[:, 0][rgb_max_mask[2]] - rgb_images[:, 1][rgb_max_mask[2]]
         out[:, 0] = out[:, 0] * diff + v[1] * 120
-        out[:, 0, torch.isnan(out[:, 0]).squeeze(0)] = 0
-        out[:, 0, (out[:, 0] < 0).squeeze(0)] += 360
+        out[:, 0][torch.isnan(out[:, 0])] = 0
+        out[:, 0][out[:, 0] < 0] += 360
 
     return out
 
