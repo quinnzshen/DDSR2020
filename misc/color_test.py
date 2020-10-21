@@ -6,10 +6,10 @@ from kitti_utils import get_camera_data
 
 
 
-pilimage = np.array(Image.open("data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/image_02/data/0000000000.png"))
+pilimage = np.array(Image.open("../data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync/image_02/data/0000000000.png"))
 
-d = get_camera_data("data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync", 11, is_jpeg=False)
-image = np.array(d["stereo_left_image"])
+d = get_camera_data("../data/kitti_example/2011_09_26/2011_09_26_drive_0048_sync", 11, is_jpeg=False)
+image = d["stereo_left_image"]
 image2 = (np.array(d["stereo_left_image"]) * 255).astype(np.uint8)
 
 himage = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
