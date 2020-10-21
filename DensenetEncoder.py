@@ -142,8 +142,11 @@ class DensenetEncoder(nn.Module):
     """
     Module for a densenet encoder
     """
-    def __init__(self, num_layers, pretrained, num_input_images=1):
+    def __init__(self, num_layers, pretrained, num_input_images=1, color="RGB"):
         super(DensenetEncoder, self).__init__()
+
+        self.color = color
+
         self.num_ch_enc = np.array([64, 256, 512, 1024, 1024])
         densenets = {121: models.densenet121,
                    169: models.densenet169,
@@ -160,7 +163,10 @@ class DensenetEncoder(nn.Module):
 
     def forward(self, input_image):
         features = []
-        x = (input_image - 0.45) / 0.225
+        x = input_image
+        if self.color == "RGB":
+            x = (input_image - 0.45) / 0.225
+
         for i, layer in enumerate(self.encoder.features):
             x = layer(x)
             if i == 2:
