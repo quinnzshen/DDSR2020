@@ -2,6 +2,19 @@ import torch
 import cv2
 import numpy as np
 
+from math import pi
+
+
+def convert_rgb(rgb_images, color="RGB"):
+    if color == "HSV":
+        hsv_images = rgb_to_hsv(rgb_images)
+        hsv_images[:, 0] = pi / 180
+        hsv_images = torch.cat((torch.cos(hsv_images[:, 0].unsqueeze(1)), hsv_images), dim=1)
+        hsv_images[:, 1] = torch.sin(hsv_images[:, 1])
+        return hsv_images
+    else:
+        return rgb_images
+
 
 def rgb_to_hsv(rgb_images):
     out = torch.empty_like(rgb_images)
@@ -43,6 +56,10 @@ def rgb_to_hsv(rgb_images):
 # print(nice.shape)
 # print(nice[0, :, 0, 2])
 #
+#
+# xy = convert_rgb(ble, "HSV")
+# print(xy.shape)
+# print(xy)
 
 
 

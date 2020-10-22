@@ -9,7 +9,7 @@ from kitti_dataset import KittiDataset
 from third_party.monodepth2.ResnetEncoder import ResnetEncoder
 from third_party.monodepth2.DepthDecoder import DepthDecoder
 from fpn import FPN
-from color_utils import *
+from color_utils import convert_rgb
 
 
 def generate_qualitative(log_dir, epoch):
@@ -68,8 +68,7 @@ def generate_qualitative(log_dir, epoch):
     with torch.no_grad():
         for batch in dataloader:
             inputs = batch["stereo_left_image"].to(device).float()
-            if config["image"]["color"] == "HSV":
-                inputs = rgb_to_hsv(inputs)
+            inputs = convert_rgb(inputs, config["image"]["color"])
 
             if config.get("use_fpn"):
                 output = models["depth_decoder"](models["fpn"](models["depth_encoder"](inputs)))
