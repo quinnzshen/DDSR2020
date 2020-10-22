@@ -20,7 +20,7 @@ import yaml
 from tensorflow.image import decode_jpeg
 
 from collate import Collator
-from color_utils import *
+from color_utils import convert_rgb
 from DensenetEncoder import DensenetEncoder
 from kitti_dataset import KittiDataset
 from loss import calc_loss, GenerateReprojections
@@ -139,14 +139,15 @@ class Trainer:
                 self.models["pose_encoder"] = DensenetEncoder(
                     self.pose_network_config["layers"],
                     pretrained=self.pose_network["pretrained"],
-                    num_input_images=2
+                    num_input_images=2, color=self.image_config["color"]
                 ).to(self.device)
             else:
                 self.models["pose_encoder"] = ResnetEncoder(
                     self.pose_network_config["layers"],
                     pretrained=self.pose_network_config["pretrained"],
-                    num_input_images=2
+                    num_input_images=2, color=self.image_config["color"]
                 ).to(self.device)
+                print("ble", self.image_config["color"])
 
             self.models["pose_decoder"] = PoseDecoder(
                 self.models["pose_encoder"].num_ch_enc,
@@ -322,9 +323,7 @@ class Trainer:
         pure_inputs = batch["stereo_left_image"].to(self.device)
         local_batch_size = len(pure_inputs)
 
-        input_inputs = pure_inputs
-        if self.image_config["color"] == "HSV":
-            input_inputs = rgb_to_hsv(pure_inputs)
+        input_inputs = convert_rgb(pure_inputs, self.image_config["color"])
 
         features = self.models['depth_encoder'](input_inputs)
         if self.config.get("use_fpn"):
@@ -346,9 +345,7 @@ class Trainer:
             pure_neighbor_frames = batch["nearby_frames"][i]["camera_data"]["stereo_left_image"].to(self.device)
             sources_list.append(pure_neighbor_frames)
 
-            input_neighbor_frames = pure_neighbor_frames
-            if self.image_config["color"] == "HSV":
-                input_neighbor_frames = rgb_to_hsv(pure_neighbor_frames)
+            input_neighbor_frames = convert_rgb(pure_neighbor_frames, self.image_config["color"])
 
             if i < 0:
                 pose_inputs = [
