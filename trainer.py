@@ -147,7 +147,6 @@ class Trainer:
                     pretrained=self.pose_network_config["pretrained"],
                     num_input_images=2, color=self.image_config["color"]
                 ).to(self.device)
-                print("ble", self.image_config["color"])
 
             self.models["pose_decoder"] = PoseDecoder(
                 self.models["pose_encoder"].num_ch_enc,

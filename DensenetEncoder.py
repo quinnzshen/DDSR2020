@@ -124,7 +124,7 @@ def densenet_multiimage_input(num_layers, pretrained=False, num_input_images=1):
         pretrained (bool): If True, returns a model pre-trained on ImageNet
         num_input_images (int): Number of frames stacked as input
     """
-    assert num_layers in [121, 169, 201, 161], "Can only run with 121, 161, 169, or 201 layer resnet"
+    assert num_layers in [121, 169, 201, 161], "Can only run with 121, 161, 169, or 201 layer densenet"
     growth_rate = {121:32, 161:48, 169:32, 201:32}[num_layers]
     block_config = {121:(6, 12, 24, 16), 161:(6, 12, 36, 24), 169:(6, 12, 32, 32), 201:(6, 12, 48, 32)}[num_layers]
     num_init_features = {121:64, 161:96, 169:64, 201:64}[num_layers]
@@ -154,12 +154,15 @@ class DensenetEncoder(nn.Module):
                    161: models.densenet161}
 
         if num_layers not in densenets:
-            raise ValueError("{} is not a valid number of resnet layers".format(densenets))
+            raise ValueError("{} is not a valid number of densenet layers".format(densenets))
 
         if num_input_images > 1:
             self.encoder = densenet_multiimage_input(num_layers, pretrained, num_input_images)
         else:
             self.encoder = densenets[num_layers](pretrained)
+
+        if color == "HSV":
+            self.encoder.features[0] = nn.Conv2d(4 * num_input_images, self.num_ch_enc[0], kernel_size=7, stride=2, padding=3, bias=False)
 
     def forward(self, input_image):
         features = []
