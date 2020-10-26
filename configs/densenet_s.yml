@@ -1,8 +1,8 @@
 num_epochs: 20
 learning_rate: 0.0001
-scheduler_step_size: 15
-weight_decay: 0.1
-batch_size: 12
+scheduler_step_size: 5
+weight_decay: 0.3
+batch_size: 10
 num_workers: 12
 use_monocular: False
 use_stereo: True
@@ -11,12 +11,12 @@ max_depth: 100
 num_scales: 4  
 tensorboard_step: 1000
 metrics: True
-log_dir: experiments/baseline_s
+log_dir: experiments/densenet_s
 gt_dir: data/kitti_gt
 
 depth_network:
-  layers: 18
-  densenet: False
+  layers: 121
+  densenet: True
   fpn: False
   pretrained: True
 
