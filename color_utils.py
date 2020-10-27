@@ -5,6 +5,36 @@ import numpy as np
 from math import pi
 
 
+RGB_XYZ_D65 = torch.tensor([
+    [0.4124564, 0.3575761, 0.1804375],
+    [0.2126729, 0.7151522, 0.0721750],
+    [0.0193339, 0.1191920, 0.9503041],
+])
+
+JZAZBZ_MATRICES = (
+    torch.tensor([
+        [0.41478972, 0.579999, 0.0146480],
+        [-0.2015100, 1.120649, 0.0531008],
+        [-0.0166008, 0.264800, 0.6684799]
+    ]),
+    torch.tensor([
+        [0.5, 0.5, 0],
+        [3.524, -4.066708, 0.542708],
+        [0.199076, 1.096799, -1.295875]
+    ])
+)
+
+b = 1.15
+g = 0.66
+c1 = 3424 / 2 ** 12
+c2 = 2413 / 2 ** 7
+c3 = 2392 / 2 ** 7
+n = 2610 / 2 ** 14
+p = 1.7 * 2523 / 2 ** 5
+d = -0.56
+d0 = 1.6295499532821566 / 10 ** 11
+
+
 def convert_rgb(rgb_images, color="RGB"):
     if color == "HSV":
         hsv_images = rgb_to_hsv(rgb_images)
@@ -38,7 +68,44 @@ def rgb_to_hsv(rgb_images):
 
     return out
 
-#
+
+def rgb_to_xyz(rgb_images):
+    return batch_channel_matmul(RGB_XYZ_D65, rgb_images)
+
+
+def xyz_to_jzazbz(xyz_images):
+    # https://www.osapublishing.org/oe/fulltext.cfm?uri=oe-25-13-15131&id=368272
+    lms = torch.empty_like(xyz_images)
+    lms[:, 2] = xyz_images[:, 2]
+    lms[:, 0] = b * xyz_images[:, 0] - (b - 1) * xyz_images[:, 2]
+    lms[:, 1] = g * xyz_images[:, 1] - (g - 1) * xyz_images[:, 0]
+    lms = batch_channel_matmul(JZAZBZ_MATRICES[0], lms)
+    lms = ((c1 + c2 * (lms / 10000) ** n) / (1 + c3 * (lms / 10000) ** n)) ** p
+    lms = batch_channel_matmul(JZAZBZ_MATRICES[1], lms)
+    lms[:, 0] = (1 + d) * lms[:, 0] / (1 + d * lms[:, 0]) - d0
+    return lms
+
+
+def color_difference(image1, image2, color="RGB"):
+    if color == "HSV":
+        hue_angles = (image1 - image2) * pi / 180
+        return torch.sqrt(
+            torch.square(image1[:, 1]) + torch.square(image2[:, 1]) +
+            2 * image1[:, 1] * image2[:, 1] * torch.cos(hue_angles) +
+            torch.square(image1[:, 2] - image2[:, 2])
+        )
+    if color == "jzazbz":
+        cz1 = torch.sqrt(torch.square(image1[:, 1]) + torch.square(image1[:, 2]))
+        cz2 = torch.sqrt(torch.square(image2[:, 1]) + torch.square(image2[:, 2]))
+        delta_hue = torch.atan2(image1[:, 2], image1[:, 1]) - torch.atan2(image2[:, 2], image2[:, 1])
+        delta_hz = 2 * torch.sqrt(cz1 * cz2) * torch.sin(delta_hue / 2)
+        return torch.sqrt(torch.square(image1[:, 0] - image2[:, 0]) + torch.square(cz1 - cz2) + torch.square(delta_hz))
+
+
+def batch_channel_matmul(mat, images):
+    return (mat.permute(0, 2, 3, 1) @ images.T).permute(0, 3, 1, 2)
+
+
 # ble = torch.tensor([
 #     [1, 2, 3],
 #     [0, 0, 0],
@@ -49,14 +116,14 @@ def rgb_to_hsv(rgb_images):
 # bcv = np.array(ble[0].permute(1, 2, 0))
 #
 # print(ble)
-# nice = rgb_to_hsv(ble)
-# nice2 = torch.from_numpy(cv2.cvtColor(bcv, cv2.COLOR_RGB2HSV)).permute(2, 0, 1).unsqueeze(0)
-# print(nice)
-# print(nice2)
+# nice = rgb_to_xyz(ble)
+# nice2 = torch.from_numpy(cv2.cvtColor(bcv, cv2.COLOR_RGB2XYZ)).permute(2, 0, 1).unsqueeze(0)
+# print(nice, "OURS")
+# print(nice2, "CV2")
 # print(nice.shape)
 # print(nice[0, :, 0, 2])
-#
-#
+
+
 # xy = convert_rgb(ble, "HSV")
 # print(xy.shape)
 # print(xy)
