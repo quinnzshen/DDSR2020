@@ -1,17 +1,17 @@
 num_epochs: 20
 learning_rate: 0.0001
-scheduler_step_size: 15
-weight_decay: 0.1
-batch_size: 12
+scheduler_step_size: 5
+weight_decay: 0.3
+batch_size: 6
 num_workers: 12
 use_monocular: True
 use_stereo: False
 min_depth: 0.1
 max_depth: 100
-num_scales: 4  
+num_scales: 4
 tensorboard_step: 1000
 metrics: True
-log_dir: experiments/densenet_m
+log_dir: experiments/densenet_ms
 gt_dir: data/kitti_gt
 
 depth_network:
