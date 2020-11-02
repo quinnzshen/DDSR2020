@@ -241,6 +241,7 @@ class Trainer:
         Runs the entire training pipeline
         Saves the model's weights at the end of training
         """
+        torch.autograd.set_detect_anomaly(True)
         for self.epoch in range(self.start_epoch, self.num_epochs):
             time_taken = self.run_epoch()
             self.save_model()
