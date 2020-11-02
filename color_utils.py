@@ -43,7 +43,7 @@ def convert_rgb(rgb_images, color="RGB"):
         hsv_images[:, 1] = torch.sin(hsv_images[:, 0])
         return hsv_images
     if color == "jzazbz":
-        return xyz_to_jzazbz(rgb_to_xyz(rgb_images))
+        return xyz_to_jzazbz(rgb_to_xyz(rgb_images)).contiguous()
     return rgb_images
 
 
@@ -100,7 +100,7 @@ def color_difference(image1, image2, color="RGB"):
         cz2 = torch.sqrt(image2[:, 1] ** 2 + image2[:, 2] ** 2)
         delta_hue = torch.atan2(image1[:, 2], image1[:, 1]) - torch.atan2(image2[:, 2], image2[:, 1])
 
-        delta_hz = 2 * torch.sqrt(cz1 * cz2) * torch.sin(delta_hue / 2)
+        delta_hz = 2 * torch.sqrt(cz1 * cz2 + 1e-7) * torch.sin(delta_hue / 2)
         return torch.abs(image1[:, 0] - image2[:, 0]) + torch.abs(cz1 - cz2) + torch.abs(delta_hz)
 
     return torch.mean(torch.abs(image1 - image2), 1)
