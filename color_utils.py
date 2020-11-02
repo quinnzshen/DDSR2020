@@ -91,13 +91,13 @@ def color_difference(image1, image2, color="RGB"):
     if color == "HSV":
         hue_angles = (image1[:, 0] - image2[:, 0]) * pi / 180
         return torch.sqrt(
-            torch.square(image1[:, 1]) + torch.square(image2[:, 1]) +
+            image1[:, 1] ** 2 + image2[:, 1] ** 2 +
             2 * image1[:, 1] * image2[:, 1] * torch.cos(hue_angles) +
-            torch.square(image1[:, 2] - image2[:, 2])
+            (image1[:, 2] - image2[:, 2]) ** 2
         )
     if color == "jzazbz":
-        cz1 = torch.sqrt(torch.square(image1[:, 1]) + torch.square(image1[:, 2]))
-        cz2 = torch.sqrt(torch.square(image2[:, 1]) + torch.square(image2[:, 2]))
+        cz1 = torch.sqrt(image1[:, 1] ** 2 + image1[:, 2] ** 2)
+        cz2 = torch.sqrt(image2[:, 1] ** 2 + image2[:, 2] ** 2)
         delta_hue = torch.atan2(image1[:, 2], image1[:, 1]) - torch.atan2(image2[:, 2], image2[:, 1])
 
         delta_hz = 2 * torch.sqrt(cz1 * cz2) * torch.sin(delta_hue / 2)
