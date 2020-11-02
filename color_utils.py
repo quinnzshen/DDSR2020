@@ -38,12 +38,13 @@ d0 = 1.6295499532821566 / 10 ** 11
 def convert_rgb(rgb_images, color="RGB"):
     if color == "HSV":
         hsv_images = rgb_to_hsv(rgb_images)
-        hsv_images[:, 0] = pi / 180
+        hsv_images[:, 0] *= pi / 180
         hsv_images = torch.cat((torch.cos(hsv_images[:, 0].unsqueeze(1)), hsv_images), dim=1)
-        hsv_images[:, 1] = torch.sin(hsv_images[:, 1])
+        hsv_images[:, 1] = torch.sin(hsv_images[:, 0])
         return hsv_images
-    else:
-        return rgb_images
+    if color == "jzazbz":
+        return xyz_to_jzazbz(rgb_to_xyz(rgb_images))
+    return rgb_images
 
 
 def rgb_to_hsv(rgb_images):
@@ -62,7 +63,7 @@ def rgb_to_hsv(rgb_images):
         out[:, 0][rgb_max_mask[0]] = rgb_images[:, 1][rgb_max_mask[0]] - rgb_images[:, 2][rgb_max_mask[0]]
         out[:, 0][rgb_max_mask[1]] = rgb_images[:, 2][rgb_max_mask[1]] - rgb_images[:, 0][rgb_max_mask[1]]
         out[:, 0][rgb_max_mask[2]] = rgb_images[:, 0][rgb_max_mask[2]] - rgb_images[:, 1][rgb_max_mask[2]]
-        out[:, 0] = out[:, 0] * diff + v[1] * 120
+        out[:, 0] = out[:, 0] * diff + 120 * v[1]
         out[:, 0][torch.isnan(out[:, 0])] = 0
         out[:, 0][out[:, 0] < 0] += 360
 
@@ -88,7 +89,7 @@ def xyz_to_jzazbz(xyz_images):
 
 def color_difference(image1, image2, color="RGB"):
     if color == "HSV":
-        hue_angles = (image1 - image2) * pi / 180
+        hue_angles = (image1[:, 0] - image2[:, 0]) * pi / 180
         return torch.sqrt(
             torch.square(image1[:, 1]) + torch.square(image2[:, 1]) +
             2 * image1[:, 1] * image2[:, 1] * torch.cos(hue_angles) +
@@ -98,12 +99,15 @@ def color_difference(image1, image2, color="RGB"):
         cz1 = torch.sqrt(torch.square(image1[:, 1]) + torch.square(image1[:, 2]))
         cz2 = torch.sqrt(torch.square(image2[:, 1]) + torch.square(image2[:, 2]))
         delta_hue = torch.atan2(image1[:, 2], image1[:, 1]) - torch.atan2(image2[:, 2], image2[:, 1])
+
         delta_hz = 2 * torch.sqrt(cz1 * cz2) * torch.sin(delta_hue / 2)
-        return torch.sqrt(torch.square(image1[:, 0] - image2[:, 0]) + torch.square(cz1 - cz2) + torch.square(delta_hz))
+        return torch.abs(image1[:, 0] - image2[:, 0]) + torch.abs(cz1 - cz2) + torch.abs(delta_hz)
+
+    return torch.mean(torch.abs(image1 - image2), 1)
 
 
 def batch_channel_matmul(mat, images):
-    return (mat.permute(0, 2, 3, 1) @ images.T).permute(0, 3, 1, 2)
+    return (images.permute(0, 2, 3, 1) @ mat.to(images.device).T).permute(0, 3, 1, 2)
 
 
 # ble = torch.tensor([
@@ -115,15 +119,15 @@ def batch_channel_matmul(mat, images):
 #
 # bcv = np.array(ble[0].permute(1, 2, 0))
 #
-# print(ble)
+# print(ble.shape)
 # nice = rgb_to_xyz(ble)
 # nice2 = torch.from_numpy(cv2.cvtColor(bcv, cv2.COLOR_RGB2XYZ)).permute(2, 0, 1).unsqueeze(0)
 # print(nice, "OURS")
 # print(nice2, "CV2")
 # print(nice.shape)
 # print(nice[0, :, 0, 2])
-
-
+#
+#
 # xy = convert_rgb(ble, "HSV")
 # print(xy.shape)
 # print(xy)
