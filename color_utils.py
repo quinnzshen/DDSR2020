@@ -89,19 +89,18 @@ def xyz_to_jzazbz(xyz_images):
 
 def color_difference(image1, image2, color="RGB"):
     if color == "HSV":
-        hue_angles = (image1[:, 0] - image2[:, 0]) * pi / 180
-        return torch.sqrt(
-            image1[:, 1] ** 2 + image2[:, 1] ** 2 +
-            2 * image1[:, 1] * image2[:, 1] * torch.cos(hue_angles) +
-            (image1[:, 2] - image2[:, 2]) ** 2
-        )
+        return (
+            torch.abs(image1[:, 0] * image1[:, 2] - image2[:, 0] * image2[:, 2]) +
+            torch.abs(image1[:, 1] * image1[:, 2] - image2[:, 1] * image2[:, 2]) +
+            torch.abs(image1[:, 3] - image2[:, 3])
+        ) / 3
     if color == "jzazbz":
         cz1 = torch.sqrt(image1[:, 1] ** 2 + image1[:, 2] ** 2)
         cz2 = torch.sqrt(image2[:, 1] ** 2 + image2[:, 2] ** 2)
         delta_hue = torch.atan2(image1[:, 2], image1[:, 1]) - torch.atan2(image2[:, 2], image2[:, 1])
 
         delta_hz = 2 * torch.sqrt(cz1 * cz2 + 1e-7) * torch.sin(delta_hue / 2)
-        return torch.abs(image1[:, 0] - image2[:, 0]) + torch.abs(cz1 - cz2) + torch.abs(delta_hz)
+        return torch.sqrt((image1[:, 0] - image2[:, 0]) ** 2 + (cz1 - cz2) ** 2 + delta_hz ** 2 + 1e-7)
 
     return torch.mean(torch.abs(image1 - image2), 1)
 
@@ -111,7 +110,7 @@ def batch_channel_matmul(mat, images):
 
 
 # ble = torch.tensor([
-#     [1, 2, 3],
+#     [255, 255, 255],
 #     [0, 0, 0],
 #     [1, 1, 1]
 # ])
@@ -126,6 +125,8 @@ def batch_channel_matmul(mat, images):
 # print(nice2, "CV2")
 # print(nice.shape)
 # print(nice[0, :, 0, 2])
+# print("BRUH")
+# print(xyz_to_jzazbz(nice))
 #
 #
 # xy = convert_rgb(ble, "HSV")
