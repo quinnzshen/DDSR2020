@@ -11,7 +11,7 @@ max_depth: 100
 num_scales: 4  
 tensorboard_step: 1000
 metrics: True
-log_dir: experiments/hsv_m
+log_dir: experiments/hsv_ms
 gt_dir: data/kitti_gt
 
 depth_network:
