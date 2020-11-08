@@ -225,8 +225,9 @@ def get_camera_data(path_name, idx, is_jpeg=True):
         timestamp_path = os.path.join(path_name, f"{camera_path}/timestamps.txt")
         camera_image = torch.from_numpy(np.array(Image.open(camera_image_path))).float() / 255.0
         timestamp = get_timestamp_nsec(timestamp_path, idx)
+
         camera_data[f"{camera_name}_image"] = camera_image
-        camera_data[f"{camera_name}_shape"] = camera_image.shape
+        camera_data[f"{camera_name}_orig_shape"] = torch.tensor(camera_image.shape)
         camera_data[f"{camera_name}_capture_time_nsec"] = timestamp
 
     return camera_data

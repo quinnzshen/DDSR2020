@@ -71,14 +71,12 @@ class KittiDataset(Dataset):
         calib_dir = os.path.dirname(path_name)
         idx = int(self.dataset_index["frames_from_begin"][idx])
         nearby_frames_data = get_nearby_frames_data(path_name, idx, self.previous_frames, self.next_frames, self.is_jpeg)
+
         # Taking information from the directory and putting it into the sample dictionary
         sample = {
             **get_camera_data(path_name, idx, self.is_jpeg),
-            # **get_lidar_data(path_name, idx),
             **{'nearby_frames': nearby_frames_data},
-            # **{'image_from_velodyne_matrices': compute_image_from_velodyne_matrices(calib_dir)},
             **{'intrinsics': get_camera_intrinsic_dict(calib_dir)},
             **{'rel_pose_stereo': get_stereo_pose()},
-            # **{'pose': get_pose(path_name, idx)}
         }
         return sample

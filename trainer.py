@@ -361,7 +361,8 @@ class Trainer:
         tgt_intrinsics = batch["intrinsics"]["stereo_left"].to(self.device)
         if self.use_stereo:
             src_intrinsics_stereo = batch["intrinsics"]["stereo_right"].to(self.device)
-        shapes = batch["shapes"].to(self.device).float()
+
+        shapes = batch["stereo_left_orig_shape"][:, :2].to(self.device).float()
 
         losses = []
         automasks = []
@@ -389,18 +390,18 @@ class Trainer:
 
             # Intrinsics and scaling
             out_shape = torch.tensor([h, w]).to(self.device)
-            shapes_scale = out_shape / shapes
+            scale_ratio = out_shape / shapes
             tgt_intrinsics_scale = torch.clone(tgt_intrinsics)
-            tgt_intrinsics_scale[:, 0] = tgt_intrinsics_scale[:, 0] * shapes_scale[:, 1].reshape(-1, 1)
-            tgt_intrinsics_scale[:, 1] = tgt_intrinsics_scale[:, 1] * shapes_scale[:, 0].reshape(-1, 1)
+            tgt_intrinsics_scale[:, 0] = tgt_intrinsics_scale[:, 0] * scale_ratio[:, 1].reshape(-1, 1)
+            tgt_intrinsics_scale[:, 1] = tgt_intrinsics_scale[:, 1] * scale_ratio[:, 0].reshape(-1, 1)
 
             if self.use_stereo:
                 src_intrinsics_stereo_scale = torch.clone(src_intrinsics_stereo)
 
                 src_intrinsics_stereo_scale[:, 0] = src_intrinsics_stereo_scale[:, 0] * \
-                                                    shapes_scale[:, 1].reshape(-1, 1)
+                                                    scale_ratio[:, 1].reshape(-1, 1)
                 src_intrinsics_stereo_scale[:, 1] = src_intrinsics_stereo_scale[:, 1] * \
-                                                    shapes_scale[:, 0].reshape(-1, 1)
+                                                    scale_ratio[:, 0].reshape(-1, 1)
                 intrinsics_list = [src_intrinsics_stereo_scale]
             else:
                 intrinsics_list = [tgt_intrinsics_scale]
