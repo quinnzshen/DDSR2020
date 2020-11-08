@@ -402,6 +402,7 @@ def get_pose(scene_path, frame):
 
     return pose
 
+
 def get_stereo_pose():
     stereo_T = np.eye(4, dtype=np.float32)
     baseline_sign = 1
