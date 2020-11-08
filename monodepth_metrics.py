@@ -86,7 +86,7 @@ def run_metrics(log_dir, epoch, use_lidar):
     else:
         dataset = KittiDataset.init_from_config(config["dataset_config_paths"]["test_gt_map"], config["image"]["crop"], config["image"]["color"])
 
-    dataloader = DataLoader(dataset, config["batch_size"], shuffle=False, collate_fn=Collator(config["image"]["height"], config["image"]["width"]), num_workers=config["num_workers"])
+    dataloader = DataLoader(dataset, config["batch_size"], shuffle=False, collate_fn=Collator(config["image"]["height"], config["image"]["width"]), num_workers=config["num_workers"], pin_memory=True)
 
     depth_network_config = config["depth_network"]
 

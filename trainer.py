@@ -82,16 +82,12 @@ class Trainer:
 
         self.train_dataset = KittiDataset.init_from_config(self.dataset_config_paths["train"], self.image_config["crop"], self.image_config["color"])
         self.train_dataloader = DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True,
-                                           collate_fn=self.collate, num_workers=self.num_workers)
+                                           collate_fn=self.collate, num_workers=self.num_workers, pin_memory=True)
         self.val_dataset = KittiDataset.init_from_config(self.dataset_config_paths["val"], self.image_config["crop"], self.image_config["color"])
         self.val_dataloader = DataLoader(self.val_dataset, batch_size=self.batch_size, shuffle=False,
-                                         collate_fn=self.collate, num_workers=self.num_workers)
+                                         collate_fn=self.collate, num_workers=self.num_workers, pin_memory=True)
         
         self.qualitative = self.dataset_config_paths.get("qual")
-        if self.qualitative:
-            self.qual_dataset = KittiDataset.init_from_config(self.dataset_config_paths["qual"], self.image_config["crop"], self.image_config["color"])
-            self.qual_dataloader = DataLoader(self.qual_dataset, batch_size=self.batch_size, shuffle=False,
-                                              collate_fn=self.collate, num_workers=self.num_workers)
 
         # Neighboring frames
         if self.config["use_monocular"]:
