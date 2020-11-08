@@ -16,9 +16,13 @@ from fpn import FPN
 
 cv2.setNumThreads(0)
 
-STEREO_SCALE_FACTOR = 5.4
 # Sets N bins for metrics, from 0 -> BINS[0], BINS[1] -> BINS[2}, etc.
 BINS = [25, 50, 75, 100]
+
+STEREO_SCALE_FACTOR = 5.4
+
+MIN_DEPTH = 0.001
+MAX_DEPTH = 80
 
 
 def get_labels():
@@ -71,29 +75,27 @@ def run_metrics(log_dir, epoch, use_lidar):
     :param [bool] use_lidar: Setting to True -->  Lidar data (eigen), False --> improved GT maps (eigen_benchmark)
     """
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    MIN_DEPTH = 0.001
-    MAX_DEPTH = 80
 
     # Load data from config
     config_path = os.path.join(log_dir, "config.yml")
     with open(config_path) as file:
         config = yaml.load(file, Loader=yaml.Loader)
-    
-    if use_lidar == True:
+
+    if use_lidar:
         dataset = KittiDataset.init_from_config(config["dataset_config_paths"]["test_lidar"], config["image"]["crop"], config["image"]["color"])
-    else:    
+    else:
         dataset = KittiDataset.init_from_config(config["dataset_config_paths"]["test_gt_map"], config["image"]["crop"], config["image"]["color"])
-        
+
     dataloader = DataLoader(dataset, config["batch_size"], shuffle=False, collate_fn=Collator(config["image"]["height"], config["image"]["width"]), num_workers=config["num_workers"])
-    
+
     depth_network_config = config["depth_network"]
-    
+
     if depth_network_config.get("densenet"):
         models = {"depth_encoder": DensenetEncoder(depth_network_config["layers"], False)}
     else:
         models = {"depth_encoder": ResnetEncoder(depth_network_config["layers"], False)}
     decoder_num_ch = models["depth_encoder"].num_ch_enc
-    
+
     if depth_network_config.get("fpn"):
         num_ch_fpn = depth_network_config.get("fpn_channels")
         if not num_ch_fpn:
@@ -118,12 +120,11 @@ def run_metrics(log_dir, epoch, use_lidar):
 
     pred_disps = []
 
-    print("-> Computing predictions with size {}x{}".format(
-        dims[1], dims[0]))
+    print(f"-> Computing predictions with size {dims[1]}x{dims[0]}")
     start_metric_time = time.time()
     with torch.no_grad():
         for batch in dataloader:
-            inputs = batch["stereo_left_image"].to(device).float()
+            inputs = batch["stereo_left_image"].to(device)
             if config.get("use_fpn"):
                 output = models["depth_decoder"](models["fpn"](models["depth_encoder"](inputs)))
             else:
@@ -135,24 +136,22 @@ def run_metrics(log_dir, epoch, use_lidar):
             pred_disps.append(pred_disp)
 
     pred_disps = np.concatenate(pred_disps)
-    
-    if use_lidar == True:
-            gt_path = os.path.join(config["gt_dir"], "gt_lidar.npz")
-    else:
-            gt_path = os.path.join(config["gt_dir"], "gt_depthmaps.npz")
 
-    gt_depths = np.load(gt_path, fix_imports=True, encoding='latin1', allow_pickle=True)["data"]
-    
-    if use_lidar == True:
+    if use_lidar:
+        gt_path = os.path.join(config["gt_dir"], "gt_lidar.npz")
         print("-> Evaluating from LiDAR data")
     else:
+        gt_path = os.path.join(config["gt_dir"], "gt_depthmaps.npz")
         print("-> Evaluating from KITTI ground truth depth maps")
+
+    gt_depths = np.load(gt_path, fix_imports=True, encoding='latin1', allow_pickle=True)["data"]
 
     labels = get_labels()
     image_len = pred_disps.shape[0]
 
     ratios = np.empty(image_len, dtype=np.float32)
     errors = np.empty((image_len, 7 + len(BINS) * 2), dtype=np.float64)
+
     for i in range(image_len):
         gt_depth = gt_depths[i]
         gt_height, gt_width = gt_depth.shape[:2]
@@ -161,16 +160,16 @@ def run_metrics(log_dir, epoch, use_lidar):
         pred_disp = cv2.resize(pred_disp, (gt_width, gt_height))
         pred_depth = 1 / pred_disp
 
-        if use_lidar == True:
+        if use_lidar:
             mask = np.logical_and(gt_depth > MIN_DEPTH, gt_depth < MAX_DEPTH)
-    
+
             crop = np.array([0.40810811 * gt_height, 0.99189189 * gt_height,
                              0.03594771 * gt_width, 0.96405229 * gt_width]).astype(np.int32)
             crop_mask = np.zeros(mask.shape)
             crop_mask[crop[0]:crop[1], crop[2]:crop[3]] = 1
             mask = np.logical_and(mask, crop_mask)
         else:
-           mask = gt_depth > 0
+            mask = gt_depth > 0
 
         pred_depth = pred_depth[mask]
         gt_depth = gt_depth[mask]
@@ -181,20 +180,19 @@ def run_metrics(log_dir, epoch, use_lidar):
             ratio = np.median(gt_depth) / np.median(pred_depth)
             ratios[i] = ratio
             pred_depth *= ratio
-        
+
         pred_depth[pred_depth < MIN_DEPTH] = MIN_DEPTH
         pred_depth[pred_depth > MAX_DEPTH] = MAX_DEPTH
 
         errors[i] = compute_errors(gt_depth, pred_depth)
 
     total_metric_time = time.time() - start_metric_time
-    
+
     if config["use_stereo"]:
-        print("   Stereo evaluation - "
-                  "disabling median scaling, scaling by {}".format(STEREO_SCALE_FACTOR))
+        print(f"   Stereo evaluation - disabling median scaling, scaling by {STEREO_SCALE_FACTOR}")
     else:
         med = np.median(ratios)
-        print(" Scaling ratios | med: {:0.3f} | std: {:0.3f}".format(med, np.std(ratios / med)))
+        print(f" Scaling ratios | med: {med:.3f} | std: {np.std(ratios / med):.3f}")
 
     mean_errors = np.nanmean(errors, 0).tolist()
     mean_errors.insert(0, total_metric_time)

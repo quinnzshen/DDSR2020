@@ -208,19 +208,19 @@ class Trainer:
         if self.metrics:
             if self.start_epoch > 0:
                 # Uses LiDAR data
-                self.lidar_metrics_file = open(os.path.join(self.log_dir, "lidar_metrics.csv"),"a", newline='')
+                self.lidar_metrics_file = open(os.path.join(self.log_dir, "lidar_metrics.csv"), "a", newline='')
                 self.lidar_metrics_writer = csv.writer(self.lidar_metrics_file, delimiter=',')
                 
                 # Uses ground truth KITTI depth maps
-                self.kitti_gt_maps_metrics_file = open(os.path.join(self.log_dir, "kitti_gt_maps_metrics.csv"),"a", newline='')
+                self.kitti_gt_maps_metrics_file = open(os.path.join(self.log_dir, "kitti_gt_maps_metrics.csv"), "a", newline='')
                 self.kitti_gt_maps_metrics_writer = csv.writer(self.kitti_gt_maps_metrics_file, delimiter=',')
             else:
                 # Uses LiDAR data
-                self.lidar_metrics_file = open(os.path.join(self.log_dir, "lidar_metrics.csv"),"w", newline='')
+                self.lidar_metrics_file = open(os.path.join(self.log_dir, "lidar_metrics.csv"), "w", newline='')
                 self.lidar_metrics_writer = csv.writer(self.lidar_metrics_file, delimiter=',')
                 
                 # Uses ground truth KITTI depth maps
-                self.kitti_gt_maps_metrics_file = open(os.path.join(self.log_dir, "kitti_gt_maps_metrics.csv"),"w", newline='')
+                self.kitti_gt_maps_metrics_file = open(os.path.join(self.log_dir, "kitti_gt_maps_metrics.csv"), "w", newline='')
                 self.kitti_gt_maps_metrics_writer = csv.writer(self.kitti_gt_maps_metrics_file, delimiter=',')
                 
                 metrics_list = ["epoch", "training_time"]
@@ -322,7 +322,7 @@ class Trainer:
         :return [tensor] losses: A 0-dimensional tensor containing the loss of the batch
         """
         # Predict disparity map
-        inputs = batch["stereo_left_image"].to(self.device).float()
+        inputs = batch["stereo_left_image"].to(self.device)
         local_batch_size = len(inputs)
         features = self.models['depth_encoder'](inputs)
         if self.config.get("use_fpn"):
@@ -335,23 +335,23 @@ class Trainer:
         sources_list = []
         poses_list = []
         if self.use_stereo:
-            sources_list.append(batch["stereo_right_image"].float().to(self.device))
+            sources_list.append(batch["stereo_right_image"].to(self.device))
             poses_list.append(batch["rel_pose_stereo"].to(self.device))
 
         for i in range(-self.prev_frames, self.next_frames + 1):
             if i == 0:
                 continue
-            sources_list.append(batch["nearby_frames"][i]["camera_data"]["stereo_left_image"].float().to(self.device))
+            sources_list.append(batch["nearby_frames"][i]["camera_data"]["stereo_left_image"].to(self.device))
 
             if i < 0:
                 pose_inputs = [
-                    batch["nearby_frames"][i]["camera_data"]["stereo_left_image"].float().to(self.device),
+                    batch["nearby_frames"][i]["camera_data"]["stereo_left_image"].to(self.device),
                     inputs
                 ]
             else:
                 pose_inputs = [
                     inputs,
-                    batch["nearby_frames"][i]["camera_data"]["stereo_left_image"].float().to(self.device)
+                    batch["nearby_frames"][i]["camera_data"]["stereo_left_image"].to(self.device)
                 ]
             pose_features = [self.models["pose_encoder"](torch.cat(pose_inputs, 1))]
             axisangle, translation = self.models["pose_decoder"](pose_features)
@@ -383,12 +383,12 @@ class Trainer:
             _, depths = disp_to_depth(disp, self.min_depth, self.max_depth)
 
             # Input scaling
-            inputs_scale = F.interpolate(inputs, [h, w], mode="bilinear", align_corners=False).to(self.device)
+            inputs_scale = F.interpolate(inputs, [h, w], mode="bilinear", align_corners=False)
 
             # Sources and pose scaling
             sources_scale = []
             for image in sources:
-                sources_scale.append(F.interpolate(image, [h, w], mode="bilinear", align_corners=False).to(self.device))
+                sources_scale.append(F.interpolate(image, [h, w], mode="bilinear", align_corners=False))
             sources_scale = torch.stack(sources_scale, dim=0)
 
             # Intrinsics and scaling

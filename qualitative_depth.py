@@ -61,12 +61,11 @@ def generate_qualitative(log_dir, epoch):
 
     outputs = []
 
-    print("-> Generating qualitative predictions with size {}x{}".format(
-        dims[1], dims[0]))
+    print(f"-> Generating qualitative predictions with size {dims[1]}x{dims[0]}")
 
     with torch.no_grad():
         for batch in dataloader:
-            inputs = batch["stereo_left_image"].to(device).float()
+            inputs = batch["stereo_left_image"].to(device)
             if config.get("use_fpn"):
                 output = models["depth_decoder"](models["fpn"](models["depth_encoder"](inputs)))
             else:
