@@ -14,55 +14,97 @@ from third_party.monodepth2.DepthDecoder import DepthDecoder
 from fpn import FPN
 import numpy as np
 
-def generate_gif(experiment_dir, epoch):
+def generate_gif(exp_dir, exp_epoch, baseline_dir, baseline_epoch):
     """
-    Generates a gif based on a specified directory containing a config, an epoch number, and a split file.
-    :param [str] log_dir: Path to the config in the experiments directory that the model was trained on
-    :param [int] epoch: Epoch number corresponding to the model that metrics will be evaluated on
-    :return [torch.Tensor]: Tensor representing the generated qualitative depth maps in dimension [B, 1, H, W]
+    Generates a gif of input RGB images, corresponding disparity maps from a baseline model, and corresponding disparty maps from an experiment model
+    :param [str] exp_dir: Path to the directory of the experiment training job
+    :param [int] exp_epoch: Epoch number of the experiment model weights
+    :param [str] baseline_dir: Path to the directory of the baseline training job
+    :param [int] baseline_epoch: Epoch number of the baseline model weights
     """
+    
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    # Load data from config
-    config_path = os.path.join(experiment_dir, "config.yml")
-    with open(config_path) as file:
-        config = yaml.load(file, Loader=yaml.Loader)
+    # Load data from experiment config
+    exp_config_path = os.path.join(exp_dir, "config.yml")
+    with open(exp_config_path) as file:
+        exp_config = yaml.load(file, Loader=yaml.Loader)
 
-    dataset = KittiDataset.init_from_config(config["dataset_config_paths"]["gif"], config["image"]["crop"], config["image"]["color"])
-    dataloader = DataLoader(dataset, config["batch_size"], shuffle=False,
-                            collate_fn=Collator(config["image"]["height"], config["image"]["width"]), num_workers=config["num_workers"])
+    dataset = KittiDataset.init_from_config(exp_config["dataset_config_paths"]["gif"], exp_config["image"]["crop"], exp_config["image"]["color"])
+    dataloader = DataLoader(dataset, exp_config["batch_size"], shuffle=False,
+                            collate_fn=Collator(exp_config["image"]["height"], exp_config["image"]["width"]), num_workers=exp_config["num_workers"])
    
-    depth_network_config = config["depth_network"]
-
-    if depth_network_config.get("densenet"):
-        models = {"depth_encoder": DensenetEncoder(depth_network_config["layers"], False)}
+    exp_depth_network_config = exp_config["depth_network"]
+    
+    # Setting up experiment model
+    if exp_depth_network_config.get("densenet"):
+        exp_models = {"depth_encoder": DensenetEncoder(exp_depth_network_config["layers"], False)}
     else:
-        models = {"depth_encoder": ResnetEncoder(depth_network_config["layers"], False)}
-    decoder_num_ch = models["depth_encoder"].num_ch_enc
+        exp_models = {"depth_encoder": ResnetEncoder(exp_depth_network_config["layers"], False)}
+    exp_decoder_num_ch = exp_models["depth_encoder"].num_ch_enc
     
-    if depth_network_config.get("fpn"):
-        num_ch_fpn = depth_network_config.get("fpn_channels")
-        if not num_ch_fpn:
-            num_ch_fpn = 256
-        models["fpn"] = FPN(decoder_num_ch, num_ch_fpn)
-        decoder_num_ch = models["fpn"].num_ch_pyramid
-    models["depth_decoder"] = DepthDecoder(decoder_num_ch)
+    if exp_depth_network_config.get("fpn"):
+        exp_num_ch_fpn = exp_depth_network_config.get("fpn_channels")
+        if not exp_num_ch_fpn:
+            exp_num_ch_fpn = 256
+        exp_models["fpn"] = FPN(exp_decoder_num_ch, exp_num_ch_fpn)
+        exp_decoder_num_ch = exp_models["fpn"].num_ch_pyramid
+    exp_models["depth_decoder"] = DepthDecoder(exp_decoder_num_ch)
     
-    weights_folder = os.path.join(experiment_dir, "models", f'weights_{epoch - 1}')
-    print(f'-> Loading weights from {weights_folder}')
+    exp_weights_folder = os.path.join(exp_dir, "models", f'weights_{exp_epoch - 1}')
+    print(f'-> Loading weights from {exp_weights_folder}')
 
-    for model_name in models:
-        preset_path = os.path.join(weights_folder, f"{model_name}.pth")
-        model_dict = models[model_name].state_dict()
+    
+    # Load data from baseline config
+    baseline_config_path = os.path.join(baseline_dir, "config.yml")
+    with open(baseline_config_path) as file:
+        baseline_config = yaml.load(file, Loader=yaml.Loader)
+    baseline_depth_network_config = baseline_config["depth_network"]
+    
+    # Setting up baseline model
+    if baseline_depth_network_config.get("densenet"):
+        baseline_models = {"depth_encoder": DensenetEncoder(baseline_depth_network_config["layers"], False)}
+    else:
+        baseline_models = {"depth_encoder": ResnetEncoder(baseline_depth_network_config["layers"], False)}
+        baseline_decoder_num_ch = baseline_models["depth_encoder"].num_ch_enc
+
+    if baseline_depth_network_config.get("fpn"):
+        baseline_num_ch_fpn = baseline_depth_network_config.get("fpn_channels")
+        if not baseline_num_ch_fpn:
+            baseline_num_ch_fpn = 256
+        baseline_models["fpn"] = FPN(baseline_decoder_num_ch, baseline_num_ch_fpn)
+        baseline_decoder_num_ch = baseline_models["fpn"].num_ch_pyramid
+    baseline_models["depth_decoder"] = DepthDecoder(baseline_decoder_num_ch)
+    
+    baseline_weights_folder = os.path.join(baseline_dir, "models", f'weights_{baseline_epoch - 1}')
+    print(f'-> Loading weights from {baseline_weights_folder}')
+    
+    # Loading weights from experiment model
+    for model_name in exp_models:
+        preset_path = os.path.join(exp_weights_folder, f"{model_name}.pth")
+        model_dict = exp_models[model_name].state_dict()
         preset_dict = torch.load(preset_path)
         if model_name == "depth_encoder":
             dims = (preset_dict["height"], preset_dict["width"])
         model_dict.update({k: v for k, v in preset_dict.items() if k in model_dict})
-        models[model_name].load_state_dict(model_dict)
-        models[model_name].cuda()
-        models[model_name].eval()
+        exp_models[model_name].load_state_dict(model_dict)
+        exp_models[model_name].cuda()
+        exp_models[model_name].eval()
 
-    disp_maps = []
+    # Loading weights from baseline model
+    for model_name in baseline_models:
+        preset_path = os.path.join(baseline_weights_folder, f"{model_name}.pth")
+        model_dict = baseline_models[model_name].state_dict()
+        preset_dict = torch.load(preset_path)
+        if model_name == "depth_encoder":
+            dims = (preset_dict["height"], preset_dict["width"])
+        model_dict.update({k: v for k, v in preset_dict.items() if k in model_dict})
+        baseline_models[model_name].load_state_dict(model_dict)
+        baseline_models[model_name].cuda()
+        baseline_models[model_name].eval()
+
+    exp_disp_maps = []
+    baseline_disp_maps = []
     images = []
     
     print("-> Generating gif images with size {}x{}".format(
@@ -71,16 +113,25 @@ def generate_gif(experiment_dir, epoch):
     with torch.no_grad():
         for batch in dataloader:
             inputs = batch["stereo_left_image"].to(device).float()
-            if config.get("use_fpn"):
-                output = models["depth_decoder"](models["fpn"](models["depth_encoder"](inputs)))
+            if exp_config.get("use_fpn"):
+                exp_output = exp_models["depth_decoder"](exp_models["fpn"](exp_models["depth_encoder"](inputs)))
             else:
-                output = models["depth_decoder"](models["depth_encoder"](inputs))
-
-            disp_maps.append(output[("disp", 0)])
+                exp_output = exp_models["depth_decoder"](exp_models["depth_encoder"](inputs))
+            
+            if baseline_config.get("use_fpn"):
+                baseline_output = baseline_models["depth_decoder"](baseline_models["fpn"](baseline_models["depth_encoder"](inputs)))
+            else:
+                baseline_output = baseline_models["depth_decoder"](baseline_models["depth_encoder"](inputs))
+            
+            exp_disp_maps.append(exp_output[("disp", 0)])
+            baseline_disp_maps.append(baseline_output[("disp", 0)])
             images.append(inputs)
-    images = torch.cat(images)
-    disp_maps = torch.cat(disp_maps)
     
+    images = torch.cat(images)
+    exp_disp_maps = torch.cat(exp_disp_maps)
+    baseline_disp_maps = torch.cat(baseline_disp_maps)
+    disp_combined = (baseline_disp_maps, exp_disp_maps)
+    disp_maps = torch.cat(disp_combined, 2)
     print("-> Creating gif")
     
     gif_images = []
@@ -97,19 +148,25 @@ def generate_gif(experiment_dir, epoch):
 
         gif_image = np.vstack((colormapped_img, colormapped_disp))
         gif_images.append(gif_image)
-    save_folder = os.path.join(experiment_dir, "gifs")
+    save_folder = os.path.join(exp_dir, "gifs")
     if not os.path.exists(save_folder):
         os.makedirs(save_folder)
-    imageio.mimsave(os.path.join(save_folder, "gif_epoch_{}.gif".format(epoch-1)), gif_images)
+    imageio.mimsave(os.path.join(save_folder, "gif_epoch_{}.gif".format(exp_epoch-1)), gif_images)
     print("\n-> Done!")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="qualitative options")
-    parser.add_argument("--experiment_dir",
+    parser.add_argument("--exp_dir",
                         type=str,
                         help="path to experiment directory")
-    parser.add_argument("--epoch",
+    parser.add_argument("--exp_epoch",
                         type=int,
-                        help="epoch number")
+                        help="epoch number for experiment model")
+    parser.add_argument("--baseline_dir",
+                        type=str,
+                        help="path to baseline directory")
+    parser.add_argument("--baseline_epoch",
+                        type=int,
+                        help="epoch number for baseline_model")
     opt = parser.parse_args()
-    generate_gif(opt.experiment_dir, opt.epoch)
+    generate_gif(opt.exp_dir, opt.exp_epoch, opt.baseline_dir, opt.baseline_epoch)
