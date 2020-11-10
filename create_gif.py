@@ -5,6 +5,7 @@ from torch.utils.data import DataLoader
 import yaml
 from collate import Collator
 from DensenetEncoder import DensenetEncoder
+import imageio
 from kitti_dataset import KittiDataset
 import matplotlib as mpl
 import matplotlib.cm as cm
@@ -12,12 +13,10 @@ from third_party.monodepth2.ResnetEncoder import ResnetEncoder
 from third_party.monodepth2.DepthDecoder import DepthDecoder
 from fpn import FPN
 import numpy as np
-from torchvision.utils import save_image
-from torchvision import transforms
 
-def generate_qualitative(log_dir, epoch):
+def generate_gif(experiment_dir, epoch):
     """
-    Generates qualitative images based on a specified directory containing a config and an epoch number.
+    Generates a gif based on a specified directory containing a config, an epoch number, and a split file.
     :param [str] log_dir: Path to the config in the experiments directory that the model was trained on
     :param [int] epoch: Epoch number corresponding to the model that metrics will be evaluated on
     :return [torch.Tensor]: Tensor representing the generated qualitative depth maps in dimension [B, 1, H, W]
@@ -25,11 +24,11 @@ def generate_qualitative(log_dir, epoch):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     # Load data from config
-    config_path = os.path.join(log_dir, "config.yml")
+    config_path = os.path.join(experiment_dir, "config.yml")
     with open(config_path) as file:
         config = yaml.load(file, Loader=yaml.Loader)
 
-    dataset = KittiDataset.init_from_config(config["dataset_config_paths"]["qual"], config["image"]["crop"], config["image"]["color"])
+    dataset = KittiDataset.init_from_config(config["dataset_config_paths"]["gif"], config["image"]["crop"], config["image"]["color"])
     dataloader = DataLoader(dataset, config["batch_size"], shuffle=False,
                             collate_fn=Collator(config["image"]["height"], config["image"]["width"]), num_workers=config["num_workers"])
    
@@ -49,7 +48,7 @@ def generate_qualitative(log_dir, epoch):
         decoder_num_ch = models["fpn"].num_ch_pyramid
     models["depth_decoder"] = DepthDecoder(decoder_num_ch)
     
-    weights_folder = os.path.join(log_dir, "models", f'weights_{epoch - 1}')
+    weights_folder = os.path.join(experiment_dir, "models", f'weights_{epoch - 1}')
     print(f'-> Loading weights from {weights_folder}')
 
     for model_name in models:
@@ -64,10 +63,11 @@ def generate_qualitative(log_dir, epoch):
         models[model_name].eval()
 
     disp_maps = []
-
-    print("-> Generating qualitative predictions with size {}x{}".format(
+    images = []
+    
+    print("-> Generating gif images with size {}x{}".format(
         dims[1], dims[0]))
-
+    
     with torch.no_grad():
         for batch in dataloader:
             inputs = batch["stereo_left_image"].to(device).float()
@@ -77,38 +77,39 @@ def generate_qualitative(log_dir, epoch):
                 output = models["depth_decoder"](models["depth_encoder"](inputs))
 
             disp_maps.append(output[("disp", 0)])
-    
+            images.append(inputs)
+    images = torch.cat(images)
     disp_maps = torch.cat(disp_maps)
     
-    print("-> Saving images")
+    print("-> Creating gif")
     
-    outputs = []
+    gif_images = []
     for i, disp in enumerate(disp_maps):
         disp_np = disp.squeeze().cpu().detach().numpy()
         vmax = np.percentile(disp_np, 95)
         normalizer = mpl.colors.Normalize(vmin=disp_np.min(), vmax=vmax)
         mapper = cm.ScalarMappable(norm=normalizer, cmap='magma')
         colormapped_disp = (mapper.to_rgba(disp_np)[:, :, :3] * 255).astype(np.uint8)
-        final_disp = transforms.ToTensor()(colormapped_disp)
-        outputs.append(final_disp)
+        
+        image = images[i]
+        img_np = image.squeeze().cpu().detach().numpy() * 255
+        colormapped_img = img_np.astype(np.uint8).transpose(1, 2, 0)
 
-        save_folder = os.path.join(log_dir, "qual_images", "qual_images_{}".format(epoch-1))
-        if not os.path.exists(save_folder):
-            os.makedirs(save_folder)
-        path = os.path.join(save_folder, "img_" + str(i)+ ".jpeg")
-        save_image(final_disp, path)
-   
+        gif_image = np.vstack((colormapped_img, colormapped_disp))
+        gif_images.append(gif_image)
+    save_folder = os.path.join(experiment_dir, "gifs")
+    if not os.path.exists(save_folder):
+        os.makedirs(save_folder)
+    imageio.mimsave(os.path.join(save_folder, "gif_epoch_{}.gif".format(epoch-1)), gif_images)
     print("\n-> Done!")
-
-    return disp_maps
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="qualitative options")
-    parser.add_argument("--log_dir",
+    parser.add_argument("--experiment_dir",
                         type=str,
-                        help="path to config in experiment directory")
+                        help="path to experiment directory")
     parser.add_argument("--epoch",
                         type=int,
                         help="epoch number")
     opt = parser.parse_args()
-    generate_qualitative(opt.log_dir, opt.epoch)
+    generate_gif(opt.experiment_dir, opt.epoch)
