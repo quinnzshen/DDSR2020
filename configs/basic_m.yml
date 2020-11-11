@@ -37,3 +37,4 @@ dataset_config_paths:
   test_lidar: configs/datasets/basic_test_dataset.yml
   test_gt_map: configs/datasets/basic_test_dataset.yml 
   qual: configs/datasets/basic_qualitative_dataset.yml
+  gif: configs/datasets/basic_gif_dataset.yml
