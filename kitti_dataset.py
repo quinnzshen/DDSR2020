@@ -8,11 +8,11 @@ DATAFRAME_COLUMNS = ["path", "frames_from_begin", "frames_from_end"]
 
 
 class KittiDataset(Dataset):
-    def __init__(self, root_dir, dataset_index, previous_frames, next_frames, is_jpeg, crop=False, color="RGB"):
+    def __init__(self, root_dir: str, dataset_index: pd.DataFrame, previous_frames: int, next_frames: int, is_jpeg: bool, crop=False, color="RGB"):
         """
         Initializes the Dataset, given the root directory of the data and a dataframe of the paths to the dataset.
-        :param root_dir [str]: string containing the path to the root directory
-        :param dataset_index [pd.DataFrame]: The dataframe containing the paths and indices of the data
+        :param root_dir: string containing the path to the root directory
+        :param dataset_index: The dataframe containing the paths and indices of the data
         """
         self.root_dir = root_dir
         self.previous_frames = previous_frames
@@ -26,12 +26,14 @@ class KittiDataset(Dataset):
             ].reset_index(drop=True)
 
     @classmethod
-    def init_from_config(cls, config_path, crop, color):
+    def init_from_config(cls, config_path: str, crop: bool, color: str) -> 'KittiDataset':
         """
         Creates an instance of the class using a config file. The config file supplies the paths to the text files
         containing the all the paths to the data.
-        :param [str] config_path: The path to the config file
-        :return [KittiDataset]: The object instance
+        :param config_path: The path to the config file
+        :param crop: Whether to apply cropping
+        :param color: The color model to use
+        :return: The object instance
         """
         with open(config_path, "r") as yml:
             config = yaml.load(yml, Loader=yaml.Loader)
@@ -45,22 +47,22 @@ class KittiDataset(Dataset):
                    crop=crop,
                    color=color)
 
-    def __len__(self):
+    def __len__(self) -> int:
         """
         Returns the total frame count in the dataset.
-        :return [int]: The frame count in the dataset
+        :return: The frame count in the dataset
         """
         return len(self.dataset_index)
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx: int) -> dict:
         """
         Given a specific index, returns a dictionary containing information about the sample (frame) at that index in
         the dataset.
         (If the index is n, returns the nth frame of the dataset and its information.)
         The dictionary's fields are specified in Dataset Fields (Google Sheet file).
 
-        :param [int] idx: An int representing the index of the sample to be retrieved
-        :return [dict]: A dictionary containing fields about the retrieved sample
+        :param idx: An int representing the index of the sample to be retrieved
+        :return: A dictionary containing fields about the retrieved sample
         """
 
         if idx >= len(self.dataset_index) or idx < 0:

@@ -26,23 +26,24 @@ KITTI_TIMESTAMPS = ["/timestamps.txt", "velodyne_points/timestamps_start.txt", "
 EPOCH = np.datetime64("1970-01-01")
 VELO_INDICES = np.array([7, 6, 10])
 
-def load_lidar_points(filename):
+
+def load_lidar_points(filename: str) -> np.ndarray:
     """
     This function loads 3D point cloud from KITTI file format.
-    :param [string] filename: File path for 3d point cloud data.
-    :return [np.array]: [N, 4] N lidar points represented as (X, Y, Z, reflectivity) points.
+    :param filename: File path for 3d point cloud data.
+    :return: [N, 4] N lidar points represented as (X, Y, Z, reflectivity) points.
     """
     points = np.fromfile(filename, dtype=np.float32).reshape(-1, 4)
     points[:, 3] = 1.0  # homogeneous
     return points
 
 
-def read_calibration_file(path):
+def read_calibration_file(path: str) -> dict:
     """
     This function reads the KITTI calibration file.
     (from https://github.com/hunse/kitti)
-    :param [string] path: File path for KITTI calbration file.
-    :return [dictionary] data: Dictionary containing the camera intrinsic and extrinsic matrices.
+    :param path: File path for KITTI calbration file.
+    :return data: Dictionary containing the camera intrinsic and extrinsic matrices.
     """
     float_chars = set("0123456789.e+- ")
     data = {}
@@ -62,12 +63,12 @@ def read_calibration_file(path):
     return data
 
 
-def compute_image_from_velodyne_matrices(calibration_dir):
+def compute_image_from_velodyne_matrices(calibration_dir: str) -> dict:
     """
     This function computes the translation matrix to project 3D lidar points into the 2D image plane.
-    :param [String] calibration_dir: Directory to folder containing camera/lidar calibration files
-    :return:  dictionary of numpy.arrays of shape [4, 4] that converts 3D lidar points to 2D image plane for each camera
-    (keys: stereo_left, stereo_right)
+    :param calibration_dir: Directory to folder containing camera/lidar calibration files
+    :return: Dictionaries of numpy.arrays of shape [4, 4] that converts 3D lidar points to 2D image plane for each
+    camera (keys: stereo_left, stereo_right)
     """
     # Based on code from monodepth2 repo.
 
