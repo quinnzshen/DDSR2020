@@ -36,14 +36,14 @@ LOSS_VIS_CMAP = "cividis"
 
 
 class Trainer:
-    def __init__(self, config_path, start_epoch):
+    def __init__(self, config_path: str, start_epoch: int):
         """
         Creates an instance of tranier using a config file
         The config file contains all the information needed to train a model
         :param [str] config_path: The path to the config file
-        :return [Trainer]: Object instance of the trainer
+        :param [int] start_epoch: The starting epoch (0 if new model)
         """
-        
+
         # Epoch to continue training from (0 if new model)
         self.start_epoch = start_epoch
         
@@ -261,13 +261,13 @@ class Trainer:
             self.kitti_gt_maps_metrics_file.close()
         print('Model saved.')
 
-    def run_epoch(self):
+    def run_epoch(self) -> int:
         """
         Runs a single epoch of training and validation
+        :return: The training time
         """
         # Training
         train_start_time = time.time()
-
         print(f"Training epoch {self.epoch + 1}", end=", ")
 
         for model_name in self.models:
@@ -307,15 +307,15 @@ class Trainer:
         print(f"Time spent: {val_end_time - val_start_time}\n")
         return train_end_time - train_start_time
 
-    def process_batch(self, batch_idx, batch, dataset_length, name, backprop):
+    def process_batch(self, batch_idx: int, batch: dict, dataset_length: int, name: str, backprop: bool) -> torch.Tensor:
         """
         Computes loss for a single batch
-        :param [int] batch_idx: The batch index
-        :param [dict] batch: The batch data
-        :param [int] dataset_length: The length of the training/validation dataset
-        :param [String] name: Differentiates between training/validation
-        :param [boolean] backprop: Determines whether or not to backpropogate loss
-        :return [tensor] losses: A 0-dimensional tensor containing the loss of the batch
+        :param batch_idx: The batch index
+        :param batch: The batch data
+        :param dataset_length: The length of the training/validation dataset
+        :param name: Differentiates between training/validation
+        :param backprop: Determines whether or not to backpropogate loss
+        :return: A 0-dimensional tensor containing the loss of the batch
         """
         # Predict disparity map
         inputs = batch["stereo_left_image"].to(self.device)
@@ -476,15 +476,17 @@ class Trainer:
         save_path = os.path.join(save_folder, "{}.pth".format("adam"))
         torch.save(self.optimizer.state_dict(), save_path)
         
-    def add_img_disparity_loss_to_tensorboard(self, disp, img, automask, loss, reproj, img_num, name):
+    def add_img_disparity_loss_to_tensorboard(self, disp: torch.Tensor, img: torch.Tensor, automask: torch.Tensor,
+                                              loss: torch.Tensor, reproj: torch.Tensor, img_num: int, name: str):
         """
         Adds image disparity map, and automask to tensorboard
-        :param [tensor] disp: Disparity map outputted by the network
-        :param [tensor] img: Original image
-        :param [tensor] automask: Automask
-        :param [torch.Tensor] loss: Minimum photometric error as calculated in loss functions
-        :param [int] img_num: The index of the input image in the training/validation file
-        :param [String] name: Differentiates between training/validation/evaluation
+        :param disp: Disparity map outputted by the network
+        :param img: Original image
+        :param automask: The automasking
+        :param loss: Minimum photometric error as calculated in loss functions
+        :param reproj: The reprojections
+        :param img_num: The index of the input image in the training/validation file
+        :param name: Differentiates between training/validation/evaluation
         """
         # Processing disparity map
         disp_np = disp.squeeze().cpu().detach().numpy()
@@ -536,10 +538,10 @@ class Trainer:
             self.writer.add_image(f"{name} Forward Reprojection/Epoch: {self.epoch + 1}",
                                   reproj[reproj_index+1], img_num)
 
-    def add_qualitative_to_tensorboard(self, qualitative):
+    def add_qualitative_to_tensorboard(self, qualitative: torch.Tensor):
         """
         Adds the generated qualitative images to tensorboard
-        :param [torch.Tensor] qualitative: A torch tensor of the generated depth maps in dimension [batch_size, 1, H, W]
+        :param qualitative: A torch tensor of the generated depth maps in dimension [batch_size, 1, H, W]
         """
         # Processing disparity map
         disp_np = qualitative.squeeze(1).cpu().detach().numpy()
@@ -550,12 +552,12 @@ class Trainer:
             colormapped_disp = (mapper.to_rgba(disp_np[i])[:, :, :3] * 255).astype(np.uint8)
             self.writer.add_image(f"Qualitative Images/Epoch: {self.epoch + 1}", transforms.ToTensor()(colormapped_disp), i)
 
-    def add_metrics_to_tensorboard(self, metrics, labels, use_lidar):
+    def add_metrics_to_tensorboard(self, metrics: list, labels: list, use_lidar: bool):
         """
         Adds metrics to tensorboard with given metric values and their corresponding values
-        :param [list] metrics: A list of floats representing each metric
-        :param [list] labels: A list of strings (same length as metrics) that describe the title of the metric
-        :param [bool] use_lidar: Setting to True -->  Lidar data (eigen), False --> improved GT maps (eigen_benchmark)
+        :param metrics: A list of floats representing each metric
+        :param labels: A list of strings (same length as metrics) that describe the title of the metric
+        :param use_lidar: Setting to True -->  Lidar data (eigen), False --> improved GT maps (eigen_benchmark)
         """
         name = "Lidar "
         if not use_lidar:

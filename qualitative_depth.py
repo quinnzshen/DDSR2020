@@ -16,12 +16,12 @@ from torchvision.utils import save_image
 from torchvision import transforms
 
 
-def generate_qualitative(log_dir, epoch):
+def generate_qualitative(log_dir: str, epoch: int) -> torch.Tensor:
     """
     Generates qualitative images based on a specified directory containing a config and an epoch number.
-    :param [str] log_dir: Path to the config in the experiments directory that the model was trained on
-    :param [int] epoch: Epoch number corresponding to the model that metrics will be evaluated on
-    :return [torch.Tensor]: Tensor representing the generated qualitative depth maps in dimension [B, 1, H, W]
+    :param log_dir: Path to the config in the experiments directory that the model was trained on
+    :param epoch: Epoch number corresponding to the model that metrics will be evaluated on
+    :return: Tensor representing the generated qualitative depth maps in dimension [B, 1, H, W]
     """
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 

@@ -11,19 +11,19 @@ default_collate_err_msg_format = (
 
 
 class Collator(object):
-    def __init__(self, height, width):
+    def __init__(self, height: int, width: int):
         """
         Creates an instance of TrainerCollator
-        :param [int] height: image height used in training
-        :param [int] width: image width used in training
+        :param height: image height used in training
+        :param width: image width used in training
         """
         self.height = height
         self.width = width
 
-    def __call__(self, batch):
+    def __call__(self, batch: list):
         """
         Puts each data field into a tensor with outer dimension batch size
-        :param [list] batch: List of information for each batch
+        :param batch: List of information for each batch
         """
         elem = batch[0]
         elem_type = type(elem)

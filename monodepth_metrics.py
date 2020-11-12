@@ -26,10 +26,10 @@ MIN_DEPTH = 0.001
 MAX_DEPTH = 80
 
 
-def get_labels():
+def get_labels() -> list:
     """
     Gets the lables for the metrics
-    :return [list]: List of strings representing the respective metrics
+    :return: List of strings representing the respective metrics
     """
     labels = ["metric_time", "abs_rel", "sq_rel", "rmse", "rmse_log", "a1", "a2", "a3"]
     for i in BINS:
@@ -37,8 +37,11 @@ def get_labels():
     return labels
 
 
-def compute_errors(gt, pred):
+def compute_errors(gt: np.ndarray, pred: np.ndarray) -> np.ndarray:
     """Computation of error metrics between predicted and ground truth depths. Taken from Monodepth2
+    :param gt: Ground truth depth information
+    :param pred: Predicted depths
+    :return: NumPy array with respective metrics
     """
     metrics = np.empty(7 + len(BINS) * 2, dtype=np.float64)
     thresh = np.maximum((gt / pred), (pred / gt))
@@ -69,11 +72,12 @@ def compute_errors(gt, pred):
     return metrics
 
 
-def run_metrics(experiment_dir, epoch, use_lidar):
+def run_metrics(experiment_dir: str, epoch: int, use_lidar: bool) -> tuple:
     """Computes metrics based on a specified directory containing a config and an epoch number. Adapted from Monodepth2
-    :param [str] log_dir: Path to the config directory that the model was trained on
+    :param [str] experiment_dir: Path to the config directory that the model was trained on
     :param [int] epoch: Epoch number corresponding to the model that metrics will be evaluated on
     :param [bool] use_lidar: Setting to True -->  Lidar data (eigen), False --> improved GT maps (eigen_benchmark)
+    :return: Returns mean metrics and their labels
     """
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -207,7 +211,7 @@ def run_metrics(experiment_dir, epoch, use_lidar):
 
 
 def run_metrics_all_epochs(experiment_dir, use_lidar):
-    if (use_lidar):
+    if use_lidar:
         metrics_file = open(os.path.join(experiment_dir, "lidar_metrics.csv"), "a", newline='')
     else:
         metrics_file = open(os.path.join(experiment_dir, "kitti_gt_maps_metrics.csv"), "a", newline='')
