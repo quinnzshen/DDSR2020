@@ -8,7 +8,7 @@ DATAFRAME_COLUMNS = ["path", "frames_from_begin", "frames_from_end"]
 
 
 class KittiDataset(Dataset):
-    def __init__(self, root_dir: str, dataset_index: pd.DataFrame, previous_frames: int, next_frames: int, is_jpeg: bool, crop=False, color="RGB"):
+    def __init__(self, root_dir: str, dataset_index: pd.DataFrame, previous_frames: int, next_frames: int, is_jpeg: bool, crop: bool = False, color: str = "RGB"):
         """
         Initializes the Dataset, given the root directory of the data and a dataframe of the paths to the dataset.
         :param root_dir: string containing the path to the root directory

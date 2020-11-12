@@ -6,14 +6,14 @@ import torch
 SURROUNDING_LIDAR_COLOR = np.array([[.75, .75, .75]])
 
 
-def rel_pose_from_rotation_matrix_translation_vector(relative_translation, relative_rotation):
+def rel_pose_from_rotation_matrix_translation_vector(relative_translation: torch.Tensor, relative_rotation: torch.Tensor) -> torch.Tensor:
     """
     This function computes the relative pose matrix that relates the positions of the target and source cameras.
-    :param [torch.Tensor] relative_translation: [3, 1] vector representing the relative translation between the camera that
+    :param relative_translation: [3, 1] vector representing the relative translation between the camera that
     captured the source image and the camera that captured the target image.
-    :param [torch.Tensor] relative_rotation: [3, 3] matrix representing the relative rotation between the camera that
+    :param relative_rotation: [3, 3] matrix representing the relative rotation between the camera that
     captured the source image and the camera that captured the target image.
-    :return: torch.Tensor of shape [4, 4] that relates the positions of the target and source cameras.
+    :return: Tensor of shape [4, 4] that relates the positions of the target and source cameras.
     """
     pose = torch.eye(4)
     pose[:3, :3] = relative_rotation
@@ -21,14 +21,15 @@ def rel_pose_from_rotation_matrix_translation_vector(relative_translation, relat
     return pose
 
 
-def reproject_source_to_target(tgt_intrinsic, src_intrinsic, lidar_point_coord_camera_image_tgt, relative_pose):
+def reproject_source_to_target(tgt_intrinsic: np.ndarray, src_intrinsic: np.ndarray,
+                               lidar_point_coord_camera_image_tgt: np.ndarray, relative_pose: np.ndarray) -> tuple:
     """
     This function computes which pixels in the source image a given set of target pixels map to.
-    :param [numpy.array] tgt_intrinsic: [3, 3] intrinsic matrix for camera capturing target image.
-    :param [numpy.array] src_intrinsic: [3, 3] intrinsic matrix for camera capturing source image.
-    :param [numpy.array] lidar_point_coord_camera_image_tgt: [N, 3] contains target lidar points on target image plane, each row is format [X, Y, depth]
-    :param [numpy.array] relative_pose: [4, 4] relates the positions of the target and source cameras.
-    :return: numpy.array of shape [N, 2] containing coordinates for pixels in the target image and numpy.array of shape [N, 2] 
+    :param tgt_intrinsic: [3, 3] intrinsic matrix for camera capturing target image.
+    :param src_intrinsic: [3, 3] intrinsic matrix for camera capturing source image.
+    :param lidar_point_coord_camera_image_tgt: [N, 3] contains target lidar points on target image plane, each row is format [X, Y, depth]
+    :param relative_pose: [4, 4] relates the positions of the target and source cameras.
+    :return: Array of shape [N, 2] containing coordinates for pixels in the target image and array of shape [N, 2]
     containing coordinates for pixels in the source image that those target pixels map to.
     """
     # Get depth values for image frame target lidar points.
@@ -50,14 +51,14 @@ def reproject_source_to_target(tgt_intrinsic, src_intrinsic, lidar_point_coord_c
     return lidar_point_coord_camera_image_tgt, lidar_point_coord_camera_image_src
 
 
-def plot_sparse_img_and_surrounding_lidar(front_lidar_points_image_plane, pixel_coords, colors):
+def plot_sparse_img_and_surrounding_lidar(front_lidar_points_image_plane: np.ndarray, pixel_coords: np.ndarray, colors: np.ndarray):
     """
     This function sparsely plots an image and the lidar points surrounding it.
-    :param [numpy.array] front_lidar_points_image_plane: [N, 3] contains the pixel coordinates of all of the lidar points that 
+    :param front_lidar_points_image_plane: [N, 3] contains the pixel coordinates of all of the lidar points that
     are in front of the velodyne sensor.
-    :param [numpy.array] pixel_coords: [N, 2] contains the coordinates of the pixels of the image that are to be plotted, each row 
+    :param pixel_coords: [N, 2] contains the coordinates of the pixels of the image that are to be plotted, each row
     is format [x, y]
-    :param [numpy.array] colors: [N, 3] each row contains the RGB values for the color of each image pixel that is to be plotted.
+    :param colors: [N, 3] each row contains the RGB values for the color of each image pixel that is to be plotted.
     :return: None. Plots image and surrounding lidar points.
     """
     plt.figure(figsize=(40, 7.5))
@@ -69,12 +70,12 @@ def plot_sparse_img_and_surrounding_lidar(front_lidar_points_image_plane, pixel_
     plt.show()
 
 
-def calc_transformation_matrix(rotation, translation):
+def calc_transformation_matrix(rotation: np.ndarray, translation: np.ndarray) -> np.ndarray:
     """
     Calculates the homogeneous transformation matrix given relative rotation and translation
-    :param [np.ndarray] rotation: Shape of [3] containing the relative roll, pitch, and yaw (in radians)
-    :param [np.ndarray] translation: Shape of [3] containing the relative XYZ displacement
-    :return [np.ndarray]: 4x4 matrix that transforms given the relative rotation and translation
+    :param rotation: Shape of [3] containing the relative roll, pitch, and yaw (in radians)
+    :param translation: Shape of [3] containing the relative XYZ displacement
+    :return: 4x4 matrix that transforms given the relative rotation and translation
     """
     sin_rot = np.sin(rotation)
     cos_rot = np.cos(rotation)
@@ -99,29 +100,3 @@ def calc_transformation_matrix(rotation, translation):
         ],
         [0, 0, 0, 1],
     ], dtype=np.float32)
-
-
-def calc_photo_error(target_image, color_points):
-    """
-    Calculates photometric error given the target image and coordinates of the projected points and their colors
-    :param [np.ndarray] target_image: Shape of [H, W, 3], the target image to be compared to
-    :param [np.ndarray] color_points: The projected point information, in format [x, y, depth, 1, R, G, B]
-    :return [np.ndarray]: Float array of shape [H, W], where each value is the photometric error at that position if
-    there is was a color point there. If not, that position is just 0
-    """
-    pixel_error = np.zeros((target_image.shape[0], target_image.shape[1]), dtype=np.float32)
-    pixel_error[color_points[:, 1], color_points[:, 0]] = np.sqrt(np.sum(np.square(color_points[:, 4:] - target_image[color_points[:, 1], color_points[:, 0]]), axis=1))
-    return pixel_error
-
-
-def calc_photo_error_velo(target_image, color_points):
-    """
-    Calculates photometric error given the target image and coordinates of the projected points and their colors
-    :param [np.ndarray] target_image: Shape of [H, W, 3], the target image to be compared to
-    :param [np.ndarray] color_points: The projected point information, in format [x, y, depth, 1, R, G, B]
-    :return [np.ndarray]: Float array of shape [N], where N is the number of color_points. Each value represents the
-    photometric error of the associated point in color_points when compared to the image
-    """
-    velo_error = np.zeros(color_points.shape[0], dtype=np.float32)
-    velo_error[:] = np.sqrt(np.sum(np.square(color_points[:, 4:] - target_image[color_points[:, 1], color_points[:, 0]]), axis=1))
-    return velo_error

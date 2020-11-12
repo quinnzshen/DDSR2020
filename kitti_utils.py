@@ -204,7 +204,7 @@ def get_nearby_frames_data(path_name: str, idx: int, previous_frames: int, next_
     return nearby_frames
 
 
-def get_camera_data(path_name: str, idx: int, is_jpeg=True) -> dict:
+def get_camera_data(path_name: str, idx: int, is_jpeg: bool = True) -> dict:
     """
     Gets the basic camera information given the path name to the scene and the frame number within
     that scene.
@@ -387,22 +387,6 @@ def get_relative_pose_between_consecutive_frames(scene_path: str, target: int, s
     rot_cam = np.array([-rot[1], -rot[2], rot[0]])
     rel_pose = calc_transformation_matrix(rot_cam, pos_cam)
     return torch.from_numpy(rel_pose)
-
-
-def get_pose(scene_path: str, frame: int) -> torch.Tensor:
-    """
-    This function gets the pose matrix with respect to the frame at index 0 for a given frame.
-    :param scene_path: Path name to the scene folder
-    :param frame: the index of the frame that pose is being calculated for.
-    :return: tensor of shape [4, 4] containing the pose of the image at index frame with respect to the the image at index 0.
-    """
-    pose = get_relative_pose_between_consecutive_frames(scene_path, frame, 0)
-    rel_translation = torch.zeros(3)
-    for idx in range(0, frame - 1):
-        rel_translation += get_relative_pose_between_consecutive_frames(scene_path, idx, idx + 1)[:3, 3]
-    pose[:3, 3] = rel_translation
-
-    return pose
 
 
 def get_stereo_pose() -> torch.Tensor:

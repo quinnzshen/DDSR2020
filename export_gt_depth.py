@@ -7,6 +7,7 @@ import PIL.Image as pil
 
 from kitti_utils import load_lidar_points, generate_depth_map
 
+
 def export_gt_depths(split_path, gt_depth_dir, output_dir, use_lidar):
 
     split_folder = split_path
@@ -43,7 +44,8 @@ def export_gt_depths(split_path, gt_depth_dir, output_dir, use_lidar):
     print("Saving to {}".format(output_path))
 
     np.savez_compressed(output_path, data=np.array(gt_depths))    
-    
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="ddsr options")
     parser.add_argument("--split_path",

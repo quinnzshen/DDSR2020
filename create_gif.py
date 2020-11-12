@@ -14,12 +14,12 @@ from third_party.monodepth2.DepthDecoder import DepthDecoder
 from fpn import FPN
 import numpy as np
 
-def generate_gif(experiment_dir, epoch):
+
+def generate_gif(experiment_dir: str, epoch: int):
     """
     Generates a gif based on a specified directory containing a config, an epoch number, and a split file.
-    :param [str] log_dir: Path to the config in the experiments directory that the model was trained on
-    :param [int] epoch: Epoch number corresponding to the model that metrics will be evaluated on
-    :return [torch.Tensor]: Tensor representing the generated qualitative depth maps in dimension [B, 1, H, W]
+    :param experiment_dir: Path to the config in the experiments directory that the model was trained on
+    :param epoch: Epoch number corresponding to the model that metrics will be evaluated on
     """
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -65,8 +65,7 @@ def generate_gif(experiment_dir, epoch):
     disp_maps = []
     images = []
     
-    print("-> Generating gif images with size {}x{}".format(
-        dims[1], dims[0]))
+    print(f"-> Generating gif images with size {dims[1]}x{dims[0]}")
     
     with torch.no_grad():
         for batch in dataloader:
@@ -100,8 +99,9 @@ def generate_gif(experiment_dir, epoch):
     save_folder = os.path.join(experiment_dir, "gifs")
     if not os.path.exists(save_folder):
         os.makedirs(save_folder)
-    imageio.mimsave(os.path.join(save_folder, "gif_epoch_{}.gif".format(epoch-1)), gif_images)
+    imageio.mimsave(os.path.join(save_folder, f"gif_epoch_{epoch-1}.gif"), gif_images)
     print("\n-> Done!")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="qualitative options")
