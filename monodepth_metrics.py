@@ -9,7 +9,7 @@ import torch
 import time
 from torch.utils.data import DataLoader
 import yaml
-from DensenetEncoder import DensenetEncoder
+from densenet_encoder import DensenetEncoder
 from third_party.monodepth2.ResnetEncoder import ResnetEncoder
 from third_party.monodepth2.DepthDecoder import DepthDecoder
 from third_party.monodepth2.layers import disp_to_depth

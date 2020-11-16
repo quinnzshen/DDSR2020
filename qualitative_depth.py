@@ -4,7 +4,7 @@ import torch
 from torch.utils.data import DataLoader
 import yaml
 from collate import Collator
-from DensenetEncoder import DensenetEncoder
+from densenet_encoder import DensenetEncoder
 from kitti_dataset import KittiDataset
 import matplotlib as mpl
 import matplotlib.cm as cm

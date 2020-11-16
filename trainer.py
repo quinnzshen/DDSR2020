@@ -20,7 +20,7 @@ import yaml
 from tensorflow.image import decode_jpeg
 
 from collate import Collator
-from DensenetEncoder import DensenetEncoder
+from densenet_encoder import DensenetEncoder
 from kitti_dataset import KittiDataset
 from loss import calc_loss, GenerateReprojections
 from monodepth_metrics import run_metrics, get_labels
