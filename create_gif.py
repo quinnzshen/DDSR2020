@@ -151,7 +151,7 @@ def generate_gif(exp_dir, exp_epoch, baseline_dir, baseline_epoch):
     save_folder = os.path.join(exp_dir, "gifs")
     if not os.path.exists(save_folder):
         os.makedirs(save_folder)
-    imageio.mimsave(os.path.join(save_folder, "gif_epoch_{}.gif".format(exp_epoch-1)), gif_images)
+    imageio.mimsave(os.path.join(save_folder, "gif_epoch_{}.gif".format(exp_epoch)), gif_images)
     print("\n-> Done!")
 
 if __name__ == "__main__":
