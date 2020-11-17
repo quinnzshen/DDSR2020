@@ -2,8 +2,8 @@
 Dense Depth Summer Research 2020 repository.
 
 <p align="center">
-  <img align="center" src="assets/example_asset.gif" alt="This is an example gif for DDSR2020." width="700" /><br>
-  <i>This is an example visual that we'll add for DDSR2020.</i>
+  <img align="center" src="assets/densenet_ms.gif" alt="Qualitative DenseNet121(MS) results on KITTI dataset scene." width="700" /><br>
+  <i>A scene from the KITTI dataset. Top: Original input image, Middle: Baseline Monodepth2, Bottom: DenseNet121 Result.</i>
 </p>
 
 ## Environment setup
