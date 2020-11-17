@@ -9,6 +9,7 @@ dependencies:
   - numpy
   - opencv
   - scipy
+  - imageio
   - ipykernel
   - pytest
   - pandas

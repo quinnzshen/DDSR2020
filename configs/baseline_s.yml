@@ -20,11 +20,6 @@ depth_network:
   fpn: False
   pretrained: True
 
-pose_network:
-  layers: 18
-  densenet: False
-  pretrained: True
-
 image:
   width: 1024
   height: 320
@@ -37,3 +32,4 @@ dataset_config_paths:
   test_lidar: configs/datasets/eigen_test_dataset.yml
   test_gt_map: configs/datasets/eigen_benchmark_test_dataset.yml
   qual: configs/datasets/qualitative_dataset.yml
+  gif: configs/datasets/gif_dataset.yml

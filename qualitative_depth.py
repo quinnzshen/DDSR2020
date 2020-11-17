@@ -6,15 +6,19 @@ import yaml
 from collate import Collator
 from DensenetEncoder import DensenetEncoder
 from kitti_dataset import KittiDataset
+import matplotlib as mpl
+import matplotlib.cm as cm
 from third_party.monodepth2.ResnetEncoder import ResnetEncoder
 from third_party.monodepth2.DepthDecoder import DepthDecoder
 from fpn import FPN
 from color_utils import convert_rgb
-
+import numpy as np
+from torchvision.utils import save_image
+from torchvision import transforms
 
 def generate_qualitative(log_dir, epoch):
     """
-    Generates metrics based on a specified directory containing a config and an epoch number.
+    Generates qualitative images based on a specified directory containing a config and an epoch number.
     :param [str] log_dir: Path to the config in the experiments directory that the model was trained on
     :param [int] epoch: Epoch number corresponding to the model that metrics will be evaluated on
     :return [torch.Tensor]: Tensor representing the generated qualitative depth maps in dimension [B, 1, H, W]
@@ -60,7 +64,7 @@ def generate_qualitative(log_dir, epoch):
         models[model_name].cuda()
         models[model_name].eval()
 
-    outputs = []
+    disp_maps = []
 
     print("-> Generating qualitative predictions with size {}x{}".format(
         dims[1], dims[0]))
@@ -75,13 +79,31 @@ def generate_qualitative(log_dir, epoch):
             else:
                 output = models["depth_decoder"](models["depth_encoder"](inputs))
 
-            outputs.append(output[("disp", 0)])
-    outputs = torch.cat(outputs)
+            disp_maps.append(output[("disp", 0)])
+    
+    disp_maps = torch.cat(disp_maps)
+    
+    print("-> Saving images")
+    
+    outputs = []
+    for i, disp in enumerate(disp_maps):
+        disp_np = disp.squeeze().cpu().detach().numpy()
+        vmax = np.percentile(disp_np, 95)
+        normalizer = mpl.colors.Normalize(vmin=disp_np.min(), vmax=vmax)
+        mapper = cm.ScalarMappable(norm=normalizer, cmap='magma')
+        colormapped_disp = (mapper.to_rgba(disp_np)[:, :, :3] * 255).astype(np.uint8)
+        final_disp = transforms.ToTensor()(colormapped_disp)
+        outputs.append(final_disp)
 
+        save_folder = os.path.join(log_dir, "qual_images", "qual_images_{}".format(epoch-1))
+        if not os.path.exists(save_folder):
+            os.makedirs(save_folder)
+        path = os.path.join(save_folder, "img_" + str(i)+ ".jpeg")
+        save_image(final_disp, path)
+   
     print("\n-> Done!")
 
-    return outputs
-
+    return disp_maps
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="qualitative options")
