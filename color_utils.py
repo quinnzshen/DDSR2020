@@ -107,34 +107,3 @@ def color_difference(image1, image2, color="RGB"):
 
 def batch_channel_matmul(mat, images):
     return (images.permute(0, 2, 3, 1) @ mat.to(images.device).T).permute(0, 3, 1, 2)
-
-
-# ble = torch.tensor([
-#     [255, 255, 255],
-#     [0, 0, 0],
-#     [1, 1, 1]
-# ])
-# ble = ble.permute(1, 0).unsqueeze(1).unsqueeze(0) / 255.
-#
-# bcv = np.array(ble[0].permute(1, 2, 0))
-#
-# print(ble.shape)
-# nice = rgb_to_xyz(ble)
-# nice2 = torch.from_numpy(cv2.cvtColor(bcv, cv2.COLOR_RGB2XYZ)).permute(2, 0, 1).unsqueeze(0)
-# print(nice, "OURS")
-# print(nice2, "CV2")
-# print(nice.shape)
-# print(nice[0, :, 0, 2])
-# print("BRUH")
-# print(xyz_to_jzazbz(nice))
-#
-#
-# xy = convert_rgb(ble, "HSV")
-# print(xy.shape)
-# print(xy)
-
-
-
-
-
-
