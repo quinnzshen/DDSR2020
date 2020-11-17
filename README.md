@@ -3,7 +3,8 @@ Dense Depth Summer Research 2020 repository.
 
 <p align="center">
   <img align="center" src="assets/densenet_ms.gif" alt="Qualitative DenseNet121(MS) results on KITTI dataset scene." width="700" /><br>
-  <i>A scene from the KITTI dataset. Top: Original input image, Middle: Baseline Monodepth2, Bottom: DenseNet121 Result.</i>
+  <i>An example scene from the KITTI dataset.</i><br>
+  <i>Top: Original input image, Middle: Baseline Monodepth2, Bottom: DenseNet121 Result.</i>
 </p>
 
 ## Environment setup
