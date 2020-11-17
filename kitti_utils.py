@@ -3,6 +3,7 @@ from __future__ import absolute_import, division, print_function
 import numpy as np
 from PIL import Image
 import torch
+import cv2
 from collections import Counter
 
 import os
@@ -196,7 +197,7 @@ def get_nearby_frames_data(path_name: str, idx: int, previous_frames: int, next_
         if relative_idx == 0:
             continue
         try:
-            nearby_frames[relative_idx] = {'camera_data': get_camera_data(path_name, idx + relative_idx, is_jpeg),
+            nearby_frames[relative_idx] = {'camera_data': get_camera_data(path_name, idx + relative_idx, is_jpeg=is_jpeg),
                                            'pose': get_relative_pose_between_consecutive_frames(path_name, idx, idx+relative_idx)}
         except FileNotFoundError:
             nearby_frames[relative_idx] = {"camera_data": {},
@@ -225,10 +226,11 @@ def get_camera_data(path_name: str, idx: int, is_jpeg: bool = True) -> dict:
             camera_image_path = os.path.join(path_name, f"{camera_path}/data/{idx:010}.png")
 
         timestamp_path = os.path.join(path_name, f"{camera_path}/timestamps.txt")
-        camera_image = torch.from_numpy(np.array(Image.open(camera_image_path))).float() / 255.0
+        camera_image = np.array(Image.open(camera_image_path), dtype=np.float32) / 255.
+
         timestamp = get_timestamp_nsec(timestamp_path, idx)
 
-        camera_data[f"{camera_name}_image"] = camera_image
+        camera_data[f"{camera_name}_image"] = torch.from_numpy(camera_image)
         camera_data[f"{camera_name}_orig_shape"] = torch.tensor(camera_image.shape)
         camera_data[f"{camera_name}_capture_time_nsec"] = timestamp
 

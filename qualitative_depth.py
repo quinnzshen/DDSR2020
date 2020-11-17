@@ -11,6 +11,7 @@ import matplotlib.cm as cm
 from third_party.monodepth2.ResnetEncoder import ResnetEncoder
 from third_party.monodepth2.DepthDecoder import DepthDecoder
 from fpn import FPN
+from color_utils import convert_rgb
 import numpy as np
 from torchvision.utils import save_image
 from torchvision import transforms
@@ -30,16 +31,16 @@ def generate_qualitative(log_dir: str, epoch: int) -> torch.Tensor:
     with open(config_path) as file:
         config = yaml.load(file, Loader=yaml.Loader)
 
-    dataset = KittiDataset.init_from_config(config["dataset_config_paths"]["qual"], config["image"]["crop"], config["image"]["color"])
+    dataset = KittiDataset.init_from_config(config["dataset_config_paths"]["qual"], config["image"]["crop"])
     dataloader = DataLoader(dataset, config["batch_size"], shuffle=False,
                             collate_fn=Collator(config["image"]["height"], config["image"]["width"]), num_workers=config["num_workers"], pin_memory=True)
    
     depth_network_config = config["depth_network"]
 
     if depth_network_config.get("densenet"):
-        models = {"depth_encoder": DensenetEncoder(depth_network_config["layers"], False)}
+        models = {"depth_encoder": DensenetEncoder(depth_network_config["layers"], False, color=config["image"]["color"])}
     else:
-        models = {"depth_encoder": ResnetEncoder(depth_network_config["layers"], False)}
+        models = {"depth_encoder": ResnetEncoder(depth_network_config["layers"], False, color=config["image"]["color"])}
     decoder_num_ch = models["depth_encoder"].num_ch_enc
     
     if depth_network_config.get("fpn"):
@@ -71,6 +72,8 @@ def generate_qualitative(log_dir: str, epoch: int) -> torch.Tensor:
     with torch.no_grad():
         for batch in dataloader:
             inputs = batch["stereo_left_image"].to(device)
+            inputs = convert_rgb(inputs, config["image"]["color"])
+
             if config.get("use_fpn"):
                 output = models["depth_decoder"](models["fpn"](models["depth_encoder"](inputs)))
             else:
