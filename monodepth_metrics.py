@@ -235,7 +235,7 @@ if __name__ == "__main__":
     parser.add_argument("--all_epochs",
                         action='store_true',
                         help="Activating this flag runs metrics for all epochs and stores the results in a csv.")
-    parser.add_argument("--use_lidar",
+    parser.add_argument("--lidar",
                         action='store_true',
                         help="Activating this flag uses lidar instead of gt kitti depth maps")
     opt = parser.parse_args()
