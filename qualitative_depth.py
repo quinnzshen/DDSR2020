@@ -92,7 +92,7 @@ def generate_qualitative(exp_dir, epoch):
         final_disp = transforms.ToTensor()(colormapped_disp)
         outputs.append(final_disp)
 
-        save_folder = os.path.join(exp_dir, "qual_images", "qual_images_{}".format(epoch-1))
+        save_folder = os.path.join(exp_dir, "qual_images", "qual_images_epoch_{}".format(epoch))
         if not os.path.exists(save_folder):
             os.makedirs(save_folder)
         path = os.path.join(save_folder, "img_" + str(i)+ ".jpeg")
