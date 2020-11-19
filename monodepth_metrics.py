@@ -65,7 +65,7 @@ def compute_errors(gt, pred):
     return metrics
 
 
-def run_metrics(experiment_dir, epoch, use_lidar):
+def run_metrics(exp_dir, epoch, use_lidar):
     """Computes metrics based on a specified directory containing a config and an epoch number. Adapted from Monodepth2
     :param [str] log_dir: Path to the config directory that the model was trained on
     :param [int] epoch: Epoch number corresponding to the model that metrics will be evaluated on
@@ -76,7 +76,7 @@ def run_metrics(experiment_dir, epoch, use_lidar):
     MAX_DEPTH = 80
 
     # Load data from config
-    config_path = os.path.join(experiment_dir, "config.yml")
+    config_path = os.path.join(exp_dir, "config.yml")
     with open(config_path) as file:
         config = yaml.load(file, Loader=yaml.Loader)
     
@@ -103,7 +103,7 @@ def run_metrics(experiment_dir, epoch, use_lidar):
         decoder_num_ch = models["fpn"].num_ch_pyramid
     models["depth_decoder"] = DepthDecoder(decoder_num_ch)
 
-    weights_folder = os.path.join(experiment_dir, "models", f'weights_{epoch - 1}')
+    weights_folder = os.path.join(exp_dir, "models", f'weights_{epoch - 1}')
     print(f'-> Loading weights from {weights_folder}')
 
     for model_name in models:
@@ -205,20 +205,20 @@ def run_metrics(experiment_dir, epoch, use_lidar):
     print("\n-> Done!")
     return mean_errors, labels
 
-def run_metrics_all_epochs(experiment_dir, use_lidar):
+def run_metrics_all_epochs(exp_dir, use_lidar):
     if(use_lidar):
-        metrics_file = open(os.path.join(experiment_dir, "lidar_metrics.csv"),"a", newline='')
+        metrics_file = open(os.path.join(exp_dir, "lidar_metrics.csv"),"a", newline='')
     else:
-        metrics_file = open(os.path.join(experiment_dir, "kitti_gt_maps_metrics.csv"),"a", newline='')
+        metrics_file = open(os.path.join(exp_dir, "kitti_gt_maps_metrics.csv"),"a", newline='')
     metrics_writer = csv.writer(metrics_file, delimiter=',')
     metrics_list = ["epoch"]
     metrics_list.extend(get_labels())
     metrics_writer.writerow(metrics_list)
     
-    weights_folder = os.path.join(experiment_dir, "models")
+    weights_folder = os.path.join(exp_dir, "models")
     num_epochs = len(next(os.walk(weights_folder))[1])
     for i in range(num_epochs):
-        metrics, metric_labels = run_metrics(experiment_dir, i+1, use_lidar)
+        metrics, metric_labels = run_metrics(exp_dir, i+1, use_lidar)
         metrics = [round(num, 3) for num in metrics]
         metrics.insert(0, i+1)
         metrics_writer.writerow(metrics)
@@ -226,7 +226,7 @@ def run_metrics_all_epochs(experiment_dir, use_lidar):
     
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="metrics options")
-    parser.add_argument("--experiment_dir",
+    parser.add_argument("--exp_dir",
                         type=str,
                         help="path to experiment directory")
     parser.add_argument("--epoch",
@@ -241,6 +241,6 @@ if __name__ == "__main__":
     opt = parser.parse_args()
     
     if (opt.all_epochs):
-        run_metrics_all_epochs(opt.experiment_dir, opt.use_lidar)
+        run_metrics_all_epochs(opt.exp_dir, opt.use_lidar)
     else:
-        run_metrics(opt.experiment_dir, opt.epoch, opt.use_lidar)
+        run_metrics(opt.exp_dir, opt.epoch, opt.use_lidar)
