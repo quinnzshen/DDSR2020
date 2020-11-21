@@ -390,17 +390,13 @@ class Trainer:
             _, depths = disp_to_depth(disp, self.min_depth, self.max_depth)
 
             # Input scaling
-            inputs_scale = F.interpolate(input_inputs, [h, w], mode="bilinear", align_corners=False)
+            inputs_scale = F.interpolate(pure_inputs, [h, w], mode="bilinear", align_corners=False)
 
             # Sources and pose scaling
             sources_scale = []
             for image in sources:
                 sources_scale.append(F.interpolate(image, [h, w], mode="bilinear", align_corners=False))
-
-            # If scale is 0
-            if not scale:
-                sources_scale_pure = torch.stack(sources_scale, dim=0)
-            sources_scale = torch.stack([convert_rgb(img, self.image_config["color"]) for img in sources_scale])
+            sources_scale = torch.stack(sources_scale, dim=0)
 
             # Intrinsics and scaling
             out_shape = torch.tensor([h, w]).to(self.device)
@@ -432,7 +428,7 @@ class Trainer:
             if not scale:
                 for_tboard["reprojected"] = torch.stack(
                     self.gen_reproj[scale](
-                        sources_scale_pure, depths, poses, tgt_intrinsics_scale, src_intrinsics_scale, local_batch_size
+                        sources_scale, depths, poses, tgt_intrinsics_scale, src_intrinsics_scale, local_batch_size
                     )
                 )
 
@@ -442,7 +438,7 @@ class Trainer:
             loss_outputs = {"reproj": reprojected,
                             "disparities": disp}
 
-            loss, loss_vis = calc_loss(loss_inputs, loss_outputs, scale, color=self.image_config["color"])
+            loss, loss_vis = calc_loss(loss_inputs, loss_outputs, scale, color="RGB")
 
             if not scale:
                 for_tboard["loss_vis"] = loss_vis
