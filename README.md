@@ -7,7 +7,7 @@ In this repository, we replicate the research of [Monodepth2 - Digging into Self
   <i>Top: Original input image, Middle: Baseline Monodepth2 (ResNet18), Bottom: DenseNet121 Result.</i>
 </p>
 
-# Pre-Trained Model Checkpoints
+## Pre-Trained Model Checkpoints
 | Model Name | Training Modality | 
 |------------|-------------------|
 | [Baseline (M)](https://drive.google.com/file/d/1i7KLIYCceUlVi1nnKs9PSTjQ09Xepnlw/view?usp=sharing) | Mono |
@@ -18,6 +18,12 @@ In this repository, we replicate the research of [Monodepth2 - Digging into Self
 | [DenseNet (MS)](https://drive.google.com/file/d/15htyrNsY7mUPQJUq_E4krgwC6D6URUvx/view?usp=sharing) | Mono + Stereo |
 
 Note: All models were trained with an image resolution of 1024 x 320.
+
+## Qualitative Evaluation
+<p align="center">
+  <img align="center" src="assets/qualitative-eval.png" alt="Qualitative evaluation comparison of ResNet18 and DenseNet121 dense depth models." width="700" /><br>
+  <i>Some qualitative results comparing ResNet18 vs. DenseNet121 models side-by-side from manually-curated KITTI scenes.</i><br>
+</p>
 
 ## Environment setup
 1. [Install](https://docs.conda.io/projects/conda/en/latest/user-guide/install/) Anaconda. You can install Miniconda if space is limited.
