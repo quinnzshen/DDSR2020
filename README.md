@@ -78,8 +78,8 @@ $ jupyter notebook
 conda env export --no-builds > ddsr_environment.yml
 ```
 
-## Contributing Team 
-Everything done above was accomplished over the span of a few months from a few high school rising seniors and incoming undergraduate freshmen. 
+## Contributing Team :heart:
+Everything done above was accomplished over the span of a few months from a few high school rising seniors :school_satchel: and incoming undergraduate freshmen :mortar_board:. As a mentor, I've been inspired by what these students were able to do, completely virtual, during these pandemic times. You rock! Special shoutout to Alex Jiang and Evan Wang for really making this repository your own. 
 - Quinn Z Shen (Mentor)
 - Alex Jiang
 - Aaron Marmolejos
