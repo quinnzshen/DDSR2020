@@ -1,5 +1,5 @@
-# DDSR2020
-Dense Depth Summer Research 2020 repository.
+# Dense Depth Summer Research (DDSR2020)
+In this repository, we replicate the research of [Monodepth2 - Digging into Self-Supervised Monocular Depth Prediction (ICCV 2019)](https://arxiv.org/abs/1806.01260). Additionally, we explore a few extensions to this research and find that replacing the original residual neural network (ResNet) encoder with a densely connected convoluational network (DenseNet) encoder results in better metrics and faster model covergence. We find that for similar levels of accuracy in dense depth - the DenseNet architecture is more efficient in learned parameters and computation at the trade-off of memory usage during training.
 
 <p align="center">
   <img align="center" src="assets/densenet_ms.gif" alt="Qualitative DenseNet121(MS) results on KITTI dataset scene." width="700" /><br>
