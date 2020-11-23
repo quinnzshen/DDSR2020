@@ -4,8 +4,19 @@ In this repository, we replicate the research of [Monodepth2 - Digging into Self
 <p align="center">
   <img align="center" src="assets/densenet_ms.gif" alt="Qualitative DenseNet121(MS) results on KITTI dataset scene." width="700" /><br>
   <i>An example scene from the KITTI dataset.</i><br>
-  <i>Top: Original input image, Middle: Baseline Monodepth2, Bottom: DenseNet121 Result.</i>
+  <i>Top: Original input image, Middle: Baseline Monodepth2 (ResNet18), Bottom: DenseNet121 Result.</i>
 </p>
+
+# Pre-Trained Model Checkpoints
+| Model Name | Training Modality | 
+|------------|-------------------|
+| [Baseline (M)](https://drive.google.com/file/d/1i7KLIYCceUlVi1nnKs9PSTjQ09Xepnlw/view?usp=sharing) | Mono |
+| [Baseline (S)](https://drive.google.com/file/d/1JptfHY04aG08l4SLUyMsr5zowvtMQtzB/view?usp=sharing) | Stereo |
+| [Baseline (MS)](https://drive.google.com/file/d/1yqVocIQMeDeyJahxz-W7dg756-UG26VR/view?usp=sharing) | Mono + Stereo |
+| [DenseNet (M)](https://drive.google.com/file/d/1cLtV5i3m-cq8YVlEG6dVZKGfA0KyRwz0/view?usp=sharing) | Mono |
+| [DenseNet (S)](https://drive.google.com/file/d/1tVK2jgbZd5g5eBFJm5IAEUAODn6Esr0r/view?usp=sharing) | Stereo |
+| [DenseNet (MS)](https://drive.google.com/file/d/15htyrNsY7mUPQJUq_E4krgwC6D6URUvx/view?usp=sharing) | Mono + Stereo |
+Note: All models were trained with an image resolution of 1024 x 320.
 
 ## Environment setup
 1. [Install](https://docs.conda.io/projects/conda/en/latest/user-guide/install/) Anaconda. You can install Miniconda if space is limited.
