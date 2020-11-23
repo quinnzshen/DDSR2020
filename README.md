@@ -16,6 +16,7 @@ In this repository, we replicate the research of [Monodepth2 - Digging into Self
 | [DenseNet (M)](https://drive.google.com/file/d/1cLtV5i3m-cq8YVlEG6dVZKGfA0KyRwz0/view?usp=sharing) | Mono |
 | [DenseNet (S)](https://drive.google.com/file/d/1tVK2jgbZd5g5eBFJm5IAEUAODn6Esr0r/view?usp=sharing) | Stereo |
 | [DenseNet (MS)](https://drive.google.com/file/d/15htyrNsY7mUPQJUq_E4krgwC6D6URUvx/view?usp=sharing) | Mono + Stereo |
+
 Note: All models were trained with an image resolution of 1024 x 320.
 
 ## Environment setup
