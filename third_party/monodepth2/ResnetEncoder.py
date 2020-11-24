@@ -21,8 +21,8 @@ class ResNetMultiImageInput(models.ResNet):
     def __init__(self, block, layers, num_classes=1000, num_input_images=1):
         super(ResNetMultiImageInput, self).__init__(block, layers)
         self.inplanes = 64
-        self.conv1 = nn.Conv2d(
-            num_input_images * 3, 64, kernel_size=7, stride=2, padding=3, bias=False)
+
+        self.conv1 = nn.Conv2d(num_input_images * 3, 64, kernel_size=7, stride=2, padding=3, bias=False)
         self.bn1 = nn.BatchNorm2d(64)
         self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
@@ -62,7 +62,7 @@ def resnet_multiimage_input(num_layers, pretrained=False, num_input_images=1):
 class ResnetEncoder(nn.Module):
     """Pytorch module for a resnet encoder
     """
-    def __init__(self, num_layers, pretrained, num_input_images=1):
+    def __init__(self, num_layers, pretrained, num_input_images=1, color="RGB"):
         super(ResnetEncoder, self).__init__()
 
         self.num_ch_enc = np.array([64, 64, 128, 256, 512])
@@ -81,13 +81,24 @@ class ResnetEncoder(nn.Module):
         else:
             self.encoder = resnets[num_layers](pretrained)
 
+        if color == "HSV":
+            self.conv1 = nn.Conv2d(4 * num_input_images, self.num_ch_enc[0], kernel_size=7, stride=2, padding=3, bias=False)
+        else:
+            self.conv1 = self.encoder.conv1
+
         if num_layers > 34:
             self.num_ch_enc[1:] *= 4
 
+        self.color = color
+
     def forward(self, input_image):
         self.features = []
-        x = (input_image - 0.45) / 0.225
-        x = self.encoder.conv1(x)
+
+        x = input_image
+        if self.color == "RGB":
+            x = (input_image - 0.45) / 0.225
+
+        x = self.conv1(x)
         x = self.encoder.bn1(x)
         self.features.append(self.encoder.relu(x))
         self.features.append(self.encoder.layer1(self.encoder.maxpool(self.features[-1])))
