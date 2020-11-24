@@ -9,11 +9,10 @@ default_collate_err_msg_format = (
     "default_collate: batch must contain tensors, numpy arrays, numbers, "
     "dicts or lists; found {}")
 
-
 class Collator(object):
     def __init__(self, height, width):
         """
-        Creates an instance of TrainerCollator
+        Creates an instance of TrainerCollator. Adapted from https://github.com/pytorch/pytorch/blob/master/torch/utils/data/_utils/collate.py
         :param [int] height: image height used in training
         :param [int] width: image width used in training
         """

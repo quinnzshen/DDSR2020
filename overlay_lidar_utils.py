@@ -2,7 +2,6 @@ import numpy as np
 from matplotlib import pyplot as plt
 import matplotlib.colors as mcolor
 from plotly import graph_objects as go
-
 import plotly_utils
 
 def project_points_on_image(velo_points, coord2image):

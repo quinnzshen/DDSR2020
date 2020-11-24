@@ -1,7 +1,6 @@
 import argparse
 import csv
 from datetime import datetime
-
 import io
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -34,7 +33,6 @@ from qualitative_depth import generate_qualitative
 LOSS_VIS_SIZE = (10, 4)
 LOSS_VIS_CMAP = "cividis"
 
-
 class Trainer:
     def __init__(self, config_path, start_epoch):
         """
@@ -43,7 +41,6 @@ class Trainer:
         :param [str] config_path: The path to the config file
         :return [Trainer]: Object instance of the trainer
         """
-        
         # Epoch to continue training from (0 if new model)
         self.start_epoch = start_epoch
         
