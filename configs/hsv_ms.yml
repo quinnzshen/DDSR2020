@@ -1,0 +1,39 @@
+num_epochs: 20
+learning_rate: 0.0001
+scheduler_step_size: 15
+weight_decay: 0.1
+batch_size: 12
+num_workers: 12
+use_monocular: True
+use_stereo: True
+min_depth: 0.1
+max_depth: 100
+num_scales: 4  
+tensorboard_step: 1000
+metrics: True
+log_dir: experiments/hsv_ms
+gt_dir: data/kitti_gt
+
+depth_network:
+  layers: 18
+  densenet: False
+  fpn: False
+  pretrained: False
+
+pose_network:
+  layers: 18
+  densenet: False
+  pretrained: False
+
+image:
+  width: 1024
+  height: 320
+  crop: False
+  color: HSV
+
+dataset_config_paths:
+  train: configs/datasets/eigen_zhou_train_dataset.yml
+  val: configs/datasets/eigen_zhou_validation_dataset.yml
+  test_lidar: configs/datasets/eigen_test_dataset.yml
+  test_gt_map: configs/datasets/eigen_benchmark_test_dataset.yml
+  qual: configs/datasets/qualitative_dataset.yml

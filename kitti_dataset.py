@@ -8,7 +8,7 @@ DATAFRAME_COLUMNS = ["path", "frames_from_begin", "frames_from_end"]
 
 
 class KittiDataset(Dataset):
-    def __init__(self, root_dir, dataset_index, previous_frames, next_frames, is_jpeg, crop=False, color="RGB"):
+    def __init__(self, root_dir, dataset_index, previous_frames, next_frames, is_jpeg, crop=False):
         """
         Initializes the Dataset, given the root directory of the data and a dataframe of the paths to the dataset.
         :param root_dir [str]: string containing the path to the root directory
@@ -19,14 +19,13 @@ class KittiDataset(Dataset):
         self.next_frames = next_frames
         self.is_jpeg = is_jpeg
         self.crop = crop
-        self.color = color
         self.dataset_index = dataset_index[
             (dataset_index["frames_from_begin"] >= previous_frames) &
             (dataset_index["frames_from_end"] >= next_frames)
             ].reset_index(drop=True)
 
     @classmethod
-    def init_from_config(cls, config_path, crop, color):
+    def init_from_config(cls, config_path, crop):
         """
         Creates an instance of the class using a config file. The config file supplies the paths to the text files
         containing the all the paths to the data.
@@ -43,7 +42,7 @@ class KittiDataset(Dataset):
                    next_frames=config["next_frames"],
                    is_jpeg=config["is_jpeg"],
                    crop=crop,
-                   color=color)
+                   )
 
     def __len__(self):
         """
@@ -70,10 +69,10 @@ class KittiDataset(Dataset):
         path_name = os.path.join(self.root_dir, os.path.normpath(self.dataset_index["path"][idx]))
         calib_dir = os.path.dirname(path_name)
         idx = int(self.dataset_index["frames_from_begin"][idx])
-        nearby_frames_data = get_nearby_frames_data(path_name, idx, self.previous_frames, self.next_frames, self.is_jpeg)
+        nearby_frames_data = get_nearby_frames_data(path_name, idx, self.previous_frames, self.next_frames, is_jpeg=self.is_jpeg)
         # Taking information from the directory and putting it into the sample dictionary
         sample = {
-            **get_camera_data(path_name, idx, self.is_jpeg),
+            **get_camera_data(path_name, idx, is_jpeg=self.is_jpeg),
             # **get_lidar_data(path_name, idx),
             **{'nearby_frames': nearby_frames_data},
             # **{'image_from_velodyne_matrices': compute_image_from_velodyne_matrices(calib_dir)},
