@@ -85,7 +85,7 @@ def run_metrics(exp_dir, epoch, lidar):
     with open(config_path) as file:
         config = yaml.load(file, Loader=yaml.Loader)
     
-    if use_lidar:
+    if lidar:
         dataset = KittiDataset.init_from_config(config["dataset_config_paths"]["test_lidar"], config["image"]["crop"])
     else:    
         dataset = KittiDataset.init_from_config(config["dataset_config_paths"]["test_gt_map"], config["image"]["crop"])
