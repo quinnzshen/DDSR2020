@@ -19,8 +19,8 @@ from torchvision import transforms
 def generate_qualitative(exp_dir, epoch):
     """
     Generates qualitative images based on a specified directory containing a config and an epoch number.
-    :param [str] log_dir: Path to the config in the experiments directory that the model was trained on
-    :param [int] epoch: Epoch number corresponding to the model that metrics will be evaluated on
+    :param [str] exp_dir: Path to an experiment directory
+    :param [int] epoch: epoch number correpsonding to a model within the experiment directory
     :return [torch.Tensor]: Tensor representing the generated qualitative depth maps in dimension [B, 1, H, W]
     """
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
