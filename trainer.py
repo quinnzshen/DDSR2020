@@ -246,8 +246,8 @@ class Trainer:
                 self.add_qualitative_to_tensorboard(images)
             if self.metrics:
                 # Uses LiDAR data
-                lidar_metrics, lidar_metric_labels = run_metrics(self.log_dir, self.epoch + 1, use_lidar=True)
-                self.add_metrics_to_tensorboard(lidar_metrics, lidar_metric_labels, use_lidar=True)
+                lidar_metrics, lidar_metric_labels = run_metrics(self.log_dir, self.epoch + 1, lidar=True)
+                self.add_metrics_to_tensorboard(lidar_metrics, lidar_metric_labels, lidar=True)
                 lidar_metrics = [round(num, 3) for num in lidar_metrics]
                 lidar_metrics.insert(0, time_taken)
                 lidar_metrics.insert(0, self.epoch + 1)
@@ -255,8 +255,8 @@ class Trainer:
 
                 # Uses ground truth KITTI depth maps
                 kitti_gt_maps_metrics, kitti_gt_maps_metric_labels = run_metrics(self.log_dir, self.epoch + 1,
-                                                                                 use_lidar=False)
-                self.add_metrics_to_tensorboard(kitti_gt_maps_metrics, kitti_gt_maps_metric_labels, use_lidar=False)
+                                                                                 lidar=False)
+                self.add_metrics_to_tensorboard(kitti_gt_maps_metrics, kitti_gt_maps_metric_labels, lidar=False)
                 kitti_gt_maps_metrics = [round(num, 3) for num in kitti_gt_maps_metrics]
                 kitti_gt_maps_metrics.insert(0, time_taken)
                 kitti_gt_maps_metrics.insert(0, self.epoch + 1)
@@ -563,15 +563,15 @@ class Trainer:
             self.writer.add_image(f"Qualitative Images/Epoch: {self.epoch + 1}",
                                   transforms.ToTensor()(colormapped_disp), i)
 
-    def add_metrics_to_tensorboard(self, metrics, labels, use_lidar):
+    def add_metrics_to_tensorboard(self, metrics, labels, lidar):
         """
         Adds metrics to tensorboard with given metric values and their corresponding values
         :param [list] metrics: A list of floats representing each metric
         :param [list] labels: A list of strings (same length as metrics) that describe the title of the metric
-        :param [bool] use_lidar: Setting to True -->  Lidar data (eigen), False --> improved GT maps (eigen_benchmark)
+        :param [bool] lidar: Setting to True -->  Lidar data (eigen), False --> improved GT maps (eigen_benchmark)
         """
         name = "Lidar "
-        if not use_lidar:
+        if not lidar:
             name = "KITTI Depth Map "
         for i in range(8):
             self.writer.add_scalar(name + "Metrics/" + labels[i], metrics[i], self.epoch)
