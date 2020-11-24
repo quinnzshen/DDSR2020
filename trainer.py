@@ -15,6 +15,7 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from torchvision import transforms
+from torch.cuda.memory import memory_reserved
 import yaml
 from tensorflow.image import decode_jpeg
 
@@ -433,7 +434,7 @@ class Trainer:
                         sources_scale_pure, depths, poses, tgt_intrinsics_scale, src_intrinsics_scale, local_batch_size
                     )
                 )
-
+                
             # Compute Losses
             loss_inputs = {"targets": inputs_scale,
                            "sources": sources_scale}
@@ -454,7 +455,8 @@ class Trainer:
             self.optimizer.zero_grad()
             total_loss.backward()
             self.optimizer.step()
-
+        
+        print(memory_reserved(self.device))
         # Add image, disparity map, and loss to tensorboard
         curr_idx = 0
         while curr_idx < local_batch_size:
