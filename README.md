@@ -1,5 +1,5 @@
 # Dense Depth Summer Research (DDSR2020)
-In this repository, we replicate the research of [Monodepth2 - Digging into Self-Supervised Monocular Depth Prediction (ICCV 2019)](https://arxiv.org/abs/1806.01260). Additionally, we explore a few extensions to this research and find that replacing the original residual neural network (ResNet) encoder with a densely connected convoluational network (DenseNet) encoder results in better metrics and faster model covergence. We find that for similar levels of accuracy in dense depth - the DenseNet architecture is more efficient in learned parameters and computation at the trade-off of memory usage during training.
+In this repository, we replicate the research of [Monodepth2 - Digging into Self-Supervised Monocular Depth Prediction (ICCV 2019)](https://arxiv.org/abs/1806.01260). Additionally, we explore a few extensions to this research and find that replacing the original residual neural network (ResNet) encoder with a densely connected convoluational network (DenseNet) encoder results in better metrics and faster model covergence. We observe that for similar levels of accuracy in dense depth - the DenseNet architecture is more efficient in number of learned parameters and computation at the trade-off of memory usage during training.
 
 <p align="center">
   <img align="center" src="assets/densenet_ms.gif" alt="Qualitative DenseNet121(MS) results on KITTI dataset scene." width="700" /><br>
@@ -24,12 +24,31 @@ KITTI Eigen Dataset (lidar ground truth)
 | [Baseline (MS)](https://drive.google.com/file/d/1yqVocIQMeDeyJahxz-W7dg756-UG26VR/view?usp=sharing) | 0.103 | 0.793 | 4.69 | 0.19 | 0.878 | 0.96 | 0.981 |
 | [DenseNet (MS)](https://drive.google.com/file/d/15htyrNsY7mUPQJUq_E4krgwC6D6URUvx/view?usp=sharing) | **0.098** | **0.705** | **4.445** | **0.185** | **0.888** | **0.962** | **0.982** |
 
-Note: All models were trained with an image resolution of 1024 x 320.
+Note: All models were trained with an image resolution of 1024 x 320. Full metrics spreadsheet can be found [here](https://docs.google.com/spreadsheets/d/1n6piQkH8gNGJJ9agPPDEiB042ysAiTRlJfZc2307QT0/edit?usp=sharing)
 
 ## Qualitative Evaluation
+Some qualitative results comparing Monodepth2 ResNet18 vs. DenseNet121 models side-by-side from manually-curated KITTI scenes. Mono, Stereo, and Mono + Stereo are grouped together for easy side-by-side comparison.
 <p align="center">
   <img align="center" src="assets/qualitative-eval.png" alt="Qualitative evaluation comparison of ResNet18 and DenseNet121 dense depth models." width="700" /><br>
-  <i>Some qualitative results comparing ResNet18 vs. DenseNet121 models side-by-side from manually-curated KITTI scenes.</i><br>
+</p>
+
+## Tensorboard Visualizations
+
+Our tensorboard visualizations allow for intuitive debugging. We are able to quickly sanity check results by visualizing the predicted depth map, forward / backward / stereo reprojections, automasks, and losses.
+<p align="center">
+  <img align="center" src="assets/loss-overview.png" alt="Overview of our tensorboard visualizations." width="700" /><br>
+</p>
+
+We display training / validation loss metrics and validation metrics to allow you to quickly monitor your training jobs.
+<p align="center">
+  <img align="center" src="assets/tb-training_loss.png" alt="..." width="400" />
+  <img align="center" src="assets/tb-metrics.png" alt="..." width="400" /><br>
+</p>
+
+Additionally, we save the depth map results from each epoch to allow you to quickly visualize how the model has changed over time across our manually curated dataset. This also enables easy model comparison afterwards (example above). 
+<p align="center">
+  <img align="center" src="assets/tb-disparity_maps.png" alt="..." width="400" />
+  <img align="center" src="assets/tb-qualitative.png" alt="..." width="400" /><br>
 </p>
 
 ## Environment setup
@@ -59,9 +78,10 @@ $ jupyter notebook
 conda env export --no-builds > ddsr_environment.yml
 ```
 
-## Contributors
+## Contributing Team :heart:
+Everything done above was accomplished over the span of a few months from a few high school rising seniors :school_satchel: and incoming undergraduate freshmen :mortar_board:. As a mentor, I've been inspired by what these students were able to do, completely virtual, during these pandemic times. You rock! Special shoutout to Alex Jiang and Evan Wang for really making this repository your own. 
+- Quinn Z Shen (Mentor)
 - Alex Jiang
 - Aaron Marmolejos
 - Kevin Z Shen
-- Quinn Z Shen
 - Evan Wang
