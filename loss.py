@@ -7,7 +7,7 @@ from color_utils import color_difference
 
 class SSIM(nn.Module):
     """
-    Based off SSIM in Monodepth2 repo
+    Adpated from https://github.com/nianticlabs/monodepth2/blob/master/layers.py
     """
 
     def __init__(self):
@@ -34,8 +34,7 @@ class SSIM(nn.Module):
         Computes the SSIM between the two given images by running them through layers
         :param [torch.tensor] pred: The predicted image, formatted as [batch_size, 3, H, W]
         :param [torch.tensor] targ: The target image, formatted as [batch_size, 3, H, W]
-        :return [torch.tensor]: A tensor representing how similar the two images are, on a pixel basis in the format
-        [batch_size, 3, H, W]
+        :return [torch.tensor]: A tensor representing how similar the two images are, on a pixel basis in the format [batch_size, 3, H, W]
         """
         pred = self.padding_reflect(pred)
         targ = self.padding_reflect(targ)
@@ -54,7 +53,7 @@ class SSIM(nn.Module):
 
 def calc_pe(predict, target, alpha=0.85, color="RGB"):
     """
-    Calculates the photometric error between two images using SSIM and L1Loss
+    Calculates the photometric error between two images using SSIM and L1Loss. 
     :param [torch.tensor] predict: The predicted images in format [batch_size, 3, H, W]
     :param [torch.tensor] target: The target images in format [batch_size, 3, H, W]
     :param [float] alpha: Constant that determines how much the SSIM value and L1loss are weighted in the error
@@ -69,8 +68,8 @@ def calc_pe(predict, target, alpha=0.85, color="RGB"):
 
 def calc_smooth_loss(disp, image, color="RGB"):
     """
-    Calculates the edge-aware smoothness of the given disparity map with relation to the target image. Returns a higher
-    loss if the disparity map fluctates a lot in disparity where it should be smooth.
+    Calculates the edge-aware smoothness of the given disparity map with relation to the target image. Returns a higher loss if the disparity map 
+    fluctates a lot in disparity where it should be smooth. Adapted from https://github.com/nianticlabs/monodepth2/blob/master/layers.py
     :param [torch.tensor] disp: The disparity map, formatted as [batch_size, 1, H, W]
     :param [torch.tensor] image: The target image, formatted as [batch_size, 3, H, W]
     :param [str] color: The color model to use for calculations
@@ -91,10 +90,29 @@ def calc_smooth_loss(disp, image, color="RGB"):
     return disp_dx.mean() + disp_dy.mean()
 
 
+def get_mask(targets, sources, min_reproject_errors):
+    """
+    Calculates the auto-masking for each pixel in the images. If a given pixel's photometric error between the source
+    images and the target image is less than the photometric error between the reprojected images and the target image,
+    then the auto-masking feature will be 0 for that point.
+    :param [torch.tensor] targets: The target images, in format [batch_size, 3, H, W]
+    :param [torch.tensor] sources: The source images, in format [num_source_imgs, batch_size, 3, H, W]
+    :param [torch.tensor] min_reproject_errors: The calculated photometric errors between the reprojected images and
+    the target image, formatted as [batch_size, 1, H, W]
+    :return [torch.tensor]: A binary mask containing either True or False. Formatted as [batch_size, 1, H, W]
+    """
+    source_error = []
+    for source in sources:
+        source_error.append(calc_pe(source, targets))
+
+    source_error = torch.cat(source_error, dim=1)
+    min_source_errors, _ = torch.min(source_error, dim=1)
+    return min_reproject_errors < min_source_errors
+
+
 def calc_loss(inputs, outputs, scale=0, smooth_term=0.001, color="RGB"):
     """
-    Takes in the inputs and outputs from the neural network to calulate a numeric loss value based on the Monodepth2
-    paper.
+    Takes in the inputs and outputs from the neural network to calulate a numeric loss value based on the Monodepth2 paper.
     :param [dict] inputs: Contains the keys "targets" and "sources" which are tensors [batch_size, 3, H, W] and
     [num_src_imgs, batch_size, 3, H, W] respectively
     :param [dict] outputs: Contains the keys "reproj", "disparities", and "initial_masks" which are tensors
@@ -132,7 +150,16 @@ def calc_loss(inputs, outputs, scale=0, smooth_term=0.001, color="RGB"):
 
 
 class GenerateReprojections(nn.Module):
+    """
+    Reprojects pixels from a source image onto a target frame.
+    """
     def __init__(self, height, width, default_batch_size):
+        """
+        Sets up the layers used in the forward method.
+        :param [int] height: height of input image
+        :param [int] width: width of input image
+        :param [int] default_batch_size: number of images in a batch
+        """
         super(GenerateReprojections, self).__init__()
 
         self.h = height
@@ -149,6 +176,16 @@ class GenerateReprojections(nn.Module):
         self.img_indices = nn.Parameter(torch.cat([img_coords, self.ones], 1), requires_grad=False)
 
     def forward(self, src_images, depths, poses, tgt_intr, src_intr, local_batch_size):
+        """
+        Computes the reprojected images (source onto target)
+        :param [torch.tensor] src_images: source images
+        :param [torch.tensor] depths: depth maps
+        :param [torch.tensor] poses: relative pose matrices
+        :param [torch.tensor] tgt_intr: target intrinsics matrices
+        :param [torch.tensor] src_intr: source intrinsics matrices
+        :param [int] local_batch_size: size of batch
+        :return [torch.tensor] reprojected: Tensor of reprojected images
+        """
         reprojected = []
         tgt_intr_inv = tgt_intr.inverse()
         for i in range(len(poses)):
