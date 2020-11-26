@@ -26,6 +26,14 @@ KITTI Eigen Dataset (lidar ground truth)
 
 Note: All models were trained with an image resolution of 1024 x 320. Full metrics spreadsheet can be found [here](https://docs.google.com/spreadsheets/d/1n6piQkH8gNGJJ9agPPDEiB042ysAiTRlJfZc2307QT0/edit?usp=sharing)
 
+Memory Usage & Inference Speed
+|     | ResNet18 (MS) | DenseNet121 (MS) |
+|-----|:----------:|:-------------:|
+| Reserved Memory | 1.79GB | 2.52GB |
+| Avg. Inference Speed | 11.0ms | 45.4ms |
+
+Note: Inference speed was measured on a GTX 1050 Ti GPU on 1024 x 320 images.
+
 ## Qualitative Evaluation
 Some qualitative results comparing Monodepth2 ResNet18 vs. DenseNet121 models side-by-side from manually-curated KITTI scenes. Mono, Stereo, and Mono + Stereo are grouped together for easy side-by-side comparison.
 <p align="center">
