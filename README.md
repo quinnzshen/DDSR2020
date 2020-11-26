@@ -69,19 +69,9 @@ $ conda env create -f ddsr_environment.yml
 ```
 $ conda activate ddsr
 ```
-4. Install pytorch (https://pytorch.org/)
+4. Install pytorch (find the specific command to run here: https://pytorch.org/)
 ```
 $ conda install pytorch...
-```
-5. Create a Jupyter kernel for your `ddsr` anaconda environment.
-```
-$ python -m ipykernel install --user --name ddsr --display-name "Python (ddsr)"
-```
-
-## Testing your environment 
-1. Launch jupyter and ensure you can run the import statements.
-```
-$ jupyter notebook
 ```
 
 ## Introducing new packages and dependencies into ddsr_environment.yml :gift:
@@ -120,13 +110,13 @@ Note: If you plan to run metrics while training, this must be done before traini
 ```
 python export_gt_depth.py --split_path splits/eigen_test.txt --gt_depth_dir data/kitti_data --output_dir data/kitti_gt --use_lidar True
 ```
-2. Export Kitti ground truth depth maps with
+2. Export KITTI ground truth depth maps with
 ```
 python export_gt_depth.py --split_path splits/eigen_benchmark_test.txt --gt_depth_dir data/kitti_gt/data_depth_annotated --output_dir data/kitti_gt
 ```
 
 ## Training from scratch
-1. Create a config with the following format:
+1. Select an existing config from the ```configs``` folder OR Create a config with the following format:
 ```
 num_epochs: [int, number of epochs that the model will train for]
 learning_rate: [int, the learning rate]
@@ -165,13 +155,10 @@ dataset_config_paths:
   train: [string, path to training dataset config]
   val: [string, path to validation dataset config]
   test_lidar: [string, path to testing dataset config (ground truth from lidar points)]
-  test_gt_map: [string, path to testing dataset config (ground truth from kitti dataset depth maps)]
+  test_gt_map: [string, path to testing dataset config (ground truth from KITTI dataset depth maps)]
   qual: [string, path to qualitative dataset config]
   gif: [string, path to gif dataset config]
 ```
-<p>
-</p>
-OR select an existing config from the configs/ folder
 
 2. Train with
 ```
@@ -179,7 +166,8 @@ python trainer.py --config_path [path to training config]
 ```
 
 ## Training from an existing checkpoint
-1. Train with 
+1. Copy the path to an experiment folder 
+2. Train with 
 ```
 python trainer.py --config_path [path to training config within an experiment folder] --epoch [epoch to continue training from]
 ```
@@ -191,7 +179,7 @@ Note: "--epoch 1" will load the weights from the first checkpoint and begin trai
 python monodepth_metrics.py --exp_dir [path to experiment directory] --epoch [epoch/checkpoint number] --use_lidar
 ```
 
-2. Evaluate metrics on Kitti ground truth depth maps with
+2. Evaluate metrics on KITTI ground truth depth maps with
 ```
 python monodepth_metrics.py --exp_dir [path to experiment directory] --epoch [epoch/checkpoint number]
 ```
