@@ -59,7 +59,7 @@ Additionally, we save the depth map results from each epoch to allow you to quic
   <img align="center" src="assets/tb-qualitative.png" alt="..." width="400" /><br>
 </p>
 
-## Environment setup
+## Environment setup :deciduous_tree:
 1. [Install](https://docs.conda.io/projects/conda/en/latest/user-guide/install/) Anaconda. You can install Miniconda if space is limited.
 2. Create your `ddsr` anaconda environment where you will be doing development. In terminal:
 ```
@@ -69,22 +69,125 @@ $ conda env create -f ddsr_environment.yml
 ```
 $ conda activate ddsr
 ```
-4. Create a Jupyter kernel for your `ddsr` anaconda environment.
+4. Install pytorch (https://pytorch.org/)
+```
+$ conda install pytorch...
+```
+5. Create a Jupyter kernel for your `ddsr` anaconda environment.
 ```
 $ python -m ipykernel install --user --name ddsr --display-name "Python (ddsr)"
 ```
 
-## Testing your environment
+## Testing your environment 
 1. Launch jupyter and ensure you can run the import statements.
 ```
 $ jupyter notebook
 ```
 
-## Introducing new packages and dependencies into ddsr_environment.yml
+## Introducing new packages and dependencies into ddsr_environment.yml :gift:
 1. While on your ddsr environment
 ```
 conda env export --no-builds > ddsr_environment.yml
 ```
+
+## Downloading data 
+1. Download the KITTI dataset with the following command: (Warning: this takes up around 175 GB)
+```
+wget -i splits/kitti_dataset_download.txt -P data/kitti_data/
+```
+2. Unzip with 
+```
+cd kitti_data
+unzip "*.zip"
+```
+3.  Convert the png images to jpeg (OPTIONAL — speeds up training time)
+```
+find kitti_data/ -name '*.png' | parallel 'convert -quality 92 -sampling-factor 2x2,1x1,1x1 {.}.png {.}.jpg && rm {}'
+```
+4. Download the KITTI ground truth depth maps (Warning: this takes up around 14 GB)
+```
+wget -i splits/kitti_depth_maps_download.txt -P data/kitti_gt/
+```
+5. Unzip with
+```
+cd kitti_gt
+unzip "*.zip"
+```
+
+## Preparing evaluation data :chart_with_upwards_trend:
+Note: If you plan to run metrics while training, this must be done before training
+1. Export LiDAR ground truth depth with:
+```
+python export_gt_depth.py --split_path splits/eigen_test.txt --gt_depth_dir data/kitti_data --output_dir data/kitti_gt --use_lidar True
+```
+2. Export Kitti ground truth depth maps with
+```
+python export_gt_depth.py --split_path splits/eigen_benchmark_test.txt --gt_depth_dir data/kitti_gt/data_depth_annotated --output_dir data/kitti_gt
+```
+
+## Training from scratch
+1. Create a config with the following format:
+```
+num_epochs: [int, number of epochs that the model will train for]
+learning_rate: [int, the learning rate]
+scheduler_step_size: [int, learning rate scheduler step size]
+weight_decay: [int, weight decay factor for learning rate scheduler]
+batch_size: [int, batch size]
+num_workers: [int, number of workers for multi-process data loading]
+use_monocular: [boolean, specifies whether or not to use monocular data]
+use_stereo: [boolean, specifies whether or not to use stereo data]
+min_depth: [float, minimum bound for depth predictions]
+max_depth: [float, maximum bound for depth predictions]
+num_scales: [int, number of scales used for multiscalar loss]
+tensorboard_step: [int, step size for logging images to tensorboard]
+metrics: [boolean, specifies whether or not to calculate metrics while training]
+log_dir: [string, path to directory where results will be logged]
+gt_dir: [string, path to directory containing ground truth depth data]
+
+depth_network:
+  layers: [int, Resnet - 18 or 50; Densenet - 121, 169, 201, or 161)]
+  densenet: [boolean, specifies whether to use a densenet encoder; default is resnet]
+  fpn: [boolean, specifies whether or ont to use a feature pyramid network]
+  pretrained: [boolean, specifies whether or not to use weights pretrained on imageNet]
+
+pose_network:
+  layers: [int, Resnet - 18, 50; Densenet - 121, 169, 201, 161)]
+  densenet: [boolean, specifies whether to use a densenet encoder; default is resnet]
+  pretrained: [boolean, specifies whether or not to use weights pretrained on imageNet]
+
+image:
+  width: [int, width of image]
+  height: [int, height of image]
+  crop: [boolean, specifies whether to crop or rescale an image]
+  color: [string, color model used during training (RGB/HSV)]
+
+dataset_config_paths:
+  train: [string, path to training dataset config]
+  val: [string, path to validation dataset config]
+  test_lidar: [string, path to testing dataset config (ground truth from lidar points)]
+  test_gt_map: [string, path to testing dataset config (ground truth from kitti dataset depth maps)]
+  qual: [string, path to qualitative dataset config]
+  gif: [string, path to gif dataset config]
+```
+<p>
+</p>
+OR select an existing config from the configs/ folder
+
+2. Train with
+```
+python trainer.py --config_path [path to training config]
+```
+
+## Training from an existing checkpoint
+1. Train with 
+```
+python trainer.py --config_path [path to training config within an experiment folder] --epoch [epoch to continue training from]
+```
+Note: "--epoch 1" will load the weights from the first checkpoint and begin training from epoch 2
+
+## Evaluation
+1. Evaluate on monodepth metrics with
+python monodepth_metrics.py --exp_dir [path to experiment directory] --epoch [epoch number/checkpoint] --use_lidar [optional flag - adding it uses LiDAR data instead of ground truth kitti depth maps]
 
 ## Contributing Team :heart:
 Everything done above was accomplished over the span of a few months from a few high school rising seniors :school_satchel: and incoming undergraduate freshmen :mortar_board:. As a mentor, I've been inspired by what these students were able to do, completely virtual, during these pandemic times. You rock! Special shoutout to Alex Jiang and Evan Wang for really making this repository your own. 
