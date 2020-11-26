@@ -166,7 +166,7 @@ python trainer.py --config_path [path to training config]
 ```
 
 ## Training from an existing checkpoint
-1. Copy the path to an experiment folder 
+1. Locate an existing experiment folder 
 2. Train with 
 ```
 python trainer.py --config_path [path to training config within an experiment folder] --epoch [epoch to continue training from]
