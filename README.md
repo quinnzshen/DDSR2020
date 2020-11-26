@@ -187,7 +187,9 @@ Note: "--epoch 1" will load the weights from the first checkpoint and begin trai
 
 ## Evaluation
 1. Evaluate on monodepth metrics with
+```
 python monodepth_metrics.py --exp_dir [path to experiment directory] --epoch [epoch number/checkpoint] --use_lidar [optional flag - adding it uses LiDAR data instead of ground truth kitti depth maps]
+```
 
 ## Contributing Team :heart:
 Everything done above was accomplished over the span of a few months from a few high school rising seniors :school_satchel: and incoming undergraduate freshmen :mortar_board:. As a mentor, I've been inspired by what these students were able to do, completely virtual, during these pandemic times. You rock! Special shoutout to Alex Jiang and Evan Wang for really making this repository your own. 
