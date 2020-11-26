@@ -32,7 +32,7 @@ Memory Usage & Inference Speed
 | Reserved Memory | 1.79GB | 2.52GB |
 | Avg. Inference Speed | 11.0ms | 45.4ms |
 
-Note: Inference speed was measured on a GTX 1050 Ti GPU on 1024 x 320 images.
+Note: Inference speed was measured on a GTX 1050 Ti GPU on 1024 x 320 images ([full metrics](https://docs.google.com/spreadsheets/d/1qYgBAbnQs2jYS19vuOMX9rrDQePsgXYQ-6nCUK8M098/edit?usp=sharing)).
 
 ## Qualitative Evaluation
 Some qualitative results comparing Monodepth2 ResNet18 vs. DenseNet121 models side-by-side from manually-curated KITTI scenes. Mono, Stereo, and Mono + Stereo are grouped together for easy side-by-side comparison.
