@@ -12,6 +12,7 @@ import matplotlib.cm as cm
 from third_party.monodepth2.ResnetEncoder import ResnetEncoder
 from third_party.monodepth2.DepthDecoder import DepthDecoder
 from fpn import FPN
+from color_utils import convert_rgb
 import numpy as np
 
 
@@ -41,9 +42,11 @@ def generate_gif(exp_dir: str, exp_epoch: int, baseline_dir: str, baseline_epoch
     
     # Setting up experiment model
     if exp_depth_network_config.get("densenet"):
-        exp_models = {"depth_encoder": DensenetEncoder(exp_depth_network_config["layers"], False)}
+        exp_models = {"depth_encoder": DensenetEncoder(exp_depth_network_config["layers"], False,
+                                                       color=exp_config["image"]["color"])}
     else:
-        exp_models = {"depth_encoder": ResnetEncoder(exp_depth_network_config["layers"], False)}
+        exp_models = {"depth_encoder": ResnetEncoder(exp_depth_network_config["layers"], False,
+                                                     color=exp_config["image"]["color"])}
     exp_decoder_num_ch = exp_models["depth_encoder"].num_ch_enc
     
     if exp_depth_network_config.get("fpn"):
@@ -65,9 +68,11 @@ def generate_gif(exp_dir: str, exp_epoch: int, baseline_dir: str, baseline_epoch
     
     # Setting up baseline model
     if baseline_depth_network_config.get("densenet"):
-        baseline_models = {"depth_encoder": DensenetEncoder(baseline_depth_network_config["layers"], False)}
+        baseline_models = {"depth_encoder": DensenetEncoder(baseline_depth_network_config["layers"], False,
+                                                            color=baseline_config["image"]["color"])}
     else:
-        baseline_models = {"depth_encoder": ResnetEncoder(baseline_depth_network_config["layers"], False)}
+        baseline_models = {"depth_encoder": ResnetEncoder(baseline_depth_network_config["layers"], False,
+                                                          color=baseline_config["image"]["color"])}
     baseline_decoder_num_ch = baseline_models["depth_encoder"].num_ch_enc
 
     if baseline_depth_network_config.get("fpn"):
@@ -113,21 +118,26 @@ def generate_gif(exp_dir: str, exp_epoch: int, baseline_dir: str, baseline_epoch
     
     with torch.no_grad():
         for batch in dataloader:
-            inputs = batch["stereo_left_image"].to(device).float()
+            inputs = batch["stereo_left_image"].to(device)
+            images.append(inputs)
+
             if exp_config.get("use_fpn"):
-                exp_output = exp_models["depth_decoder"](exp_models["fpn"](exp_models["depth_encoder"](inputs)))
+                exp_output = exp_models["depth_decoder"](exp_models["fpn"](exp_models["depth_encoder"](
+                    convert_rgb(inputs, exp_config["image"]["color"]))))
             else:
-                exp_output = exp_models["depth_decoder"](exp_models["depth_encoder"](inputs))
+                exp_output = exp_models["depth_decoder"](exp_models["depth_encoder"](
+                    convert_rgb(inputs, exp_config["image"]["color"])))
             
             if baseline_config.get("use_fpn"):
-                baseline_output = baseline_models["depth_decoder"](baseline_models["fpn"](baseline_models["depth_encoder"](inputs)))
+                baseline_output = baseline_models["depth_decoder"](baseline_models["fpn"](baseline_models["depth_encoder"](
+                    convert_rgb(inputs, baseline_config["image"]["color"]))))
             else:
-                baseline_output = baseline_models["depth_decoder"](baseline_models["depth_encoder"](inputs))
+                baseline_output = baseline_models["depth_decoder"](baseline_models["depth_encoder"](
+                    convert_rgb(inputs, baseline_config["image"]["color"])))
             
             exp_disp_maps.append(exp_output[("disp", 0)])
             baseline_disp_maps.append(baseline_output[("disp", 0)])
-            images.append(inputs)
-    
+
     images = torch.cat(images)
     exp_disp_maps = torch.cat(exp_disp_maps)
     baseline_disp_maps = torch.cat(baseline_disp_maps)
