@@ -119,13 +119,13 @@ class DenseNetMultiImageInput(models.DenseNet):
                 nn.init.constant_(m.bias, 0)
 
 
-def densenet_multiimage_input(num_layers, pretrained=False, num_input_images=1):
+def densenet_multiimage_input(num_layers: int, pretrained: bool = False, num_input_images: int = 1) -> DenseNetMultiImageInput:
     """
     Constructs a DenseNet model.
-    Args:
-        num_layers (int): Number of densenet layers. Must be 121, 161, 169, or 201.
-        pretrained (bool): If True, returns a model pre-trained on ImageNet
-        num_input_images (int): Number of frames stacked as input
+    :param num_layers: Number of DenseNet layers. Must be 121, 161, 169, or 201.
+    :param pretrained: If True, returns a model pre-trained on ImageNet
+    :param num_input_images: Number of frames stacked as input
+    :return: A DenseNet model with the designated parameters
     """
     assert num_layers in [121, 169, 201, 161], "Can only run with 121, 161, 169, or 201 layer densenet"
     growth_rate = {121: 32, 161: 48, 169: 32, 201: 32}[num_layers]
