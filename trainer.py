@@ -567,7 +567,7 @@ class Trainer:
         Adds metrics to tensorboard with given metric values and their corresponding values
         :param metrics: A list of floats representing each metric
         :param labels: A list of strings (same length as metrics) that describe the title of the metric
-        :param [bool] lidar: Setting to True -->  Lidar data (eigen), False --> improved GT maps (eigen_benchmark)master
+        :param lidar: Setting to True -->  Lidar data (eigen), False --> improved GT maps (eigen_benchmark)master
         """
         name = "Lidar "
         if not lidar:
