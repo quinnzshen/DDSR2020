@@ -13,7 +13,7 @@ default_collate_err_msg_format = (
 class Collator(object):
     def __init__(self, height: int, width: int):
         """
-        Creates an instance of TrainerCollator
+        Creates an instance of TrainerCollator. Adapted from https://github.com/pytorch/pytorch/blob/master/torch/utils/data/_utils/collate.py
         :param height: image height used in training
         :param width: image width used in training
         """

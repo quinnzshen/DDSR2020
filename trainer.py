@@ -1,7 +1,6 @@
 import argparse
 import csv
 from datetime import datetime
-
 import io
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -35,7 +34,6 @@ from qualitative_depth import generate_qualitative
 LOSS_VIS_SIZE = (10, 4)
 LOSS_VIS_CMAP = "cividis"
 
-
 class Trainer:
     def __init__(self, config_path: str, start_epoch: int):
         """
@@ -44,7 +42,6 @@ class Trainer:
         :param [str] config_path: The path to the config file
         :param [int] start_epoch: The starting epoch (0 if new model)
         """
-
         # Epoch to continue training from (0 if new model)
         self.start_epoch = start_epoch
 
@@ -247,8 +244,8 @@ class Trainer:
                 self.add_qualitative_to_tensorboard(images)
             if self.metrics:
                 # Uses LiDAR data
-                lidar_metrics, lidar_metric_labels = run_metrics(self.log_dir, self.epoch + 1, use_lidar=True)
-                self.add_metrics_to_tensorboard(lidar_metrics, lidar_metric_labels, use_lidar=True)
+                lidar_metrics, lidar_metric_labels = run_metrics(self.log_dir, self.epoch + 1, lidar=True)
+                self.add_metrics_to_tensorboard(lidar_metrics, lidar_metric_labels, lidar=True)
                 lidar_metrics = [round(num, 3) for num in lidar_metrics]
                 lidar_metrics.insert(0, time_taken)
                 lidar_metrics.insert(0, self.epoch + 1)
@@ -256,12 +253,13 @@ class Trainer:
 
                 # Uses ground truth KITTI depth maps
                 kitti_gt_maps_metrics, kitti_gt_maps_metric_labels = run_metrics(self.log_dir, self.epoch + 1,
-                                                                                 use_lidar=False)
-                self.add_metrics_to_tensorboard(kitti_gt_maps_metrics, kitti_gt_maps_metric_labels, use_lidar=False)
+                                                                                 lidar=False)
+                self.add_metrics_to_tensorboard(kitti_gt_maps_metrics, kitti_gt_maps_metric_labels, lidar=False)
                 kitti_gt_maps_metrics = [round(num, 3) for num in kitti_gt_maps_metrics]
                 kitti_gt_maps_metrics.insert(0, time_taken)
                 kitti_gt_maps_metrics.insert(0, self.epoch + 1)
                 self.kitti_gt_maps_metrics_writer.writerow(kitti_gt_maps_metrics)
+
         self.writer.close()
         if self.metrics:
             self.lidar_metrics_file.close()
@@ -438,9 +436,10 @@ class Trainer:
             loss_outputs = {"reproj": reprojected,
                             "disparities": disp}
 
-            loss, loss_vis = calc_loss(loss_inputs, loss_outputs, scale, color="RGB")
+            loss, automask, loss_vis = calc_loss(loss_inputs, loss_outputs, scale, color="RGB")
 
             if not scale:
+                for_tboard["automask"] = automask
                 for_tboard["loss_vis"] = loss_vis
 
             total_loss += loss
@@ -459,7 +458,7 @@ class Trainer:
             curr_idx += self.steps_until_write
             if curr_idx < local_batch_size:
                 self.add_img_disparity_loss_to_tensorboard(
-                    outputs[("disp", 0)][curr_idx], pure_inputs[curr_idx],
+                    outputs[("disp", 0)][curr_idx], pure_inputs[curr_idx], for_tboard["automask"],
                     for_tboard["loss_vis"][curr_idx], for_tboard["reprojected"][:, curr_idx],
                     self.batch_size * batch_idx + curr_idx + 1, name
                 )
@@ -493,7 +492,7 @@ class Trainer:
     def add_img_disparity_loss_to_tensorboard(self, disp: torch.Tensor, img: torch.Tensor, automask: torch.Tensor,
                                               loss: torch.Tensor, reproj: torch.Tensor, img_num: int, name: str):
         """
-        Adds image disparity map, and automask to tensorboard
+        Adds image disparity map and other information to tensorboard
         :param disp: Disparity map outputted by the network
         :param img: Original image
         :param automask: The automasking
@@ -534,6 +533,9 @@ class Trainer:
         self.writer.add_image(f"{name} Disparity Maps/Epoch: {self.epoch + 1}",
                               final_disp,
                               img_num)
+        self.writer.add_image(f"{name} Automasks/Epoch: {self.epoch + 1}",
+                              automask,
+                              img_num)
         self.writer.add_image(f"{name} Losses/Epoch: {self.epoch + 1}",
                               loss,
                               img_num)
@@ -564,15 +566,15 @@ class Trainer:
             self.writer.add_image(f"Qualitative Images/Epoch: {self.epoch + 1}",
                                   transforms.ToTensor()(colormapped_disp), i)
 
-    def add_metrics_to_tensorboard(self, metrics: list, labels: list, use_lidar: bool):
+    def add_metrics_to_tensorboard(self, metrics: list, labels: list, lidar: bool):
         """
         Adds metrics to tensorboard with given metric values and their corresponding values
         :param metrics: A list of floats representing each metric
         :param labels: A list of strings (same length as metrics) that describe the title of the metric
-        :param use_lidar: Setting to True -->  Lidar data (eigen), False --> improved GT maps (eigen_benchmark)
+        :param [bool] lidar: Setting to True -->  Lidar data (eigen), False --> improved GT maps (eigen_benchmark)master
         """
         name = "Lidar "
-        if not use_lidar:
+        if not lidar:
             name = "KITTI Depth Map "
         for i in range(8):
             self.writer.add_scalar(name + "Metrics/" + labels[i], metrics[i], self.epoch)

@@ -17,23 +17,24 @@ from torchvision.utils import save_image
 from torchvision import transforms
 
 
-def generate_qualitative(log_dir: str, epoch: int) -> torch.Tensor:
+def generate_qualitative(exp_dir: str, epoch: int) -> torch.Tensor:
     """
     Generates qualitative images based on a specified directory containing a config and an epoch number.
-    :param log_dir: Path to the config in the experiments directory that the model was trained on
-    :param epoch: Epoch number corresponding to the model that metrics will be evaluated on
+    :param exp_dir: Path to an experiment directory
+    :param epoch: Epoch number corresponding to a model within the experiment directory
     :return: Tensor representing the generated qualitative depth maps in dimension [B, 1, H, W]
     """
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     # Load data from config
-    config_path = os.path.join(log_dir, "config.yml")
+    config_path = os.path.join(exp_dir, "config.yml")
     with open(config_path) as file:
         config = yaml.load(file, Loader=yaml.Loader)
 
     dataset = KittiDataset.init_from_config(config["dataset_config_paths"]["qual"], config["image"]["crop"])
     dataloader = DataLoader(dataset, config["batch_size"], shuffle=False,
-                            collate_fn=Collator(config["image"]["height"], config["image"]["width"]), num_workers=config["num_workers"], pin_memory=True)
+                            collate_fn=Collator(config["image"]["height"], config["image"]["width"]),
+                            num_workers=config["num_workers"], pin_memory=True)
    
     depth_network_config = config["depth_network"]
 
@@ -51,7 +52,7 @@ def generate_qualitative(log_dir: str, epoch: int) -> torch.Tensor:
         decoder_num_ch = models["fpn"].num_ch_pyramid
     models["depth_decoder"] = DepthDecoder(decoder_num_ch)
     
-    weights_folder = os.path.join(log_dir, "models", f'weights_{epoch - 1}')
+    weights_folder = os.path.join(exp_dir, "models", f'weights_{epoch - 1}')
     print(f'-> Loading weights from {weights_folder}')
 
     for model_name in models:
@@ -95,7 +96,7 @@ def generate_qualitative(log_dir: str, epoch: int) -> torch.Tensor:
         final_disp = transforms.ToTensor()(colormapped_disp)
         outputs.append(final_disp)
 
-        save_folder = os.path.join(log_dir, "qual_images", "qual_images_{}".format(epoch-1))
+        save_folder = os.path.join(exp_dir, "qual_images", "qual_images_epoch_{}".format(epoch))
         if not os.path.exists(save_folder):
             os.makedirs(save_folder)
         path = os.path.join(save_folder, "img_" + str(i)+ ".jpeg")
@@ -108,11 +109,11 @@ def generate_qualitative(log_dir: str, epoch: int) -> torch.Tensor:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="qualitative options")
-    parser.add_argument("--log_dir",
+    parser.add_argument("--exp_dir",
                         type=str,
                         help="path to config in experiment directory")
     parser.add_argument("--epoch",
                         type=int,
                         help="epoch number")
     opt = parser.parse_args()
-    generate_qualitative(opt.log_dir, opt.epoch)
+    generate_qualitative(opt.exp_dir, opt.epoch)

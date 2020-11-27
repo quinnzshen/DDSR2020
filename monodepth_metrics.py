@@ -39,9 +39,10 @@ def get_labels() -> list:
 
 
 def compute_errors(gt: np.ndarray, pred: np.ndarray) -> np.ndarray:
-    """Computation of error metrics between predicted and ground truth depths. Taken from Monodepth2
-    :param gt: Ground truth depth information
-    :param pred: Predicted depths
+    """
+    Computation of error metrics between predicted and ground truth depths. Adapted from https://github.com/nianticlabs/monodepth2/blob/master/evaluate_depth.py
+    :param gt: Ground truth depth maps
+    :param pred: Predicted depth maps
     :return: NumPy array with respective metrics
     """
     metrics = np.empty(7 + len(BINS) * 2, dtype=np.float64)
@@ -73,23 +74,24 @@ def compute_errors(gt: np.ndarray, pred: np.ndarray) -> np.ndarray:
     return metrics
 
 
-def run_metrics(experiment_dir: str, epoch: int, use_lidar: bool) -> tuple:
-    """Computes metrics based on a specified directory containing a config and an epoch number. Adapted from Monodepth2
-    :param [str] experiment_dir: Path to the config directory that the model was trained on
-    :param [int] epoch: Epoch number corresponding to the model that metrics will be evaluated on
-    :param [bool] use_lidar: Setting to True -->  Lidar data (eigen), False --> improved GT maps (eigen_benchmark)
+def run_metrics(exp_dir: str, epoch: int, lidar: bool) -> tuple:
+    """
+    Computes metrics for a single epoch. Adapted from https://github.com/nianticlabs/monodepth2/blob/master/evaluate_depth.py
+    :param exp_dir: Path to the experiment directory
+    :param epoch: Epoch number corresponding to the model that metrics will be evaluated on
+    :param lidar: Setting to True --> Lidar data (eigen), False --> improved GT depth maps (eigen_benchmark)
     :return: Returns mean metrics and their labels
     """
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     # Load data from config
-    config_path = os.path.join(experiment_dir, "config.yml")
+    config_path = os.path.join(exp_dir, "config.yml")
     with open(config_path) as file:
         config = yaml.load(file, Loader=yaml.Loader)
 
-    if use_lidar:
+    if lidar:
         dataset = KittiDataset.init_from_config(config["dataset_config_paths"]["test_lidar"], config["image"]["crop"])
-    else:    
+    else:
         dataset = KittiDataset.init_from_config(config["dataset_config_paths"]["test_gt_map"], config["image"]["crop"])
     dataloader = DataLoader(dataset, config["batch_size"], shuffle=False,
                             collate_fn=Collator(config["image"]["height"], config["image"]["width"]),
@@ -109,9 +111,10 @@ def run_metrics(experiment_dir: str, epoch: int, use_lidar: bool) -> tuple:
             num_ch_fpn = 256
         models["fpn"] = FPN(decoder_num_ch, num_ch_fpn)
         decoder_num_ch = models["fpn"].num_ch_pyramid
+
     models["depth_decoder"] = DepthDecoder(decoder_num_ch)
 
-    weights_folder = os.path.join(experiment_dir, "models", f'weights_{epoch - 1}')
+    weights_folder = os.path.join(exp_dir, "models", f'weights_{epoch - 1}')
     print(f'-> Loading weights from {weights_folder}')
 
     for model_name in models:
@@ -146,7 +149,7 @@ def run_metrics(experiment_dir: str, epoch: int, use_lidar: bool) -> tuple:
 
     pred_disps = np.concatenate(pred_disps)
 
-    if use_lidar:
+    if lidar:
         gt_path = os.path.join(config["gt_dir"], "gt_lidar.npz")
         print("-> Evaluating from LiDAR data")
     else:
@@ -169,7 +172,7 @@ def run_metrics(experiment_dir: str, epoch: int, use_lidar: bool) -> tuple:
         pred_disp = cv2.resize(pred_disp, (gt_width, gt_height))
         pred_depth = 1 / pred_disp
 
-        if use_lidar:
+        if lidar:
             mask = np.logical_and(gt_depth > MIN_DEPTH, gt_depth < MAX_DEPTH)
 
             crop = np.array([0.40810811 * gt_height, 0.99189189 * gt_height,
@@ -212,29 +215,36 @@ def run_metrics(experiment_dir: str, epoch: int, use_lidar: bool) -> tuple:
     return mean_errors, labels
 
 
-def run_metrics_all_epochs(experiment_dir, use_lidar):
-    if use_lidar:
-        metrics_file = open(os.path.join(experiment_dir, "lidar_metrics.csv"), "a", newline='')
+def run_metrics_all_epochs(exp_dir: str, lidar: bool):
+    """
+    Computes metrics for ALL epochs
+    :param exp_dir: Path to the experiment directory
+    :param lidar: Setting to True --> Lidar data (eigen), False --> improved GT depth maps (eigen_benchmark)
+    """
+    if lidar:
+        metrics_file = open(os.path.join(exp_dir, "lidar_metrics.csv"), "a", newline='')
     else:
-        metrics_file = open(os.path.join(experiment_dir, "kitti_gt_maps_metrics.csv"), "a", newline='')
+        metrics_file = open(os.path.join(exp_dir, "kitti_gt_maps_metrics.csv"), "a", newline='')
+
     metrics_writer = csv.writer(metrics_file, delimiter=',')
     metrics_list = ["epoch"]
     metrics_list.extend(get_labels())
     metrics_writer.writerow(metrics_list)
-
-    weights_folder = os.path.join(experiment_dir, "models")
+    weights_folder = os.path.join(exp_dir, "models")
     num_epochs = len(next(os.walk(weights_folder))[1])
+
     for i in range(num_epochs):
-        metrics, metric_labels = run_metrics(experiment_dir, i + 1, use_lidar)
+        metrics, metric_labels = run_metrics(exp_dir, i + 1, lidar)
         metrics = [round(num, 3) for num in metrics]
         metrics.insert(0, i + 1)
         metrics_writer.writerow(metrics)
+
     metrics_file.close()
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="metrics options")
-    parser.add_argument("--experiment_dir",
+    parser.add_argument("--exp_dir",
                         type=str,
                         help="path to experiment directory")
     parser.add_argument("--epoch",
@@ -243,12 +253,12 @@ if __name__ == "__main__":
     parser.add_argument("--all_epochs",
                         action='store_true',
                         help="Activating this flag runs metrics for all epochs and stores the results in a csv.")
-    parser.add_argument("--use_lidar",
+    parser.add_argument("--lidar",
                         action='store_true',
-                        help="Activating this flag uses lidar instead of gt kitti depth maps")
+                        help="Activating this flag uses lidar instead of ground truth KITTI depth maps")
     opt = parser.parse_args()
 
     if opt.all_epochs:
-        run_metrics_all_epochs(opt.experiment_dir, opt.use_lidar)
+        run_metrics_all_epochs(opt.exp_dir, opt.lidar)
     else:
-        run_metrics(opt.experiment_dir, opt.epoch, opt.use_lidar)
+        run_metrics(opt.exp_dir, opt.epoch, opt.lidar)
