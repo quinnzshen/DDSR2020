@@ -92,9 +92,9 @@ def run_metrics(exp_dir: str, epoch: int, lidar: bool) -> tuple:
         config = yaml.load(file, Loader=yaml.Loader)
 
     if lidar:
-        dataset = KittiDataset.init_from_config(config["dataset_config_paths"]["test_lidar"], config["image"]["crop"])
+        dataset = KittiDataset.init_from_config(config["dataset_config_paths"]["test_lidar"])
     else:
-        dataset = KittiDataset.init_from_config(config["dataset_config_paths"]["test_gt_map"], config["image"]["crop"])
+        dataset = KittiDataset.init_from_config(config["dataset_config_paths"]["test_gt_map"])
     dataloader = DataLoader(dataset, config["batch_size"], shuffle=False,
                             collate_fn=Collator(config["image"]["height"], config["image"]["width"]),
                             num_workers=config["num_workers"], pin_memory=True)

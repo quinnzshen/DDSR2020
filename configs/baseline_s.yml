@@ -23,7 +23,6 @@ depth_network:
 image:
   width: 1024
   height: 320
-  crop: False
   color: RGB
 
 dataset_config_paths:
