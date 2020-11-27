@@ -17,7 +17,8 @@ import numpy as np
 
 def generate_gif(exp_dir: str, exp_epoch: int, baseline_dir: str, baseline_epoch: int):
     """
-    Generates a gif of input RGB images, corresponding disparity maps from a baseline model, and corresponding disparty maps from an experiment model
+    Generates a gif of input RGB images, corresponding disparity maps from a baseline model, and corresponding disparity
+    maps from an experiment model
     :param exp_dir: Path to the directory of the experiment training job
     :param exp_epoch: Epoch number of the experiment model weights
     :param baseline_dir: Path to the directory of the baseline training job
@@ -31,9 +32,10 @@ def generate_gif(exp_dir: str, exp_epoch: int, baseline_dir: str, baseline_epoch
     with open(exp_config_path) as file:
         exp_config = yaml.load(file, Loader=yaml.Loader)
 
-    dataset = KittiDataset.init_from_config(exp_config["dataset_config_paths"]["gif"], exp_config["image"]["crop"], exp_config["image"]["color"])
+    dataset = KittiDataset.init_from_config(exp_config["dataset_config_paths"]["gif"])
     dataloader = DataLoader(dataset, exp_config["batch_size"], shuffle=False,
-                            collate_fn=Collator(exp_config["image"]["height"], exp_config["image"]["width"]), num_workers=exp_config["num_workers"])
+                            collate_fn=Collator(exp_config["image"]["height"], exp_config["image"]["width"]),
+                            num_workers=exp_config["num_workers"], pin_memory=True)
    
     exp_depth_network_config = exp_config["depth_network"]
     
@@ -55,7 +57,6 @@ def generate_gif(exp_dir: str, exp_epoch: int, baseline_dir: str, baseline_epoch
     exp_weights_folder = os.path.join(exp_dir, "models", f'weights_{exp_epoch - 1}')
     print(f'-> Loading weights from {exp_weights_folder}')
 
-    
     # Load data from baseline config
     baseline_config_path = os.path.join(baseline_dir, "config.yml")
     with open(baseline_config_path) as file:
@@ -67,7 +68,7 @@ def generate_gif(exp_dir: str, exp_epoch: int, baseline_dir: str, baseline_epoch
         baseline_models = {"depth_encoder": DensenetEncoder(baseline_depth_network_config["layers"], False)}
     else:
         baseline_models = {"depth_encoder": ResnetEncoder(baseline_depth_network_config["layers"], False)}
-        baseline_decoder_num_ch = baseline_models["depth_encoder"].num_ch_enc
+    baseline_decoder_num_ch = baseline_models["depth_encoder"].num_ch_enc
 
     if baseline_depth_network_config.get("fpn"):
         baseline_num_ch_fpn = baseline_depth_network_config.get("fpn_channels")
