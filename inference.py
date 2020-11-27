@@ -10,19 +10,21 @@ import torch
 from torchvision import transforms
 import yaml
 
-from DensenetEncoder import DensenetEncoder
+from color_utils import convert_rgb
+from densenet_encoder import DensenetEncoder
 from fpn import FPN
 from third_party.monodepth2.ResnetEncoder import ResnetEncoder
 from third_party.monodepth2.DepthDecoder import DepthDecoder
 from third_party.monodepth2.layers import disp_to_depth
 
-def run_inference(exp_dir, epoch, img_path, output_path):
+
+def run_inference(exp_dir: str, epoch: int, img_path: str, output_path: str):
     """
     Predicts disparity maps for a given set of images
-    :param [str] exp_dir: Path to an experiment directory
-    :param [int] epoch: epoch number correpsonding to a model within the experiment directory
-    :param [str] img_path: path to an input image OR a folder containing input images
-    :param [str] output_path: path to the directory where the output disparity maps will be saved
+    :param exp_dir: Path to an experiment directory
+    :param epoch: epoch number correpsonding to a model within the experiment directory
+    :param img_path: path to an input image OR a folder containing input images
+    :param output_path: path to the directory where the output disparity maps will be saved
     """
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -68,7 +70,7 @@ def run_inference(exp_dir, epoch, img_path, output_path):
     if os.path.isfile(img_path):
         # Only testing on a single image
         paths = [img_path]
-        if (output_path == None):
+        if output_path is None:
             output_directory = os.path.dirname(img_path)
         else:
             output_directory = output_path
@@ -76,7 +78,7 @@ def run_inference(exp_dir, epoch, img_path, output_path):
     elif os.path.isdir(img_path):
         # Searching folder for images
         paths = glob.glob(os.path.join(img_path, '*.*'))
-        if (output_path == None):
+        if output_path is None:
             output_directory = img_path
         else:
             output_directory = output_path
@@ -97,7 +99,7 @@ def run_inference(exp_dir, epoch, img_path, output_path):
             input_image = pil.open(image_path).convert('RGB')
             original_width, original_height = input_image.size
             input_image = input_image.resize((dims[1], dims[0]), pil.LANCZOS)
-            input_image = transforms.ToTensor()(input_image).unsqueeze(0)
+            input_image = convert_rgb(transforms.ToTensor()(input_image).unsqueeze(0), color=config["image"]["color"])
 
             # Inference
             input_image = input_image.to(device)
@@ -110,11 +112,10 @@ def run_inference(exp_dir, epoch, img_path, output_path):
             disp_resized = torch.nn.functional.interpolate(
                 disp, (original_height, original_width), mode="bilinear", align_corners=False)
 
-            # Saving numpy file
+            # Saving NumPy file
             output_name = os.path.splitext(os.path.basename(image_path))[0]
             name_dest_npy = os.path.join(output_directory, "{}_disp.npy".format(output_name))
             scaled_disp, _ = disp_to_depth(disp, 0.1, 100)
-
 
             # Saving colormapped depth image
             disp_resized_np = disp_resized.squeeze().cpu().numpy()
@@ -131,7 +132,8 @@ def run_inference(exp_dir, epoch, img_path, output_path):
             print("Processed {:d} of {:d} images - saved prediction to {}".format(idx + 1, len(paths), name_dest_im))
 
     print('-> Done!')
-    
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="qualitative options")
     parser.add_argument("--exp_dir",
