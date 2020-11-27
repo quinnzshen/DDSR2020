@@ -34,6 +34,7 @@ from qualitative_depth import generate_qualitative
 LOSS_VIS_SIZE = (10, 4)
 LOSS_VIS_CMAP = "cividis"
 
+
 class Trainer:
     def __init__(self, config_path: str, start_epoch: int):
         """
@@ -78,11 +79,10 @@ class Trainer:
         self.num_workers = self.config["num_workers"]
         self.dataset_config_paths = self.config["dataset_config_paths"]
 
-        self.train_dataset = KittiDataset.init_from_config(self.dataset_config_paths["train"],
-                                                           self.image_config["crop"])
+        self.train_dataset = KittiDataset.init_from_config(self.dataset_config_paths["train"])
         self.train_dataloader = DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True,
                                            collate_fn=self.collate, num_workers=self.num_workers, pin_memory=True)
-        self.val_dataset = KittiDataset.init_from_config(self.dataset_config_paths["val"], self.image_config["crop"], self.image_config["color"])
+        self.val_dataset = KittiDataset.init_from_config(self.dataset_config_paths["val"])
         self.val_dataloader = DataLoader(self.val_dataset, batch_size=self.batch_size, shuffle=False,
                                          collate_fn=self.collate, num_workers=self.num_workers, pin_memory=True)
 
@@ -110,13 +110,11 @@ class Trainer:
         if self.depth_network_config.get("densenet"):
             self.models['depth_encoder'] = DensenetEncoder(self.depth_network_config["layers"],
                                                            pretrained=self.depth_network_config["pretrained"],
-                                                           color=self.image_config["color"]).to(
-                self.device)
+                                                           color=self.image_config["color"]).to(self.device)
         else:
             self.models['depth_encoder'] = ResnetEncoder(self.depth_network_config["layers"],
                                                          pretrained=self.depth_network_config["pretrained"],
-                                                         color=self.image_config["color"]).to(
-                self.device)
+                                                         color=self.image_config["color"]).to(self.device)
         self.num_scales = self.config["num_scales"]
         decoder_num_ch = self.models["depth_encoder"].num_ch_enc
 
@@ -129,8 +127,7 @@ class Trainer:
             decoder_num_ch = self.models["fpn"].num_ch_pyramid
 
         # Decoder Setup
-        self.models['depth_decoder'] = DepthDecoder(num_ch_enc=decoder_num_ch,
-                                                    scales=range(self.num_scales)).to(self.device)
+        self.models['depth_decoder'] = DepthDecoder(num_ch_enc=decoder_num_ch, scales=range(self.num_scales)).to(self.device)
 
         # Pose Network
         if self.config.get("use_monocular"):
@@ -252,8 +249,7 @@ class Trainer:
                 self.lidar_metrics_writer.writerow(lidar_metrics)
 
                 # Uses ground truth KITTI depth maps
-                kitti_gt_maps_metrics, kitti_gt_maps_metric_labels = run_metrics(self.log_dir, self.epoch + 1,
-                                                                                 lidar=False)
+                kitti_gt_maps_metrics, kitti_gt_maps_metric_labels = run_metrics(self.log_dir, self.epoch + 1, lidar=False)
                 self.add_metrics_to_tensorboard(kitti_gt_maps_metrics, kitti_gt_maps_metric_labels, lidar=False)
                 kitti_gt_maps_metrics = [round(num, 3) for num in kitti_gt_maps_metrics]
                 kitti_gt_maps_metrics.insert(0, time_taken)
@@ -310,7 +306,7 @@ class Trainer:
 
         print(f"Validation Loss: {total_loss}")
         print(f"Time spent: {val_end_time - val_start_time}\n")
-        return train_end_time - train_start_time
+        return int(train_end_time - train_start_time)
 
     def process_batch(self, batch_idx: int, batch: dict, dataset_length: int, name: str, backprop: bool) -> torch.Tensor:
         """
@@ -406,10 +402,8 @@ class Trainer:
             if self.use_stereo:
                 src_intrinsics_stereo_scale = torch.clone(src_intrinsics_stereo)
 
-                src_intrinsics_stereo_scale[:, 0] = src_intrinsics_stereo_scale[:, 0] * \
-                                                    scale_ratio[:, 1].reshape(-1, 1)
-                src_intrinsics_stereo_scale[:, 1] = src_intrinsics_stereo_scale[:, 1] * \
-                                                    scale_ratio[:, 0].reshape(-1, 1)
+                src_intrinsics_stereo_scale[:, 0] = src_intrinsics_stereo_scale[:, 0] * scale_ratio[:, 1].reshape(-1, 1)
+                src_intrinsics_stereo_scale[:, 1] = src_intrinsics_stereo_scale[:, 1] * scale_ratio[:, 0].reshape(-1, 1)
                 intrinsics_list = [src_intrinsics_stereo_scale]
             else:
                 intrinsics_list = [tgt_intrinsics_scale]

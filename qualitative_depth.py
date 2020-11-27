@@ -31,7 +31,7 @@ def generate_qualitative(exp_dir: str, epoch: int) -> torch.Tensor:
     with open(config_path) as file:
         config = yaml.load(file, Loader=yaml.Loader)
 
-    dataset = KittiDataset.init_from_config(config["dataset_config_paths"]["qual"], config["image"]["crop"])
+    dataset = KittiDataset.init_from_config(config["dataset_config_paths"]["qual"])
     dataloader = DataLoader(dataset, config["batch_size"], shuffle=False,
                             collate_fn=Collator(config["image"]["height"], config["image"]["width"]),
                             num_workers=config["num_workers"], pin_memory=True)
