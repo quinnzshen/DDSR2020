@@ -139,7 +139,7 @@ def calc_transformation_matrix(rotation: np.ndarray, translation: np.ndarray) ->
 
 
 def generate_lidar_point_coord_camera_image(lidar_point_coord_velodyne: np.ndarray, camera_image_from_velodyne: np.ndarray,
-                                            im_height: int, im_width: int) -> np.ndarray:
+                                            im_height: int, im_width: int) -> tuple:
     """
     This function removes the lidar points that are not in the image plane, rounds x/y pixel values for lidar points, 
     and projects the lidar points onto the image plane
@@ -147,7 +147,8 @@ def generate_lidar_point_coord_camera_image(lidar_point_coord_velodyne: np.ndarr
     :param camera_image_from_velodyne: [4, 4], converts 3D lidar points to 2D image plane
     :param im_width: width of image in pixels
     :param im_height: height of image in pixels
-    :return: numpy.array of shape [N, 4], contains lidar points on image plane, each row is format [X, Y, depth, 1]
+    :return: Tuple containing an array of shape [N, 4] with the lidar points on image plane, each row is in format
+    [X, Y, depth, 1], and a similar array, but only containing the points within the camera FOV
     """
     # Based on code from monodepth2 repo.
 
@@ -165,7 +166,7 @@ def generate_lidar_point_coord_camera_image(lidar_point_coord_velodyne: np.ndarr
     # Round X and Y pixel coordinates to int.
     lidar_point_coord_camera_image = np.around(lidar_point_coord_camera_image).astype(int)
 
-    # Create filtered index only inlude those in image field of view.
+    # Create filtered index only including those in image field of view.
     filtered_index = (lidar_point_coord_camera_image[:, 0] >= 0) & (lidar_point_coord_camera_image[:, 1] >= 0) & \
                      (lidar_point_coord_camera_image[:, 0] < im_width) & (
                              lidar_point_coord_camera_image[:, 1] < im_height)

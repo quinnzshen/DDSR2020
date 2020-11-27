@@ -40,7 +40,8 @@ def get_labels() -> list:
 
 def compute_errors(gt: np.ndarray, pred: np.ndarray) -> np.ndarray:
     """
-    Computation of error metrics between predicted and ground truth depths. Adapted from https://github.com/nianticlabs/monodepth2/blob/master/evaluate_depth.py
+    Computation of error metrics between predicted and ground truth depths.
+    Adapted from https://github.com/nianticlabs/monodepth2/blob/master/evaluate_depth.py
     :param gt: Ground truth depth maps
     :param pred: Predicted depth maps
     :return: NumPy array with respective metrics
@@ -76,7 +77,8 @@ def compute_errors(gt: np.ndarray, pred: np.ndarray) -> np.ndarray:
 
 def run_metrics(exp_dir: str, epoch: int, lidar: bool) -> tuple:
     """
-    Computes metrics for a single epoch. Adapted from https://github.com/nianticlabs/monodepth2/blob/master/evaluate_depth.py
+    Computes metrics for a single epoch.
+    Adapted from https://github.com/nianticlabs/monodepth2/blob/master/evaluate_depth.py
     :param exp_dir: Path to the experiment directory
     :param epoch: Epoch number corresponding to the model that metrics will be evaluated on
     :param lidar: Setting to True --> Lidar data (eigen), False --> improved GT depth maps (eigen_benchmark)
