@@ -1,20 +1,22 @@
 import argparse
 import os
-import torch
-from torch.utils.data import DataLoader
-import yaml
-from collate import Collator
-from densenet_encoder import DensenetEncoder
-from kitti_dataset import KittiDataset
+
 import matplotlib as mpl
 import matplotlib.cm as cm
-from third_party.monodepth2.ResnetEncoder import ResnetEncoder
-from third_party.monodepth2.DepthDecoder import DepthDecoder
-from fpn import FPN
-from color_utils import convert_rgb
 import numpy as np
-from torchvision.utils import save_image
+import torch
+import yaml
+from torch.utils.data import DataLoader
 from torchvision import transforms
+from torchvision.utils import save_image
+
+from collate import Collator
+from color_utils import convert_rgb
+from densenet_encoder import DensenetEncoder
+from fpn import FPN
+from kitti_dataset import KittiDataset
+from third_party.monodepth2.DepthDecoder import DepthDecoder
+from third_party.monodepth2.ResnetEncoder import ResnetEncoder
 
 
 def generate_qualitative(exp_dir: str, epoch: int) -> torch.Tensor:

@@ -1,20 +1,21 @@
 from __future__ import absolute_import, division, print_function
 import argparse
 import glob
+import os
+
 import matplotlib as mpl
 import matplotlib.cm as cm
 import numpy as np
-import os
 import PIL.Image as pil
 import torch
-from torchvision import transforms
 import yaml
+from torchvision import transforms
 
 from color_utils import convert_rgb
 from densenet_encoder import DensenetEncoder
 from fpn import FPN
-from third_party.monodepth2.ResnetEncoder import ResnetEncoder
 from third_party.monodepth2.DepthDecoder import DepthDecoder
+from third_party.monodepth2.ResnetEncoder import ResnetEncoder
 from third_party.monodepth2.layers import disp_to_depth
 
 

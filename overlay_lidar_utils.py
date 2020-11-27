@@ -1,6 +1,6 @@
+import matplotlib.colors as mcolor
 import numpy as np
 from matplotlib import pyplot as plt
-import matplotlib.colors as mcolor
 from plotly import graph_objects as go
 
 from misc import plotly_utils

@@ -1,10 +1,11 @@
 from __future__ import absolute_import, division, print_function
+from collections import OrderedDict
+
 import numpy as np
 import torch
 import torch.nn as nn
 import torchvision.models as models
 import torch.utils.model_zoo as model_zoo
-from collections import OrderedDict
 
 
 class _DenseLayer(nn.Module):

@@ -1,35 +1,37 @@
 import argparse
 import csv
-from datetime import datetime
 import io
-import matplotlib as mpl
-import matplotlib.pyplot as plt
-import matplotlib.cm as cm
-import numpy as np
 import os
 import shutil
 import time
+from datetime import datetime
+
+import matplotlib as mpl
+import matplotlib.cm as cm
+import matplotlib.pyplot as plt
+import numpy as np
 import torch
 import torch.nn.functional as F
 import torch.optim as optim
+import yaml
+from tensorflow.image import decode_jpeg
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from torchvision import transforms
-import yaml
-from tensorflow.image import decode_jpeg
 
 from collate import Collator
 from color_utils import convert_rgb
-from DensenetEncoder import DensenetEncoder
+from densenet_encoder import DensenetEncoder
+from fpn import FPN
 from kitti_dataset import KittiDataset
 from loss import calc_loss, GenerateReprojections
 from monodepth_metrics import run_metrics, get_labels
-from third_party.monodepth2.ResnetEncoder import ResnetEncoder
 from third_party.monodepth2.DepthDecoder import DepthDecoder
-from fpn import FPN
 from third_party.monodepth2.PoseDecoder import PoseDecoder
+from third_party.monodepth2.ResnetEncoder import ResnetEncoder
 from third_party.monodepth2.layers import transformation_from_parameters, disp_to_depth
 from qualitative_depth import generate_qualitative
+
 
 LOSS_VIS_SIZE = (10, 4)
 LOSS_VIS_CMAP = "cividis"

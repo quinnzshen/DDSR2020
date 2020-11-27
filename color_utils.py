@@ -1,6 +1,6 @@
-import torch
-
 from math import pi
+
+import torch
 
 
 def convert_rgb(rgb_images: torch.Tensor, color: str = "RGB") -> torch.Tensor:

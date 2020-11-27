@@ -1,8 +1,8 @@
 from __future__ import absolute_import, division, print_function
-
 import argparse
-import numpy as np
 import os
+
+import numpy as np
 import PIL.Image as pil
 
 from kitti_utils import load_lidar_points, generate_depth_map

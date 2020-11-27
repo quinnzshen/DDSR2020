@@ -1,19 +1,21 @@
 import argparse
 import os
-import torch
-from torch.utils.data import DataLoader
-import yaml
-from collate import Collator
-from densenet_encoder import DensenetEncoder
+
 import imageio
-from kitti_dataset import KittiDataset
 import matplotlib as mpl
 import matplotlib.cm as cm
+import numpy as np
+import torch
+import yaml
+from torch.utils.data import DataLoader
+
+from collate import Collator
+from color_utils import convert_rgb
+from densenet_encoder import DensenetEncoder
+from fpn import FPN
+from kitti_dataset import KittiDataset
 from third_party.monodepth2.ResnetEncoder import ResnetEncoder
 from third_party.monodepth2.DepthDecoder import DepthDecoder
-from fpn import FPN
-from color_utils import convert_rgb
-import numpy as np
 
 
 def generate_gif(exp_dir: str, exp_epoch: int, baseline_dir: str, baseline_epoch: int):

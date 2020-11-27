@@ -1,20 +1,23 @@
 import argparse
-from collate import Collator
-from kitti_dataset import KittiDataset
-import numpy as np
+import time
 import os
 import csv
+
 import cv2
+import numpy as np
 import torch
-import time
-from torch.utils.data import DataLoader
 import yaml
-from densenet_encoder import DensenetEncoder
-from third_party.monodepth2.ResnetEncoder import ResnetEncoder
-from third_party.monodepth2.DepthDecoder import DepthDecoder
-from third_party.monodepth2.layers import disp_to_depth
-from fpn import FPN
+from torch.utils.data import DataLoader
+
+from collate import Collator
 from color_utils import convert_rgb
+from densenet_encoder import DensenetEncoder
+from fpn import FPN
+from kitti_dataset import KittiDataset
+from third_party.monodepth2.DepthDecoder import DepthDecoder
+from third_party.monodepth2.ResnetEncoder import ResnetEncoder
+from third_party.monodepth2.layers import disp_to_depth
+
 
 cv2.setNumThreads(0)
 

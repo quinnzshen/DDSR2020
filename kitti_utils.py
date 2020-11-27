@@ -1,14 +1,12 @@
 from __future__ import absolute_import, division, print_function
+import os
+from collections import Counter
+from enum import Enum
 
 import numpy as np
-from PIL import Image
-import torch
-import cv2
-from collections import Counter
-
-import os
 import pandas as pd
-from enum import Enum
+import torch
+from PIL import Image
 
 from compute_photometric_error_utils import calc_transformation_matrix
 

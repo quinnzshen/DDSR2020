@@ -1,6 +1,6 @@
 import numpy as np
-from matplotlib import pyplot as plt
 import torch
+from matplotlib import pyplot as plt
 
 
 SURROUNDING_LIDAR_COLOR = np.array([[.75, .75, .75]])
