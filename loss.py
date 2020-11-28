@@ -29,12 +29,12 @@ class SSIM(nn.Module):
         self.C1 = 0.01 ** 2
         self.C2 = 0.03 ** 2
 
-    def forward(self, pred, targ):
+    def forward(self, pred: torch.Tensor, targ: torch.Tensor) -> torch.Tensor:
         """
         Computes the SSIM between the two given images by running them through layers
-        :param [torch.tensor] pred: The predicted image, formatted as [batch_size, 3, H, W]
-        :param [torch.tensor] targ: The target image, formatted as [batch_size, 3, H, W]
-        :return [torch.tensor]: A tensor representing how similar the two images are, on a pixel basis in the format [batch_size, 3, H, W]
+        :param pred: The predicted image, formatted as [batch_size, 3, H, W]
+        :param targ: The target image, formatted as [batch_size, 3, H, W]
+        :return: A tensor representing how similar the two images are on a pixel basis in shape [batch_size, 3, H, W]
         """
         pred = self.padding_reflect(pred)
         targ = self.padding_reflect(targ)
@@ -51,14 +51,14 @@ class SSIM(nn.Module):
         return SSIM_n / (SSIM_d + 1e-7)
 
 
-def calc_pe(predict, target, alpha=0.85, color="RGB"):
+def calc_pe(predict: torch.Tensor, target: torch.Tensor, alpha: float = 0.85, color: str = "RGB") -> torch.Tensor:
     """
-    Calculates the photometric error between two images using SSIM and L1Loss. 
-    :param [torch.tensor] predict: The predicted images in format [batch_size, 3, H, W]
-    :param [torch.tensor] target: The target images in format [batch_size, 3, H, W]
-    :param [float] alpha: Constant that determines how much the SSIM value and L1loss are weighted in the error
-    :param [str] color: The color model to use for calculations
-    :return [torch.tensor]: The numerical loss for each pixel in format [batch_size, 1, H, W]
+    Calculates the photometric error between two images using SSIM and L1Loss
+    :param predict: The predicted images in format [batch_size, 3, H, W]
+    :param target: The target images in format [batch_size, 3, H, W]
+    :param alpha: Constant that determines how much the SSIM value and L1loss are weighted in the error
+    :param color: The color model to use for calculations
+    :return: The numerical loss for each pixel in format [batch_size, 1, H, W]
     """
     ssim = SSIM()
     ssim_val = torch.mean(torch.clamp((1 - ssim(predict, target)) / 2, 0, 1), dim=1, keepdim=True)
@@ -66,16 +66,16 @@ def calc_pe(predict, target, alpha=0.85, color="RGB"):
     return alpha * ssim_val + (1 - alpha) * diff
 
 
-def calc_smooth_loss(disp, image, color="RGB"):
+def calc_smooth_loss(disp: torch.Tensor, image: torch.Tensor, color: str = "RGB") -> torch.Tensor:
     """
-    Calculates the edge-aware smoothness of the given disparity map with relation to the target image. Returns a higher loss if the disparity map 
-    fluctates a lot in disparity where it should be smooth. Adapted from https://github.com/nianticlabs/monodepth2/blob/master/layers.py
-    :param [torch.tensor] disp: The disparity map, formatted as [batch_size, 1, H, W]
-    :param [torch.tensor] image: The target image, formatted as [batch_size, 3, H, W]
-    :param [str] color: The color model to use for calculations
-    :return [torch.float]: A 0 dimensional tensor containing a numerical loss punishing for a rough depth map
+    Calculates the edge-aware smoothness of the given disparity map with relation to the target image. Returns a higher
+    loss if the disparity map fluctates a lot in disparity where it should be smooth.
+    Adapted from https://github.com/nianticlabs/monodepth2/blob/master/layers.py
+    :param disp: The disparity map, formatted as [batch_size, 1, H, W]
+    :param image: The target image, formatted as [batch_size, 3, H, W]
+    :param color: The color model to use for calculations
+    :return: A 0 dimensional tensor containing a numerical loss punishing for a 'rough' depth map
     """
-    # Based on Monodepth2 repo
     # Takes the derivative of the disparity map by subtracting a pixel with the pixel value to the left and above
     disp_dx = torch.abs(disp[:, :, :, 1:] - disp[:, :, :, :-1])
     disp_dy = torch.abs(disp[:, :, 1:, :] - disp[:, :, :-1, :])
@@ -90,40 +90,40 @@ def calc_smooth_loss(disp, image, color="RGB"):
     return disp_dx.mean() + disp_dy.mean()
 
 
-def get_mask(targets, sources, min_reproject_errors):
+def get_mask(targets: torch.Tensor, sources: torch.Tensor, min_reproject_errors: torch.Tensor, color: str = "RGB") -> torch.Tensor:
     """
     Calculates the auto-masking for each pixel in the images. If a given pixel's photometric error between the source
     images and the target image is less than the photometric error between the reprojected images and the target image,
     then the auto-masking feature will be 0 for that point.
-    :param [torch.tensor] targets: The target images, in format [batch_size, 3, H, W]
-    :param [torch.tensor] sources: The source images, in format [num_source_imgs, batch_size, 3, H, W]
-    :param [torch.tensor] min_reproject_errors: The calculated photometric errors between the reprojected images and
-    the target image, formatted as [batch_size, 1, H, W]
-    :return [torch.tensor]: A binary mask containing either True or False. Formatted as [batch_size, 1, H, W]
+    :param targets: The target images, in format [batch_size, 3, H, W]
+    :param sources: The source images, in format [num_source_imgs, batch_size, 3, H, W]
+    :param min_reproject_errors: The calculated photometric errors between the reprojected images and the target image,
+    formatted as [batch_size, 1, H, W]
+    :param color: The color model to use for calculations
+    :return: A binary mask containing either True or False. Formatted as [batch_size, 1, H, W]
     """
     source_error = []
     for source in sources:
-        source_error.append(calc_pe(source, targets))
+        source_error.append(calc_pe(source, targets, color=color))
 
     source_error = torch.cat(source_error, dim=1)
     min_source_errors, _ = torch.min(source_error, dim=1)
     return min_reproject_errors < min_source_errors
 
 
-def calc_loss(inputs, outputs, scale=0, smooth_term=0.001, color="RGB"):
+def calc_loss(inputs: dict, outputs: dict, scale: int = 0, smooth_term: float = 0.001, color: str = "RGB") -> tuple:
     """
-    Takes in the inputs and outputs from the neural network to calulate a numeric loss value based on the Monodepth2 paper.
-    :param [dict] inputs: Contains the keys "targets" and "sources" which are tensors [batch_size, 3, H, W] and
+    Takes in the inputs and outputs from the neural network to calulate a numeric loss value
+    :param inputs: Contains the keys "targets" and "sources" which are tensors [batch_size, 3, H, W] and
     [num_src_imgs, batch_size, 3, H, W] respectively
-    :param [dict] outputs: Contains the keys "reproj", "disparities", and "initial_masks" which are tensors
-    [num_reprojected_imgs, batch_size, 3, H, W], [batch_size, 1, H, W], and [num_src_imgs, batch_size, 1, H, W]
-    (dtype=torch.bool) respectively
-    :param [int] scale: The scale number, applied to the smoothness term calculation
-    :param [float] smooth_term: Constant that controls how much the smoothing term is considered in the loss
-    :param [str] color: The color model to use for calculations
-    :return [tuple]: Returns a 3 element tuple containing: a float representing the calculated loss, a torch.Tensor
-    with dimensions [batch_size, H, W] representing the auto-mask, and a torch.Tensor of dimensions [batch_size, H,
-    W] representing the minimum photometric error calculated
+    :param outputs: Contains the keys "reproj" and "disparities" which are tensors of shapes
+    [num_reprojected_imgs, batch_size, 3, H, W] and [batch_size, 1, H, W]
+    :param scale: The scale number, applied to the smoothness term calculation
+    :param smooth_term: Constant that controls how much the smoothing term is considered in the loss
+    :param color: The color model to use for calculations
+    :return: Returns a 3 element tuple containing: a float representing the calculated loss, a torch.Tensor of
+    dimensions [batch_size, 1, H, W] representing the automasking, and a torch.Tensor of dimensions
+    [batch_size, H, W] representing the minimum photometric error calculated at each pixel
     """
     targets = inputs["targets"]
     sources = inputs["sources"]
@@ -132,33 +132,34 @@ def calc_loss(inputs, outputs, scale=0, smooth_term=0.001, color="RGB"):
     loss = 0
 
     reproj_errors = torch.stack([calc_pe(reprojections[i], targets, color=color).squeeze(1) for i in range(len(reprojections))])
+    mask = get_mask(targets, sources, torch.min(reproj_errors, dim=0)[0])
 
     # Source errors
     source_errors = torch.stack([calc_pe(sources[i], targets, color=color).squeeze(1) for i in range(len(sources))])
     combined_errors = torch.cat((source_errors, reproj_errors), dim=0)
-    
+
     min_errors, _ = torch.min(combined_errors, dim=0)
     min_error_vis = min_errors.detach().clone()
-    
+
     disp = outputs["disparities"]
     normalized_disp = disp / (disp.mean(2, True).mean(3, True) + 1e-7)
 
     loss = loss + min_errors.mean()
     loss = loss + smooth_term * calc_smooth_loss(normalized_disp, targets, color) / (2 ** scale)
 
-    return loss, min_error_vis
+    return loss, mask, min_error_vis
 
 
 class GenerateReprojections(nn.Module):
     """
     Reprojects pixels from a source image onto a target frame.
     """
-    def __init__(self, height, width, default_batch_size):
+    def __init__(self, height: int, width: int, default_batch_size: int):
         """
-        Sets up the layers used in the forward method.
-        :param [int] height: height of input image
-        :param [int] width: width of input image
-        :param [int] default_batch_size: number of images in a batch
+        Initializes reprojection generator with given dimensions
+        :param height: The height of input/output
+        :param width: The width of input/output
+        :param default_batch_size: The maximum batch size
         """
         super(GenerateReprojections, self).__init__()
 
@@ -175,16 +176,17 @@ class GenerateReprojections(nn.Module):
         self.ones = nn.Parameter(torch.ones(self.batch_size, 1, width * height), requires_grad=False)
         self.img_indices = nn.Parameter(torch.cat([img_coords, self.ones], 1), requires_grad=False)
 
-    def forward(self, src_images, depths, poses, tgt_intr, src_intr, local_batch_size):
+    def forward(self, src_images: torch.Tensor, depths: torch.Tensor, poses: torch.Tensor, tgt_intr: torch.Tensor,
+                src_intr: torch.Tensor, local_batch_size: int):
         """
-        Computes the reprojected images (source onto target)
-        :param [torch.tensor] src_images: source images
-        :param [torch.tensor] depths: depth maps
-        :param [torch.tensor] poses: relative pose matrices
-        :param [torch.tensor] tgt_intr: target intrinsics matrices
-        :param [torch.tensor] src_intr: source intrinsics matrices
-        :param [int] local_batch_size: size of batch
-        :return [torch.tensor] reprojected: Tensor of reprojected images
+        Reprojects the given source images from the target point of view (source onto target)
+        :param src_images: Tensor of shape [num_src, batch, channels, H, W] representing the source image information
+        :param depths: Tensor of shape [batch, 1, H, W] representing the depths of the target image
+        :param poses: Tensor of shape [num_src, batch, 4, 4] representing the pose from target to source image
+        :param tgt_intr: Tensor of shape [batch, 3, 3] representing the target intrinsics matrix
+        :param src_intr: Tensor of shape [num_src, batch, 3, 3] representing each source's intrinsics matrix
+        :param local_batch_size: The current batch size
+        :return: The reprojected sources images (in the target frame)
         """
         reprojected = []
         tgt_intr_inv = tgt_intr.inverse()

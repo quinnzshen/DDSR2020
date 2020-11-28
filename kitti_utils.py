@@ -1,14 +1,12 @@
 from __future__ import absolute_import, division, print_function
+import os
+from collections import Counter
+from enum import Enum
 
 import numpy as np
-from PIL import Image
-import torch
-import cv2
-from collections import Counter
-
-import os
 import pandas as pd
-from enum import Enum
+import torch
+from PIL import Image
 
 from compute_photometric_error_utils import calc_transformation_matrix
 
@@ -28,23 +26,23 @@ EPOCH = np.datetime64("1970-01-01")
 VELO_INDICES = np.array([7, 6, 10])
 
 
-def load_lidar_points(filename):
+def load_lidar_points(filename: str) -> np.ndarray:
     """
     This function loads 3D point cloud from KITTI file format.
-    :param [string] filename: File path for 3d point cloud data.
-    :return [np.array]: [N, 4] N lidar points represented as (X, Y, Z, reflectivity) points.
+    :param filename: File path for 3d point cloud data.
+    :return: [N, 4] N lidar points represented as (X, Y, Z, reflectivity) points.
     """
     points = np.fromfile(filename, dtype=np.float32).reshape(-1, 4)
     points[:, 3] = 1.0  # homogeneous
     return points
 
 
-def read_calibration_file(path):
+def read_calibration_file(path: str) -> dict:
     """
     This function reads the KITTI calibration file.
     (from https://github.com/hunse/kitti)
-    :param [string] path: File path for KITTI calbration file.
-    :return [dictionary] data: Dictionary containing the camera intrinsic and extrinsic matrices.
+    :param path: File path for KITTI calbration file.
+    :return data: Dictionary containing the camera intrinsic and extrinsic matrices.
     """
     float_chars = set("0123456789.e+- ")
     data = {}
@@ -64,12 +62,12 @@ def read_calibration_file(path):
     return data
 
 
-def compute_image_from_velodyne_matrices(calibration_dir):
+def compute_image_from_velodyne_matrices(calibration_dir: str) -> dict:
     """
     This function computes the translation matrix to project 3D lidar points into the 2D image plane.
-    :param [String] calibration_dir: Directory to folder containing camera/lidar calibration files
-    :return:  dictionary of numpy.arrays of shape [4, 4] that converts 3D lidar points to 2D image plane for each camera
-    (keys: stereo_left, stereo_right)
+    :param calibration_dir: Directory to folder containing camera/lidar calibration files
+    :return: Dictionaries of numpy.arrays of shape [4, 4] that converts 3D lidar points to 2D image plane for each
+    camera (keys: stereo_left, stereo_right)
     """
     # Based on code from monodepth2 repo.
 
@@ -97,7 +95,7 @@ def compute_image_from_velodyne_matrices(calibration_dir):
     return camera_image_from_velodyne_dict
 
 
-def generate_depth_map(calibration_dir, velo, cam):
+def generate_depth_map(calibration_dir: str, velo: np.ndarray, cam: int) -> np.ndarray:
     """
     Generate a depth map from velodyne data
     Adapted from Monodepth2
@@ -148,29 +146,29 @@ def generate_depth_map(calibration_dir, velo, cam):
     return depth
 
 
-def sub2ind(matrixSize, rowSub, colSub):
+def sub2ind(matrix_size, row_sub, col_sub):
     """Convert row, col matrix subscripts to linear indices (from Monodepth2)
     """
-    m, n = matrixSize
-    return rowSub * (n-1) + colSub - 1
+    m, n = matrix_size
+    return row_sub * (n-1) + col_sub - 1
 
 
-def iso_string_to_nanoseconds(time_string):
+def iso_string_to_nanoseconds(time_string: str) -> np.int64:
     """
     Converts a line in the format provided by timestamps.txt to the number of nanoseconds since EPOCH
-    :param [str] time_string: The string to be converted into nanoseconds
-    :return [np.int64]: The number of nanoseconds since epoch (Jan 1st 1970 UTC)
+    :param time_string: The string to be converted into nanoseconds
+    :return: The number of nanoseconds since epoch (Jan 1st 1970 UTC)
     """
     return (np.datetime64(time_string) - EPOCH).astype(np.int64)
 
 
-def get_timestamp_nsec(sample_path, idx):
+def get_timestamp_nsec(sample_path: str, idx: int) -> np.int64:
     """
     Given the file path to the scene and the frame number within that scene, returns an integer containing the
     time (nanoseconds) retrieved from the idx'th line in the path given.
-    :param [str] sample_path: A file_path to a timestamps file
-    :param [int] idx: The frame number within the scene
-    :return [np.int64]: Integer containing the nanosecond taken of the given frame
+    :param sample_path: A file_path to a timestamps file
+    :param idx: The frame number within the scene
+    :return: Integer containing the nanosecond taken of the given frame
     """
     with open(sample_path) as f:
         count = 0
@@ -180,15 +178,16 @@ def get_timestamp_nsec(sample_path, idx):
             count += 1
 
 
-def get_nearby_frames_data(path_name, idx, previous_frames, next_frames, is_jpeg=True):
+def get_nearby_frames_data(path_name: str, idx: int, previous_frames: int, next_frames: int, is_jpeg: bool) -> dict:
     """
     Given a specific index, return a dictionary containing information about the frame n frames before and after the target index
     in the dataset.
-    :param dataset_index [pd.DataFrame]: The dataframe containing the paths and indices of the data
-    :param [int] previous_frames: Number of frames before the target frame that will be retrieved.
-    :param [int] next_frames: Number of frames after the target frame that will be retrieved.
-    :param [bool] is_jpeg: Whether or not the read images are jpegs
-    :return [dict]: Dictionary containing camera data and pose of nearby frames, the key is the relative index and the value is the data (e.g. -1 would be the previous image, 2 would be the next-next image).
+    :param path_name: The path to a scene within the dataset
+    :param idx: The frame number in the scene
+    :param previous_frames: Number of frames before the target frame that will be retrieved.
+    :param next_frames: Number of frames after the target frame that will be retrieved.
+    :param is_jpeg: Whether or not the read images are jpegs
+    :return: Dictionary containing camera data and pose of nearby frames, the key is the relative index and the value is the data (e.g. -1 would be the previous image, 2 would be the next-next image).
     """
     nearby_frames = {}
     for relative_idx in range(-previous_frames, next_frames + 1):
@@ -204,14 +203,14 @@ def get_nearby_frames_data(path_name, idx, previous_frames, next_frames, is_jpeg
     return nearby_frames
 
 
-def get_camera_data(path_name, idx, is_jpeg=True):
+def get_camera_data(path_name: str, idx: int, is_jpeg: bool = True) -> dict:
     """
     Gets the basic camera information given the path name to the scene and the frame number within
     that scene.
-    :param [str] path_name: A file path to a scene within the dataset
-    :param [int] idx: The frame number in the scene
-    :param [bool] is_jpeg: Whether or not the read images are jpegs
-    :return [dict]: A dictionary containing camera data. If the camera data cannot be found, return an empty dictionary.
+    :param path_name: A file path to a scene within the dataset
+    :param idx: The frame number in the scene
+    :param is_jpeg: Whether or not the read images are jpegs
+    :return: A dictionary containing camera data. If the camera data cannot be found, return an empty dictionary.
     """
     camera_data = dict()
 
@@ -228,19 +227,20 @@ def get_camera_data(path_name, idx, is_jpeg=True):
         camera_image = np.array(Image.open(camera_image_path), dtype=np.float32) / 255.
 
         timestamp = get_timestamp_nsec(timestamp_path, idx)
+
         camera_data[f"{camera_name}_image"] = torch.from_numpy(camera_image)
-        camera_data[f"{camera_name}_shape"] = camera_image.shape
+        camera_data[f"{camera_name}_orig_shape"] = torch.tensor(camera_image.shape)
         camera_data[f"{camera_name}_capture_time_nsec"] = timestamp
 
     return camera_data
 
 
-def get_lidar_data(path_name, idx):
+def get_lidar_data(path_name: str, idx: int) -> dict:
     """
     Gets the basic LiDAR information given the path name to the scene and the frame number within that scene.
-    :param [str] path_name: A file path to a scene within the dataset
-    :param [int] idx: The frame number in the scene
-    :return [dict]: A dictionary containing the points, reflectivity, start, and end times of the LiDAR scan.
+    :param path_name: A file path to a scene within the dataset
+    :param idx: The frame number in the scene
+    :return: A dictionary containing the points, reflectivity, start, and end times of the LiDAR scan.
     """
     lidar_points = torch.from_numpy(load_lidar_points(os.path.join(path_name, f"velodyne_points/data/{idx:010}.bin")))
     start_time = get_timestamp_nsec(os.path.join(path_name, "velodyne_points/timestamps_start.txt"), idx)
@@ -253,12 +253,12 @@ def get_lidar_data(path_name, idx):
     }
 
 
-def get_imu_data(scene_path, idx):
+def get_imu_data(scene_path: str, idx: int) -> dict:
     """
     Get Intertial Measurement Unit (IMU) data. 
-    :param [string] scene_path: A file path to a scene within the KITTI dataset.
-    :param [int] idx: The frame number in the scene. 
-    :return [dict]: Return a dictionary of imu data (key: field name, value: field value).
+    :param scene_path: A file path to a scene within the KITTI dataset.
+    :param idx: The frame number in the scene.
+    :return: Return a dictionary of imu data (key: field name, value: field value).
     """
     imu_data_path = os.path.join(scene_path, f"oxts/data/{idx:010}.txt")
     imu_format_path = os.path.join(scene_path, "oxts/dataformat.txt")
@@ -273,11 +273,11 @@ def get_imu_data(scene_path, idx):
     return dict(zip(imu_keys, imu_values))
 
 
-def get_imu_dataframe(scene_path):
+def get_imu_dataframe(scene_path: str) -> pd.DataFrame:
     """
     Get Intertial Measurement Unit (IMU) data for an entire scene.
-    :param [string] scene_path: A file path to a scene within the KITTI dataset.
-    :return [pd.DataFrame]: A dataframe with the entire scenes IMU data.
+    :param scene_path: A file path to a scene within the KITTI dataset.
+    :return: A dataframe with the entire scenes IMU data.
     """
     num_frames = len(os.listdir(os.path.join(scene_path, 'oxts/data')))
 
@@ -289,10 +289,10 @@ def get_imu_dataframe(scene_path):
     return pd.DataFrame(imu_values, columns=list(imu_data.keys()))
 
 
-def get_camera_intrinsic_dict(calibration_dir):
+def get_camera_intrinsic_dict(calibration_dir: str) -> dict:
     """
     This function gets the intrinsic matrix for each camera from the KITTI calibration file
-    :param: [string] calibration_dir: directory where the KITTI calbration files are located
+    :param calibration_dir: directory where the KITTI calbration files are located
     :return: dictionary of length 2 containing the 3x3 intrinsic matrix for each camera (keys: stereo_left, stereo_right)
     """
     # Load cam_to_cam calib file.
@@ -309,10 +309,10 @@ def get_camera_intrinsic_dict(calibration_dir):
     return camera_intrinsic_dict
 
 
-def get_relative_rotation_stereo(calibration_dir):
+def get_relative_rotation_stereo(calibration_dir: str) -> torch.Tensor:
     """
     This function computes the relative rotation matrix between stereo cameras for KITTI.
-    :param: [string] calibration dir: directory where KITTI calibration files are located.
+    :param calibration_dir: directory where KITTI calibration files are located.
     :return: torch.Tensor of shape [3, 3], matrix representing the relative rotation between the camera that captured
     the source image and the camera that captured the target image.
     """
@@ -325,10 +325,10 @@ def get_relative_rotation_stereo(calibration_dir):
     return torch.from_numpy(rotation_source_to_target).float()
 
 
-def get_relative_translation_stereo(calibration_dir):
+def get_relative_translation_stereo(calibration_dir: str) -> torch.Tensor:
     """
     This function computes the relative translation vector between stereo cameras for KITTI.
-    :param: [string] calibration dir: directory where KITTI calibration files are located.
+    :param calibration_dir: directory where KITTI calibration files are located.
     :return: torch.Tensor of shape [3, 1], vector representing the relative translation between the camera that captured
     the source image and the camera that captured the target image.
     """
@@ -341,14 +341,14 @@ def get_relative_translation_stereo(calibration_dir):
     return torch.from_numpy(translation_source_to_target).float()
 
 
-def get_relative_pose_between_consecutive_frames(scene_path, target, source):
+def get_relative_pose_between_consecutive_frames(scene_path: str, target: int, source: int) -> torch.Tensor:
     """
     Computes relative pose matrix [4x4] between the 2 given frames in a scene (frames must be consecutive).
     By multiplying, transforms target coordinates into source coordinates.
-    :param [str] scene_path: Path name to the scene folder
-    :param [int] target : The target frame number
-    :param [int] source: The source frame number
-    :return [torch.tensor]: Shape of (4, 4) containing the values to transform between target frame to source frame
+    :param scene_path: Path name to the scene folder
+    :param target : The target frame number
+    :param source: The source frame number
+    :return: Shape of (4, 4) containing the values to transform between target frame to source frame
     """
     if target == source:
         return np.eye(4, dtype=np.float32)
@@ -389,22 +389,11 @@ def get_relative_pose_between_consecutive_frames(scene_path, target, source):
     return torch.from_numpy(rel_pose)
 
 
-def get_pose(scene_path, frame):
+def get_stereo_pose() -> torch.Tensor:
     """
-    This function gets the pose matrix with respect to the frame at index 0 for a given frame.
-    :param [str] scene_path: Path name to the scene folder
-    :param [int] frame: the index of the frame that pose is being calculated for.
-    :return: tensor of shape [4, 4] containing the pose of the image at index frame with respect to the the image at index 0.
+    Function returns the set stereo pose
+    :return: Tensor of shape [4, 4] representing the pose between the left and right camera
     """
-    pose = get_relative_pose_between_consecutive_frames(scene_path, frame, 0)
-    rel_translation = torch.zeros(3)
-    for idx in range(0, frame - 1):
-        rel_translation += get_relative_pose_between_consecutive_frames(scene_path, idx, idx + 1)[:3, 3]
-    pose[:3, 3] = rel_translation
-
-    return pose
-
-def get_stereo_pose():
     stereo_T = np.eye(4, dtype=np.float32)
     baseline_sign = 1
     side_sign = -1

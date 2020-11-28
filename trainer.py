@@ -1,46 +1,49 @@
 import argparse
 import csv
-from datetime import datetime
 import io
-import matplotlib as mpl
-import matplotlib.pyplot as plt
-import matplotlib.cm as cm
-import numpy as np
 import os
 import shutil
 import time
+from datetime import datetime
+
+import matplotlib as mpl
+import matplotlib.cm as cm
+import matplotlib.pyplot as plt
+import numpy as np
 import torch
 import torch.nn.functional as F
 import torch.optim as optim
+import yaml
+from tensorflow.image import decode_jpeg
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from torchvision import transforms
-import yaml
-from tensorflow.image import decode_jpeg
 
 from collate import Collator
 from color_utils import convert_rgb
-from DensenetEncoder import DensenetEncoder
+from densenet_encoder import DensenetEncoder
+from fpn import FPN
 from kitti_dataset import KittiDataset
 from loss import calc_loss, GenerateReprojections
 from monodepth_metrics import run_metrics, get_labels
-from third_party.monodepth2.ResnetEncoder import ResnetEncoder
 from third_party.monodepth2.DepthDecoder import DepthDecoder
-from fpn import FPN
 from third_party.monodepth2.PoseDecoder import PoseDecoder
+from third_party.monodepth2.ResnetEncoder import ResnetEncoder
 from third_party.monodepth2.layers import transformation_from_parameters, disp_to_depth
 from qualitative_depth import generate_qualitative
+
 
 LOSS_VIS_SIZE = (10, 4)
 LOSS_VIS_CMAP = "cividis"
 
+
 class Trainer:
-    def __init__(self, config_path, start_epoch):
+    def __init__(self, config_path: str, start_epoch: int):
         """
         Creates an instance of tranier using a config file
         The config file contains all the information needed to train a model
         :param [str] config_path: The path to the config file
-        :return [Trainer]: Object instance of the trainer
+        :param [int] start_epoch: The starting epoch (0 if new model)
         """
         # Epoch to continue training from (0 if new model)
         self.start_epoch = start_epoch
@@ -78,13 +81,12 @@ class Trainer:
         self.num_workers = self.config["num_workers"]
         self.dataset_config_paths = self.config["dataset_config_paths"]
 
-        self.train_dataset = KittiDataset.init_from_config(self.dataset_config_paths["train"],
-                                                           self.image_config["crop"])
+        self.train_dataset = KittiDataset.init_from_config(self.dataset_config_paths["train"])
         self.train_dataloader = DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True,
-                                           collate_fn=self.collate, num_workers=self.num_workers)
-        self.val_dataset = KittiDataset.init_from_config(self.dataset_config_paths["val"], self.image_config["crop"])
+                                           collate_fn=self.collate, num_workers=self.num_workers, pin_memory=True)
+        self.val_dataset = KittiDataset.init_from_config(self.dataset_config_paths["val"])
         self.val_dataloader = DataLoader(self.val_dataset, batch_size=self.batch_size, shuffle=False,
-                                         collate_fn=self.collate, num_workers=self.num_workers)
+                                         collate_fn=self.collate, num_workers=self.num_workers, pin_memory=True)
 
         self.qualitative = self.dataset_config_paths.get("qual")
 
@@ -110,13 +112,11 @@ class Trainer:
         if self.depth_network_config.get("densenet"):
             self.models['depth_encoder'] = DensenetEncoder(self.depth_network_config["layers"],
                                                            pretrained=self.depth_network_config["pretrained"],
-                                                           color=self.image_config["color"]).to(
-                self.device)
+                                                           color=self.image_config["color"]).to(self.device)
         else:
             self.models['depth_encoder'] = ResnetEncoder(self.depth_network_config["layers"],
                                                          pretrained=self.depth_network_config["pretrained"],
-                                                         color=self.image_config["color"]).to(
-                self.device)
+                                                         color=self.image_config["color"]).to(self.device)
         self.num_scales = self.config["num_scales"]
         decoder_num_ch = self.models["depth_encoder"].num_ch_enc
 
@@ -129,8 +129,7 @@ class Trainer:
             decoder_num_ch = self.models["fpn"].num_ch_pyramid
 
         # Decoder Setup
-        self.models['depth_decoder'] = DepthDecoder(num_ch_enc=decoder_num_ch,
-                                                    scales=range(self.num_scales)).to(self.device)
+        self.models['depth_decoder'] = DepthDecoder(num_ch_enc=decoder_num_ch, scales=range(self.num_scales)).to(self.device)
 
         # Pose Network
         if self.config.get("use_monocular"):
@@ -211,8 +210,7 @@ class Trainer:
                 self.lidar_metrics_writer = csv.writer(self.lidar_metrics_file, delimiter=',')
 
                 # Uses ground truth KITTI depth maps
-                self.kitti_gt_maps_metrics_file = open(os.path.join(self.log_dir, "kitti_gt_maps_metrics.csv"), "a",
-                                                       newline='')
+                self.kitti_gt_maps_metrics_file = open(os.path.join(self.log_dir, "kitti_gt_maps_metrics.csv"), "a", newline='')
                 self.kitti_gt_maps_metrics_writer = csv.writer(self.kitti_gt_maps_metrics_file, delimiter=',')
             else:
                 # Uses LiDAR data
@@ -220,8 +218,7 @@ class Trainer:
                 self.lidar_metrics_writer = csv.writer(self.lidar_metrics_file, delimiter=',')
 
                 # Uses ground truth KITTI depth maps
-                self.kitti_gt_maps_metrics_file = open(os.path.join(self.log_dir, "kitti_gt_maps_metrics.csv"), "w",
-                                                       newline='')
+                self.kitti_gt_maps_metrics_file = open(os.path.join(self.log_dir, "kitti_gt_maps_metrics.csv"), "w", newline='')
                 self.kitti_gt_maps_metrics_writer = csv.writer(self.kitti_gt_maps_metrics_file, delimiter=',')
 
                 metrics_list = ["epoch", "training_time"]
@@ -254,26 +251,26 @@ class Trainer:
                 self.lidar_metrics_writer.writerow(lidar_metrics)
 
                 # Uses ground truth KITTI depth maps
-                kitti_gt_maps_metrics, kitti_gt_maps_metric_labels = run_metrics(self.log_dir, self.epoch + 1,
-                                                                                 lidar=False)
+                kitti_gt_maps_metrics, kitti_gt_maps_metric_labels = run_metrics(self.log_dir, self.epoch + 1, lidar=False)
                 self.add_metrics_to_tensorboard(kitti_gt_maps_metrics, kitti_gt_maps_metric_labels, lidar=False)
                 kitti_gt_maps_metrics = [round(num, 3) for num in kitti_gt_maps_metrics]
                 kitti_gt_maps_metrics.insert(0, time_taken)
                 kitti_gt_maps_metrics.insert(0, self.epoch + 1)
                 self.kitti_gt_maps_metrics_writer.writerow(kitti_gt_maps_metrics)
+
         self.writer.close()
         if self.metrics:
             self.lidar_metrics_file.close()
             self.kitti_gt_maps_metrics_file.close()
         print('Model saved.')
 
-    def run_epoch(self):
+    def run_epoch(self) -> int:
         """
         Runs a single epoch of training and validation
+        :return: The training time
         """
         # Training
         train_start_time = time.time()
-
         print(f"Training epoch {self.epoch + 1}", end=", ")
 
         for model_name in self.models:
@@ -311,17 +308,17 @@ class Trainer:
 
         print(f"Validation Loss: {total_loss}")
         print(f"Time spent: {val_end_time - val_start_time}\n")
-        return train_end_time - train_start_time
+        return int(train_end_time - train_start_time)
 
-    def process_batch(self, batch_idx, batch, dataset_length, name, backprop):
+    def process_batch(self, batch_idx: int, batch: dict, dataset_length: int, name: str, backprop: bool) -> torch.Tensor:
         """
         Computes loss for a single batch
-        :param [int] batch_idx: The batch index
-        :param [dict] batch: The batch data
-        :param [int] dataset_length: The length of the training/validation dataset
-        :param [String] name: Differentiates between training/validation
-        :param [boolean] backprop: Determines whether or not to backpropogate loss
-        :return [tensor] losses: A 0-dimensional tensor containing the loss of the batch
+        :param batch_idx: The batch index
+        :param batch: The batch data
+        :param dataset_length: The length of the training/validation dataset
+        :param name: Differentiates between training/validation
+        :param backprop: Determines whether or not to backpropogate loss
+        :return: A 0-dimensional tensor containing the loss of the batch
         """
         # Predict disparity map
         pure_inputs = batch["stereo_left_image"].to(self.device)
@@ -340,7 +337,7 @@ class Trainer:
         sources_list = []
         poses_list = []
         if self.use_stereo:
-            sources_list.append(batch["stereo_right_image"].float().to(self.device))
+            sources_list.append(batch["stereo_right_image"].to(self.device))
             poses_list.append(batch["rel_pose_stereo"].to(self.device))
 
         for i in range(-self.prev_frames, self.next_frames + 1):
@@ -373,7 +370,8 @@ class Trainer:
         tgt_intrinsics = batch["intrinsics"]["stereo_left"].to(self.device)
         if self.use_stereo:
             src_intrinsics_stereo = batch["intrinsics"]["stereo_right"].to(self.device)
-        shapes = batch["shapes"].to(self.device).float()
+
+        shapes = batch["stereo_left_orig_shape"][:, :2].to(self.device).float()
 
         for_tboard = {}
         total_loss = 0
@@ -388,32 +386,26 @@ class Trainer:
             _, depths = disp_to_depth(disp, self.min_depth, self.max_depth)
 
             # Input scaling
-            inputs_scale = F.interpolate(input_inputs, [h, w], mode="bilinear", align_corners=False).to(self.device)
+            inputs_scale = F.interpolate(pure_inputs, [h, w], mode="bilinear", align_corners=False)
 
             # Sources and pose scaling
             sources_scale = []
             for image in sources:
-                sources_scale.append(F.interpolate(image, [h, w], mode="bilinear", align_corners=False).to(self.device))
-
-            # If scale is 0
-            if not scale:
-                sources_scale_pure = torch.stack(sources_scale, dim=0)
-            sources_scale = torch.stack([convert_rgb(img, self.image_config["color"]) for img in sources_scale])
+                sources_scale.append(F.interpolate(image, [h, w], mode="bilinear", align_corners=False))
+            sources_scale = torch.stack(sources_scale, dim=0)
 
             # Intrinsics and scaling
             out_shape = torch.tensor([h, w]).to(self.device)
-            shapes_scale = out_shape / shapes
+            scale_ratio = out_shape / shapes
             tgt_intrinsics_scale = torch.clone(tgt_intrinsics)
-            tgt_intrinsics_scale[:, 0] = tgt_intrinsics_scale[:, 0] * shapes_scale[:, 1].reshape(-1, 1)
-            tgt_intrinsics_scale[:, 1] = tgt_intrinsics_scale[:, 1] * shapes_scale[:, 0].reshape(-1, 1)
+            tgt_intrinsics_scale[:, 0] = tgt_intrinsics_scale[:, 0] * scale_ratio[:, 1].reshape(-1, 1)
+            tgt_intrinsics_scale[:, 1] = tgt_intrinsics_scale[:, 1] * scale_ratio[:, 0].reshape(-1, 1)
 
             if self.use_stereo:
                 src_intrinsics_stereo_scale = torch.clone(src_intrinsics_stereo)
 
-                src_intrinsics_stereo_scale[:, 0] = src_intrinsics_stereo_scale[:, 0] * \
-                                                    shapes_scale[:, 1].reshape(-1, 1)
-                src_intrinsics_stereo_scale[:, 1] = src_intrinsics_stereo_scale[:, 1] * \
-                                                    shapes_scale[:, 0].reshape(-1, 1)
+                src_intrinsics_stereo_scale[:, 0] = src_intrinsics_stereo_scale[:, 0] * scale_ratio[:, 1].reshape(-1, 1)
+                src_intrinsics_stereo_scale[:, 1] = src_intrinsics_stereo_scale[:, 1] * scale_ratio[:, 0].reshape(-1, 1)
                 intrinsics_list = [src_intrinsics_stereo_scale]
             else:
                 intrinsics_list = [tgt_intrinsics_scale]
@@ -430,7 +422,7 @@ class Trainer:
             if not scale:
                 for_tboard["reprojected"] = torch.stack(
                     self.gen_reproj[scale](
-                        sources_scale_pure, depths, poses, tgt_intrinsics_scale, src_intrinsics_scale, local_batch_size
+                        sources_scale, depths, poses, tgt_intrinsics_scale, src_intrinsics_scale, local_batch_size
                     )
                 )
 
@@ -440,9 +432,10 @@ class Trainer:
             loss_outputs = {"reproj": reprojected,
                             "disparities": disp}
 
-            loss, loss_vis = calc_loss(loss_inputs, loss_outputs, scale, color=self.image_config["color"])
+            loss, automask, loss_vis = calc_loss(loss_inputs, loss_outputs, scale, color="RGB")
 
             if not scale:
+                for_tboard["automask"] = automask
                 for_tboard["loss_vis"] = loss_vis
 
             total_loss += loss
@@ -461,7 +454,7 @@ class Trainer:
             curr_idx += self.steps_until_write
             if curr_idx < local_batch_size:
                 self.add_img_disparity_loss_to_tensorboard(
-                    outputs[("disp", 0)][curr_idx], pure_inputs[curr_idx],
+                    outputs[("disp", 0)][curr_idx], pure_inputs[curr_idx], for_tboard["automask"],
                     for_tboard["loss_vis"][curr_idx], for_tboard["reprojected"][:, curr_idx],
                     self.batch_size * batch_idx + curr_idx + 1, name
                 )
@@ -492,14 +485,17 @@ class Trainer:
         save_path = os.path.join(save_folder, "{}.pth".format("adam"))
         torch.save(self.optimizer.state_dict(), save_path)
 
-    def add_img_disparity_loss_to_tensorboard(self, disp, img, loss, reproj, img_num, name):
+    def add_img_disparity_loss_to_tensorboard(self, disp: torch.Tensor, img: torch.Tensor, automask: torch.Tensor,
+                                              loss: torch.Tensor, reproj: torch.Tensor, img_num: int, name: str):
         """
-        Adds image disparity map and other info to tensorboard
-        :param [tensor] disp: Disparity map outputted by the network
-        :param [tensor] img: Original image
-        :param [torch.Tensor] loss: Minimum photometric error as calculated in loss functions
-        :param [int] img_num: The index of the input image in the training/validation file
-        :param [String] name: Differentiates between training/validation/evaluation
+        Adds image disparity map and other information to tensorboard
+        :param disp: Disparity map outputted by the network
+        :param img: Original image
+        :param automask: The automasking
+        :param loss: Minimum photometric error as calculated in loss functions
+        :param reproj: The reprojections
+        :param img_num: The index of the input image in the training/validation file
+        :param name: Differentiates between training/validation/evaluation
         """
         # Processing disparity map
         disp_np = disp.squeeze().cpu().detach().numpy()
@@ -533,6 +529,9 @@ class Trainer:
         self.writer.add_image(f"{name} Disparity Maps/Epoch: {self.epoch + 1}",
                               final_disp,
                               img_num)
+        self.writer.add_image(f"{name} Automasks/Epoch: {self.epoch + 1}",
+                              automask,
+                              img_num)
         self.writer.add_image(f"{name} Losses/Epoch: {self.epoch + 1}",
                               loss,
                               img_num)
@@ -548,10 +547,10 @@ class Trainer:
             self.writer.add_image(f"{name} Forward Reprojection/Epoch: {self.epoch + 1}",
                                   reproj[reproj_index + 1], img_num)
 
-    def add_qualitative_to_tensorboard(self, qualitative):
+    def add_qualitative_to_tensorboard(self, qualitative: torch.Tensor):
         """
         Adds the generated qualitative images to tensorboard
-        :param [torch.Tensor] qualitative: A torch tensor of the generated depth maps in dimension [batch_size, 1, H, W]
+        :param qualitative: A torch tensor of the generated depth maps in dimension [batch_size, 1, H, W]
         """
         # Processing disparity map
         disp_np = qualitative.squeeze(1).cpu().detach().numpy()
@@ -563,12 +562,12 @@ class Trainer:
             self.writer.add_image(f"Qualitative Images/Epoch: {self.epoch + 1}",
                                   transforms.ToTensor()(colormapped_disp), i)
 
-    def add_metrics_to_tensorboard(self, metrics, labels, lidar):
+    def add_metrics_to_tensorboard(self, metrics: list, labels: list, lidar: bool):
         """
         Adds metrics to tensorboard with given metric values and their corresponding values
-        :param [list] metrics: A list of floats representing each metric
-        :param [list] labels: A list of strings (same length as metrics) that describe the title of the metric
-        :param [bool] lidar: Setting to True -->  Lidar data (eigen), False --> improved GT maps (eigen_benchmark)
+        :param metrics: A list of floats representing each metric
+        :param labels: A list of strings (same length as metrics) that describe the title of the metric
+        :param lidar: Setting to True -->  Lidar data (eigen), False --> improved GT maps (eigen_benchmark)master
         """
         name = "Lidar "
         if not lidar:

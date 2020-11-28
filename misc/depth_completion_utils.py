@@ -1,6 +1,7 @@
+from matplotlib import pyplot as plt
 import numpy as np
 import overlay_lidar_utils as olu
-from matplotlib import pyplot as plt
+
 
 def create_depth_map_from_nearest_lidar_point(lidar_point_coord_camera_image, img_height, img_width):
     """

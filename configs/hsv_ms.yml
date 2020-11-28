@@ -28,7 +28,6 @@ pose_network:
 image:
   width: 1024
   height: 320
-  crop: False
   color: HSV
 
 dataset_config_paths:

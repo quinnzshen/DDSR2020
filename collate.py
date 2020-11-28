@@ -1,7 +1,9 @@
-import torch
 import re
-from torch._six import container_abcs, string_classes, int_classes
+
+import torch
 import torch.nn.functional as F
+from torch._six import container_abcs, string_classes, int_classes
+
 
 np_str_obj_array_pattern = re.compile(r'[SaUO]')
 
@@ -9,20 +11,21 @@ default_collate_err_msg_format = (
     "default_collate: batch must contain tensors, numpy arrays, numbers, "
     "dicts or lists; found {}")
 
+
 class Collator(object):
-    def __init__(self, height, width):
+    def __init__(self, height: int, width: int):
         """
         Creates an instance of TrainerCollator. Adapted from https://github.com/pytorch/pytorch/blob/master/torch/utils/data/_utils/collate.py
-        :param [int] height: image height used in training
-        :param [int] width: image width used in training
+        :param height: image height used in training
+        :param width: image width used in training
         """
         self.height = height
         self.width = width
 
-    def __call__(self, batch):
+    def __call__(self, batch: list):
         """
         Puts each data field into a tensor with outer dimension batch size
-        :param [list] batch: List of information for each batch
+        :param batch: List of information for each batch
         """
         elem = batch[0]
         elem_type = type(elem)
@@ -61,8 +64,6 @@ class Collator(object):
             if 'stereo_right_image' in elem.keys():
                 resize_list = ['stereo_right_image', 'stereo_left_image']
                 for d in batch:
-                    if "nearby_frames" in elem.keys():
-                        d["shapes"] = torch.tensor(d[resize_list[0]].shape[:2])
                     for key in resize_list:
                         d[key] = F.interpolate(
                             (d[key].permute(2, 0, 1).float().unsqueeze(0)),

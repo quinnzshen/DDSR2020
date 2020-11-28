@@ -1,27 +1,30 @@
 import argparse
 import os
-import torch
-from torch.utils.data import DataLoader
-import yaml
-from collate import Collator
-from DensenetEncoder import DensenetEncoder
-from kitti_dataset import KittiDataset
+
 import matplotlib as mpl
 import matplotlib.cm as cm
-from third_party.monodepth2.ResnetEncoder import ResnetEncoder
-from third_party.monodepth2.DepthDecoder import DepthDecoder
-from fpn import FPN
-from color_utils import convert_rgb
 import numpy as np
-from torchvision.utils import save_image
+import torch
+import yaml
+from torch.utils.data import DataLoader
 from torchvision import transforms
+from torchvision.utils import save_image
 
-def generate_qualitative(exp_dir, epoch):
+from collate import Collator
+from color_utils import convert_rgb
+from densenet_encoder import DensenetEncoder
+from fpn import FPN
+from kitti_dataset import KittiDataset
+from third_party.monodepth2.DepthDecoder import DepthDecoder
+from third_party.monodepth2.ResnetEncoder import ResnetEncoder
+
+
+def generate_qualitative(exp_dir: str, epoch: int) -> torch.Tensor:
     """
     Generates qualitative images based on a specified directory containing a config and an epoch number.
-    :param [str] exp_dir: Path to an experiment directory
-    :param [int] epoch: epoch number correpsonding to a model within the experiment directory
-    :return [torch.Tensor]: Tensor representing the generated qualitative depth maps in dimension [B, 1, H, W]
+    :param exp_dir: Path to an experiment directory
+    :param epoch: Epoch number corresponding to a model within the experiment directory
+    :return: Tensor representing the generated qualitative depth maps in dimension [B, 1, H, W]
     """
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -30,9 +33,10 @@ def generate_qualitative(exp_dir, epoch):
     with open(config_path) as file:
         config = yaml.load(file, Loader=yaml.Loader)
 
-    dataset = KittiDataset.init_from_config(config["dataset_config_paths"]["qual"], config["image"]["crop"])
+    dataset = KittiDataset.init_from_config(config["dataset_config_paths"]["qual"])
     dataloader = DataLoader(dataset, config["batch_size"], shuffle=False,
-                            collate_fn=Collator(config["image"]["height"], config["image"]["width"]), num_workers=config["num_workers"])
+                            collate_fn=Collator(config["image"]["height"], config["image"]["width"]),
+                            num_workers=config["num_workers"], pin_memory=True)
    
     depth_network_config = config["depth_network"]
 
@@ -66,12 +70,11 @@ def generate_qualitative(exp_dir, epoch):
 
     disp_maps = []
 
-    print("-> Generating qualitative predictions with size {}x{}".format(
-        dims[1], dims[0]))
+    print(f"-> Generating qualitative predictions with size {dims[1]}x{dims[0]}")
 
     with torch.no_grad():
         for batch in dataloader:
-            inputs = batch["stereo_left_image"].to(device).float()
+            inputs = batch["stereo_left_image"].to(device)
             inputs = convert_rgb(inputs, config["image"]["color"])
 
             if config.get("use_fpn"):
@@ -104,6 +107,7 @@ def generate_qualitative(exp_dir, epoch):
     print("\n-> Done!")
 
     return disp_maps
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="qualitative options")
