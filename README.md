@@ -8,7 +8,7 @@ In this repository, we replicate the research of [Monodepth2 - Digging into Self
 </p>
 
 ## Metrics & Pre-Trained Model Checkpoints
-KITTI Eigen Dataset (lidar ground truth)
+KITTI Eigen Dataset (LiDAR ground truth)
 | Model Name | abs_rel | sq_rel | rmse | rmse_log | a1 | a2 | a3 | 
 |------------|---------|--------|------|----------|----|----|----|
 | [Baseline (M)](https://drive.google.com/file/d/1i7KLIYCceUlVi1nnKs9PSTjQ09Xepnlw/view?usp=sharing) | 0.119 | 0.935 | 4.938 | 0.196 | 0.868 | 0.958 | 0.981 |
@@ -59,7 +59,7 @@ Additionally, we save the depth map results from each epoch to allow you to quic
   <img align="center" src="assets/tb-qualitative.png" alt="..." width="400" /><br>
 </p>
 
-## Environment setup :deciduous_tree:
+## Environment setup
 1. [Install](https://docs.conda.io/projects/conda/en/latest/user-guide/install/) Anaconda. You can install Miniconda if space is limited.
 2. Create your `ddsr` anaconda environment where you will be doing development. In terminal:
 ```
@@ -134,7 +134,7 @@ depth_network:
   fpn: [boolean, specifies whether or ont to use a feature pyramid network]
   pretrained: [boolean, specifies whether or not to use weights pretrained on imageNet]
 
-pose_network:
+pose_network: (section not needed for stereo only models)
   layers: [int, Resnet - 18, 50; Densenet - 121, 169, 201, 161)]
   densenet: [boolean, specifies whether to use a densenet encoder; default is resnet]
   pretrained: [boolean, specifies whether or not to use weights pretrained on imageNet]
@@ -142,16 +142,15 @@ pose_network:
 image:
   width: [int, width of image]
   height: [int, height of image]
-  crop: [boolean, specifies whether to crop or rescale an image]
   color: [string, color model used during training (RGB/HSV)]
 
 dataset_config_paths:
   train: [string, path to training dataset config]
   val: [string, path to validation dataset config]
-  test_lidar: [string, path to testing dataset config (ground truth from lidar points)]
+  test_lidar: [string, path to testing dataset config (ground truth from LiDAR points)]
   test_gt_map: [string, path to testing dataset config (ground truth from KITTI dataset depth maps)]
-  qual: [string, path to qualitative dataset config]
-  gif: [string, path to gif dataset config]
+  qual: [Optional -- string, path to qualitative dataset config]
+  gif: [Optional -- string, path to gif dataset config]
 ```
 
 2. Train with
@@ -159,7 +158,7 @@ dataset_config_paths:
 python trainer.py --config_path [path to training config]
 ```
 
-## Training from an existing checkpoint :train:
+## Training from an existing checkpoint
 1. Locate an existing experiment folder 
 2. Train with 
 ```
@@ -179,7 +178,7 @@ python monodepth_metrics.py --exp_dir [path to experiment directory] --epoch [ep
 ```
 <p>
 </p>
-Note: Replace --epoch with --all_epochs to evaulate metrics on ALL checkpoints in specified experiment directory
+Note: Replace --epoch with --all_epochs to evaluate metrics on ALL checkpoints in specified experiment directory
 
 ## Contributing Team :heart:
 Everything done above was accomplished over the span of a few months from a few high school rising seniors :school_satchel: and incoming undergraduate freshmen :mortar_board:. As a mentor, I've been inspired by what these students were able to do, completely virtual, during these pandemic times. You rock! Special shoutout to Alex Jiang and Evan Wang for really making this repository your own. 
