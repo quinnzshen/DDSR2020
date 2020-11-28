@@ -59,7 +59,7 @@ Additionally, we save the depth map results from each epoch to allow you to quic
   <img align="center" src="assets/tb-qualitative.png" alt="..." width="400" /><br>
 </p>
 
-## Environment setup
+## Environment setup :deciduous_tree:
 1. [Install](https://docs.conda.io/projects/conda/en/latest/user-guide/install/) Anaconda. You can install Miniconda if space is limited.
 2. Create your `ddsr` anaconda environment where you will be doing development. In terminal:
 ```
