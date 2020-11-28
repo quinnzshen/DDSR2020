@@ -143,29 +143,39 @@ def generate_gif(exp_dir: str, exp_epoch: int, baseline_dir: str, baseline_epoch
     images = torch.cat(images)
     exp_disp_maps = torch.cat(exp_disp_maps)
     baseline_disp_maps = torch.cat(baseline_disp_maps)
-    disp_combined = (baseline_disp_maps, exp_disp_maps)
-    disp_maps = torch.cat(disp_combined, 2)
     print("-> Creating gif")
     
-    gif_images = []
-    for i, disp in enumerate(disp_maps):
+    baseline_and_input_final = []
+    for i, disp in enumerate(baseline_disp_maps):
         disp_np = disp.squeeze().cpu().detach().numpy()
         vmax = np.percentile(disp_np, 95)
         normalizer = mpl.colors.Normalize(vmin=disp_np.min(), vmax=vmax)
         mapper = cm.ScalarMappable(norm=normalizer, cmap='magma')
         colormapped_disp = (mapper.to_rgba(disp_np)[:, :, :3] * 255).astype(np.uint8)
-        
+
         image = images[i]
         img_np = image.squeeze().cpu().detach().numpy() * 255
         colormapped_img = img_np.astype(np.uint8).transpose(1, 2, 0)
 
         gif_image = np.vstack((colormapped_img, colormapped_disp))
-        gif_images.append(gif_image)
+        baseline_and_input_final.append(gif_image)
+    
+    exp_final = []
+    for i, disp in enumerate(exp_disp_maps):
+        disp_np = disp.squeeze().cpu().detach().numpy()
+        vmax = np.percentile(disp_np, 95)
+        normalizer = mpl.colors.Normalize(vmin=disp_np.min(), vmax=vmax)
+        mapper = cm.ScalarMappable(norm=normalizer, cmap='magma')
+        colormapped_disp = (mapper.to_rgba(disp_np)[:, :, :3] * 255).astype(np.uint8)
+        exp_final.append(colormapped_disp)
+        
+    final_images = (baseline_and_input_final, exp_final)
+    final_images = np.concatenate(final_images, 1)
     save_folder = os.path.join(exp_dir, "gifs")
     if not os.path.exists(save_folder):
         os.makedirs(save_folder)
-
-    imageio.mimsave(os.path.join(save_folder, "gif_epoch_{}.gif".format(exp_epoch)), gif_images)
+    
+    imageio.mimsave(os.path.join(save_folder, "gif_epoch_{}.gif".format(exp_epoch)), final_images)
     print("\n-> Done!")
 
 
@@ -184,5 +194,5 @@ if __name__ == "__main__":
                         type=int,
                         help="epoch number for baseline_model")
     opt = parser.parse_args()
-
+    
     generate_gif(opt.exp_dir, opt.exp_epoch, opt.baseline_dir, opt.baseline_epoch)
