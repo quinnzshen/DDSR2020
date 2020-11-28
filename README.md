@@ -74,12 +74,6 @@ $ conda activate ddsr
 $ conda install pytorch...
 ```
 
-## Introducing new packages and dependencies into ddsr_environment.yml :gift:
-1. While on your ddsr environment
-```
-conda env export --no-builds > ddsr_environment.yml
-```
-
 ## Downloading data 
 1. Download the KITTI dataset with the following command: (Warning: this takes up around 175 GB)
 ```
@@ -165,7 +159,7 @@ dataset_config_paths:
 python trainer.py --config_path [path to training config]
 ```
 
-## Training from an existing checkpoint
+## Training from an existing checkpoint :train:
 1. Locate an existing experiment folder 
 2. Train with 
 ```
