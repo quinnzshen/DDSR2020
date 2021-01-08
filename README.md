@@ -57,7 +57,7 @@ KITTI Eigen Dataset (KITTI ground truth depth maps)
 | [HSV (MS*)](https://drive.google.com/file/d/1yqVocIQMeDeyJahxz-W7dg756-UG26VR/view?usp=sharing) | **0.102** | **0.666** | **4.297** | **0.161** | **0.877** | **0.968** | **0.990** |
 
 <p align="center">
-\* denotes models that do not have pretrained weights
+* denotes models without ImageNet pretrained weights
 </p>
 Note: All models were trained with an image resolution of 1024 x 320. Full metrics spreadsheet can be found [here](https://docs.google.com/spreadsheets/d/1n6piQkH8gNGJJ9agPPDEiB042ysAiTRlJfZc2307QT0/edit?usp=sharing)
 
