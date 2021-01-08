@@ -11,18 +11,50 @@ In this repository, we replicate the research of [Monodepth2 - Digging into Self
 KITTI Eigen Dataset (LiDAR ground truth)
 | Model Name | abs_rel | sq_rel | rmse | rmse_log | a1 | a2 | a3 | 
 |------------|---------|--------|------|----------|----|----|----|
+| [Monodepth2 (M)](https://drive.google.com/file/d/1i7KLIYCceUlVi1nnKs9PSTjQ09Xepnlw/view?usp=sharing) | 0.115 | 0.882 | 4.701 | 0.190| 0.879 | 0.961 | 0.982 |
 | [Baseline (M)](https://drive.google.com/file/d/1i7KLIYCceUlVi1nnKs9PSTjQ09Xepnlw/view?usp=sharing) | 0.119 | 0.935 | 4.938 | 0.196 | 0.868 | 0.958 | 0.981 |
 | [DenseNet (M)](https://drive.google.com/file/d/1cLtV5i3m-cq8YVlEG6dVZKGfA0KyRwz0/view?usp=sharing) | **0.107** | **0.794** | **4.564** | **0.182** | **0.89** | **0.965** | **0.983** |
 
 | Model Name | abs_rel | sq_rel | rmse | rmse_log | a1 | a2 | a3 | 
 |------------|---------|--------|------|----------|----|----|----|
+| [Monodepth2 (S)](https://drive.google.com/file/d/1JptfHY04aG08l4SLUyMsr5zowvtMQtzB/view?usp=sharing) | 0.107 | 0.849 | 4.764 | 0.201 | 0.874 | 0.953 | 0.977 |
 | [Baseline (S)](https://drive.google.com/file/d/1JptfHY04aG08l4SLUyMsr5zowvtMQtzB/view?usp=sharing) | 0.108 | 0.832 | 4.858 | 0.202 | 0.866 | 0.952 | 0.977 |
 | [DenseNet (S)](https://drive.google.com/file/d/1tVK2jgbZd5g5eBFJm5IAEUAODn6Esr0r/view?usp=sharing) | **0.103** | **0.807** | **4.803** | **0.199** | **0.876** | **0.954** | **0.978** |
 
 | Model Name | abs_rel | sq_rel | rmse | rmse_log | a1 | a2 | a3 | 
 |------------|---------|--------|------|----------|----|----|----|
-| [Baseline (MS)](https://drive.google.com/file/d/1yqVocIQMeDeyJahxz-W7dg756-UG26VR/view?usp=sharing) | 0.103 | 0.793 | 4.69 | 0.19 | 0.878 | 0.96 | 0.981 |
+| [Monodepth2 (MS)](https://drive.google.com/file/d/1yqVocIQMeDeyJahxz-W7dg756-UG26VR/view?usp=sharing) | 0.106 | 0.806 | 4.630 | 0.193 | 0.876 | 0.958 | 0.980 |
+| [Baseline (MS)](https://drive.google.com/file/d/1yqVocIQMeDeyJahxz-W7dg756-UG26VR/view?usp=sharing) | 0.103 | 0.793 | 4.690 | 0.19 | 0.878 | 0.96 | 0.981 |
 | [DenseNet (MS)](https://drive.google.com/file/d/15htyrNsY7mUPQJUq_E4krgwC6D6URUvx/view?usp=sharing) | **0.098** | **0.705** | **4.445** | **0.185** | **0.888** | **0.962** | **0.982** |
+
+| Model Name | abs_rel | sq_rel | rmse | rmse_log | a1 | a2 | a3 | 
+|------------|---------|--------|------|----------|----|----|----|
+| [Monodepth2 (MS, not pretrained)](https://drive.google.com/file/d/1yqVocIQMeDeyJahxz-W7dg756-UG26VR/view?usp=sharing) | 0.127 | 1.031 | 5.266 | 0.221 | 0.836 | 0.943 | 0.974 |
+| [HSV (MS, not pretrained)](https://drive.google.com/file/d/1yqVocIQMeDeyJahxz-W7dg756-UG26VR/view?usp=sharing) | **0.125** | **0.993** | **5.252** | **0.223** | **0.830** | **0.938** | **0.973** |
+
+KITTI Eigen Dataset (KITTI ground truth depth maps)
+| Model Name | abs_rel | sq_rel | rmse | rmse_log | a1 | a2 | a3 | 
+|------------|---------|--------|------|----------|----|----|----|
+| [Monodepth2 (M)](https://drive.google.com/file/d/1i7KLIYCceUlVi1nnKs9PSTjQ09Xepnlw/view?usp=sharing) | 0.090 | 0.545 | 3.942 | 0.137 | 0.914 | 0.983 | 0.995 |
+| [Baseline (M)](https://drive.google.com/file/d/1i7KLIYCceUlVi1nnKs9PSTjQ09Xepnlw/view?usp=sharing) | 0.094 | 0.576 | 4.012 | 0.139 | 0.909 | 0.982 | 0.995 |
+| [DenseNet (M)](https://drive.google.com/file/d/1cLtV5i3m-cq8YVlEG6dVZKGfA0KyRwz0/view?usp=sharing) | **0.082** | **0.435** | **3.554** | **0.122** | **0.930** | **0.988** | **0.997** |
+
+| Model Name | abs_rel | sq_rel | rmse | rmse_log | a1 | a2 | a3 | 
+|------------|---------|--------|------|----------|----|----|----|
+| [Monodepth2 (S)](https://drive.google.com/file/d/1JptfHY04aG08l4SLUyMsr5zowvtMQtzB/view?usp=sharing) | 0.085 | 0.537 | 3.868 | 0.139 | 0.912 | 0.979 | 0.993 |
+| [Baseline (S)](https://drive.google.com/file/d/1JptfHY04aG08l4SLUyMsr5zowvtMQtzB/view?usp=sharing) | 0.085 | 0.487 | 3.743 | 0.133 | 0.914 | 0.983 | 0.995 |
+| [DenseNet (S)](https://drive.google.com/file/d/1tVK2jgbZd5g5eBFJm5IAEUAODn6Esr0r/view?usp=sharing) | **0.078** | **0.432** | **3.562** | **0.122** | **0.929** | **0.987** | **0.997** |
+
+| Model Name | abs_rel | sq_rel | rmse | rmse_log | a1 | a2 | a3 | 
+|------------|---------|--------|------|----------|----|----|----|
+| [Monodepth2 (MS)](https://drive.google.com/file/d/1yqVocIQMeDeyJahxz-W7dg756-UG26VR/view?usp=sharing) | 0.080 | 0.466 | 3.681 | 0.127 | 0.926 | 0.985 | 0.995 |
+| [Baseline (MS)](https://drive.google.com/file/d/1yqVocIQMeDeyJahxz-W7dg756-UG26VR/view?usp=sharing) | 0.084 | 0.483 | 3.661 | 0.128 | 0.920 | 0.985 | 0.996 |
+| [DenseNet (MS)](https://drive.google.com/file/d/15htyrNsY7mUPQJUq_E4krgwC6D6URUvx/view?usp=sharing) | **0.077** | **0.385** | **3.345** | **0.118** | **0.933** | **0.988** | **0.997** |
+
+| Model Name | abs_rel | sq_rel | rmse | rmse_log | a1 | a2 | a3 | 
+|------------|---------|--------|------|----------|----|----|----|
+| [Monodepth2 (MS, not pretrained)](https://drive.google.com/file/d/1yqVocIQMeDeyJahxz-W7dg756-UG26VR/view?usp=sharing) | 0.107 | 0.720 | 4.345 | 0.161 | 0.890 | 0.971 | 0.989 |
+| [HSV (MS, not pretrained)](https://drive.google.com/file/d/1yqVocIQMeDeyJahxz-W7dg756-UG26VR/view?usp=sharing) | **0.102** | **0.666** | **4.297** | **0.161** | **0.877** | **0.968** | **0.990** |
 
 Note: All models were trained with an image resolution of 1024 x 320. Full metrics spreadsheet can be found [here](https://docs.google.com/spreadsheets/d/1n6piQkH8gNGJJ9agPPDEiB042ysAiTRlJfZc2307QT0/edit?usp=sharing)
 
