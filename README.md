@@ -29,8 +29,8 @@ KITTI Eigen Dataset (LiDAR ground truth)
 
 | Model Name | abs_rel | sq_rel | rmse | rmse_log | a1 | a2 | a3 | 
 |------------|---------|--------|------|----------|----|----|----|
-| [Monodepth2 (MS*)](https://drive.google.com/file/d/1yqVocIQMeDeyJahxz-W7dg756-UG26VR/view?usp=sharing) | 0.127 | 1.031 | 5.266 | 0.221 | 0.836 | 0.943 | 0.974 |
-| [HSV (MS*)](https://drive.google.com/file/d/1yqVocIQMeDeyJahxz-W7dg756-UG26VR/view?usp=sharing) | **0.125** | **0.993** | **5.252** | **0.223** | **0.830** | **0.938** | **0.973** |
+| [Monodepth2 (MS*)](https://drive.google.com/file/d/1yqVocIQMeDeyJahxz-W7dg756-UG26VR/view?usp=sharing) | 0.127 | 1.031 | 5.266 | **0.221** | **0.836** | **0.943** | **0.974** |
+| [HSV (MS*)](https://drive.google.com/file/d/1yqVocIQMeDeyJahxz-W7dg756-UG26VR/view?usp=sharing) | **0.125** | **0.993** | **5.252** | 0.223 | 0.830 | 0.938 | 0.973 |
 
 KITTI Eigen Dataset (KITTI ground truth depth maps)
 | Model Name | abs_rel | sq_rel | rmse | rmse_log | a1 | a2 | a3 | 
@@ -53,8 +53,8 @@ KITTI Eigen Dataset (KITTI ground truth depth maps)
 
 | Model Name | abs_rel | sq_rel | rmse | rmse_log | a1 | a2 | a3 | 
 |------------|---------|--------|------|----------|----|----|----|
-| [Monodepth2 (MS*)](https://drive.google.com/file/d/1yqVocIQMeDeyJahxz-W7dg756-UG26VR/view?usp=sharing) | 0.107 | 0.720 | 4.345 | 0.161 | 0.890 | 0.971 | 0.989 |
-| [HSV (MS*)](https://drive.google.com/file/d/1yqVocIQMeDeyJahxz-W7dg756-UG26VR/view?usp=sharing) | **0.102** | **0.666** | **4.297** | **0.161** | **0.877** | **0.968** | **0.990** |
+| [Monodepth2 (MS*)](https://drive.google.com/file/d/1yqVocIQMeDeyJahxz-W7dg756-UG26VR/view?usp=sharing) | 0.107 | 0.720 | 4.345 | **0.161** | **0.890** | **0.971** | 0.989 |
+| [HSV (MS*)](https://drive.google.com/file/d/1yqVocIQMeDeyJahxz-W7dg756-UG26VR/view?usp=sharing) | **0.102** | **0.666** | **4.297** | **0.161** | 0.877 | 0.968 | **0.990** |
 
 <p align="center">
 * denotes models without ImageNet pretrained weights
