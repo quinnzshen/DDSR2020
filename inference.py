@@ -147,7 +147,7 @@ if __name__ == "__main__":
                         type=str,
                         help="path to an input image OR a folder containing input images")
     parser.add_argument("--output_path",
-                        type=int,
+                        type=str,
                         help="path to the directory where the output disparity maps will be saved",
                         default=None)
     opt = parser.parse_args()
